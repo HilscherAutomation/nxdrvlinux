@@ -1,0 +1,6 @@
+Device=spidev0.0
+Speed=25000000
+Mode=3
+ChunkSize=0
+CSChange=0
+

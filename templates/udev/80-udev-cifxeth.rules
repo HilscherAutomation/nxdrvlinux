@@ -1,0 +1,2 @@
+SUBSYSTEMS=="net",ACTION=="add",KERNEL=="cifx*",PROGRAM="/bin/bash -c '/etc/init.d/cifxeth start cifx%n'"
+SUBSYSTEMS=="net",ACTION=="remove",KERNEL=="cifx*",PROGRAM="/bin/bash -c '/etc/init.d/cifxeth stop cifx%n'"

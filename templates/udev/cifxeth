@@ -1,0 +1,36 @@
+#!/bin/sh -e
+### BEGIN INIT INFO
+# Provides:          netX based virtual ethernet interfaces
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:
+# Default-Stop:
+# Short-Description: Raise and configure the netX based virtual ethernet interfaces
+### END INIT INFO
+
+case "$1" in
+start)
+	ifconfig $2 up
+	# default to dhcp
+	dhclient $2
+	;;
+
+stop)
+	ifconfig $2 down
+	;;
+
+force-reload|restart)
+	ifconfig $2 down
+	ifconfig $2 up
+  dhclient $2
+	;;
+
+*)
+	echo "Usage: /etc/init.d/cifxeth {start|stop}"
+	exit 1
+	;;
+esac
+
+exit 0

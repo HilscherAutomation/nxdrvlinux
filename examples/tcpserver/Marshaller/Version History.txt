@@ -1,0 +1,245 @@
+#############################################################################
+#                                                                           #
+#                       netX Marshaller (Device Side)                       #
+#                                                                           #
+#############################################################################
+
+
+General Notes
+-------------
+The versions are given in the form "<major>.<minor>.<build>.<revision>".
+This is in line with the canonical numbering for all Hilscher firmware.
+The dates are given in the international date format (yyyy-mm-dd).
+
+
+
+#############################################################################
+#                                                                           #
+#                            Version History                                #
+#                                                                           #
+#############################################################################
+
+V2.4.0.1 (2022-07-15)
+----------------------
+Changes:
+ - None
+
+Add-ons:
+ - None
+
+Bug fixes:
+ - HilMarshallerSetMode() fails to change state of a single connector
+
+V2.4.0.0 (2020-11-26)
+----------------------
+Changes:
+ - Added a separate OS abstraction directory
+
+Add-ons:
+ - None
+
+Bug fixes:
+ - Devices without Communication Channels may stop Marshaller initialization
+
+V2.3.0.0 (2019-11-08)
+----------------------
+Changes:
+ - Remove TLR defines/types from project
+ - Update cifXAPI header to 20191108-00
+ - Update APIHeader to V2.3.0.0
+
+Add-ons:
+ - None
+
+Bug fixes:
+ - None.
+
+V2.2.0.0 (2019-08-15)
+----------------------
+Changes:
+ - Update APIHeader to V2.2.0.0
+ 
+Add-ons:
+ - None
+
+Bug fixes:
+ - None.
+
+V2.1.0.0 (2019-03-28)
+----------------------
+Changes:
+ - Update APIHeader to V2.1.0.0
+ 
+Add-ons:
+ - Added support for xSysdeviceResetEx call.
+
+Bug fixes:
+ - None.
+
+V2.0.20.0 (2019-01-28)
+----------------------
+Changes:
+ - None.
+ 
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Fixed wrong deinitialization order in HilMarshallerStop()
+
+V2.0.19.0 (2018-08-17)
+----------------------
+Changes:
+ - None.
+ 
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Fixed pclint warnings
+
+V2.0.18.0 (2015-07-22)
+----------------------
+Changes:
+ - Changed platform depending datatypes to fixed data types to be usable on 64Bit systems
+ 
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Fixed compiler warnings created by implicit data conversion on 64Bit systems
+ 
+V2.0.17.0 (2014-08-19)
+----------------------
+Changes:
+ - Update common netx headers to support structure packing
+   on armcc and IAR (arm cores only) compiler
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Access to closed channel instance may cause system crash
+
+
+V2.0.16.0 (2013-10-11)
+----------------------
+Changes:
+ - Updated cifXUser header to latest version
+
+Add-ons:
+ - Added support for xDriverRestartDevice call
+ - Added feature to tell if the remote device has a permanent 
+   connection, that does not drop connection on resets
+   For this feature you need to set define HIL_MARSHALLER_PERMANENT_CONNECTION
+
+Bug fixes:
+ - Added CRC checking for usChecksum in the netXTransport header
+
+
+V2.0.15.0 (2013-05-06)
+----------------------
+Changes:
+ - updated cifX error codes
+ - IO-Timer parameter changed
+ - updated comments to doxgen style 
+ 
+Add-ons:
+ - added transport types (INX, netAnalyzer, netPLC)
+ 
+Bug fixes:
+ - mailbox/IO callbacks 
+ - ACK's or zero length packets, may be send with a checksum (!=0)
+
+V2.0.14.0 (2010-07-06)
+----------------------
+Changes:
+ - Re-Added Tx Buffers for transports / Connectors that might need them
+   ATTENTION: This results in a change of the connector configuration structure
+              by introducing two new parameters (ulTxBufferSize / ulTxBufferCnt)
+              in the structure HIL_MARSHALLER_CONNECTOR_PARAMS_Ttag / HIL_MARSHALLER_CONNECTOR_T.
+              Make sure to adjust connectors if they needs this parameter.
+
+V2.0.13.0 (2010-06-28)
+----------------------
+Changes:
+ - new TLR_Types.h, TLR_Result.h, cifXUser.h
+ - 64-bit support
+ - change '//' -> '/* */'
+
+Add-ons:
+ - none
+
+Bug fixes:
+ - Several cifX API calls don't called via function pointer table
+
+V2.0.12.0 (2010-04-01)
+----------------------
+Changes:
+ - None.
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Packet transport: corrected the area index in RCX_DPM_GET_COMFLAG_INFO_REQ packet (if areaindex= 0xFFFFFFFF).
+
+
+V2.0.11.0 (2010-03-26)
+----------------------
+Changes:
+ - None.
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - Packet transport: Evaluation of RCX_DPM_GET_COMFLAG_INFO_REQ packet now uses channel number from transport header if area index is SYSTEM (0xFFFFFFFF).
+
+
+V2.0.10.0 (2010-01-19)
+----------------------
+Changes:
+ - None.
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - TCP connector: Send multiple packets to TCP stack if size of send buffer contents exceeds rcX packet data size.
+
+
+V2.0.9.0 (2009-11-27)
+---------------------
+Changes:
+ - TCP connector: Increased TCP_CONNECTOR_DEFAULT_SEND_TIMEOUT to 1000 ms. (Prevents connection loss after Channel Init.)
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - None.
+
+
+B2.0.8.0 (2009-11-13)
+---------------------
+Changes:
+ - TCP connector: Removed requirement for valid subnet mask when retrieving IP parameters to check TCP stack startup status.
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - None.
+
+
+V2.0.7.0 (2009-10-09)
+---------------------
+Changes:
+ - Initial version.
+
+Add-ons:
+ - None.
+
+Bug fixes:
+ - None.

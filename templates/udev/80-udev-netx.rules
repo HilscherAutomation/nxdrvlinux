@@ -1,0 +1,1 @@
+SUBSYSTEMS=="pci",ATTRS{vendor}=="0x15cf",ATTRS{device}=="0x0000",MODE="0666",PROGRAM="/bin/bash -c 'chmod 0666 /sys/class/uio/uio%n/device/config'"

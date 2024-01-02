@@ -1,0 +1,138 @@
+#!/bin/bash -e
+
+function check_help {
+  case "$1" in
+  "--help" | "-h")
+    echo "************************************************************"
+    echo "*** HELP ***************************************************"
+    echo "************************************************************"
+    echo "*** Run the script without parameter to build and        ***"
+    echo "*** install the driver. The build script will creates a  ***"
+    echo "*** build directory (./tmp_build).                       ***"
+    echo "*** To specify a build directory just pass a directory   ***"
+    echo "*** path.                                                ***"
+    echo "***                                                      ***"
+    echo "*** e.g.:                                                ***"
+    echo "*** mkdir ./my_build_path                                ***"
+    echo "*** ./build_install_driver ./my_build_path               ***"
+    echo "************************************************************"
+    exit 0
+    ;;
+  *)
+  ;;
+  esac
+}
+
+
+builddir="./tmp_build/"
+if (( "$#" >= "1" )); then
+  check_help $1
+  if [ -d "${1}" ]; then
+    builddir=$(realpath "${1}")
+  else
+    echo "Error - Given parameter \"$1\" is not a folder or does not exist!"
+    exit 1
+  fi
+else
+  mkdir -p "${builddir}"
+fi
+
+# check if directories contain white spaces...
+invalid_path=$(pwd | { grep " " || true; } )
+if [ "${invalid_path}" != "" ]; then
+    echo "Error - path contains spaces (\"${PWD}\")! Please use path without."
+    exit 1
+fi
+invalid_path=$(echo ${builddir} | { grep " " || true; } )
+if [ "${invalid_path}" != "" ]; then
+    echo "Error - path contains spaces (\"${builddir}\")! Please use path without."
+    exit 1
+fi
+
+if [ -d "${builddir}/libcifx" ] || [ -d "${builddir}/uio_netx" ]; then
+    echo "********************************************************************************"
+    echo "NOTE: The build folder (\"${builddir}\") is not empty! Force overwrting (yes=y)?"
+    echo "      Or pass a new build folder (./build_install_driver [my_build_folder]."
+    echo "********************************************************************************"
+    read delete_files
+    if [ "${delete_files}" = "y" ]; then
+	echo "...deleting build folder!"
+	rm -rf "${builddir}/libcifx"
+	rm -rf "${builddir}/uio_netx" 
+    else
+	echo "...canceled build process!"
+	exit 1
+    fi
+fi
+
+driver_src=$(dirname $(realpath $0))
+scripts_dir="${driver_src}/scripts"
+
+cur_path=$PWD
+kernelversion=""
+ret=0
+
+install_step="uio_netx"
+while [ "$install_step" != "stop" ]
+do
+case $install_step in
+error)
+echo "************************************************************"
+echo "**** An error occured during the installation            ***"
+echo "************************************************************"
+echo "Please check the error message in the previous steps."
+echo "When the problem is fixed restart the installation."
+install_step="stop"
+ret=1
+;;
+uio_netx)
+install_step="firmware"
+mkdir -p "${builddir}/uio_netx"
+echo "************************************************************"
+echo "**** Start building kernel module uio_netx               ***"
+echo "************************************************************"
+if ! "${scripts_dir}/"install_uio_netx build "${builddir}/uio_netx"; then  # build module
+  echo "Error building kernel module!"
+  install_step="error"
+fi
+if ! "${scripts_dir}/"install_uio_netx install "${builddir}/uio_netx"; then          # install module
+  echo "Error installing kernel module!"
+  install_step="error"
+fi
+;;
+firmware)
+install_step="libcifx"
+echo "************************************************************"
+echo "**** Installing kernel module and firmware               ***"
+echo "************************************************************"
+install_step="libcifx"
+if ! "${scripts_dir}/"install_firmware install ; then        # install firmware
+  echo "Error installing firmware!"
+  install_step="error"
+fi
+if ! "${scripts_dir}/"install_uio_netx update ; then         # load driver
+  echo "Error updating module dependencies!"
+  install_step="error"
+fi
+if ! "${scripts_dir}/"install_uio_netx unload ; then
+  echo "Error unloading driver!"
+  install_step="error"
+fi
+if ! "${scripts_dir}/"install_uio_netx load; then
+    echo "Error loading driver!"
+    install_step="error"
+fi
+;;
+libcifx)
+echo "************************************************************"
+echo "**** Building and installing user space library libcifx  ***"
+echo "************************************************************"
+mkdir -p "${builddir}/libcifx"
+"${scripts_dir}/"install_libcifx "${builddir}/libcifx"
+install_step="stop"
+;;
+esac
+done  
+cd ..
+
+exit $ret

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+kernel_dir=/lib/modules/$(uname -r)/build/
+
+# do not change
+default_path=$(dirname $(realpath $0))"/../uio_netx/"
+cur_dir=$PWD
+
+buildfolder="${default_path}"
+if (( "$#" >= "2" )); then
+  if [ -d $2 ]; then
+    buildfolder=$(realpath $2)
+    cp -r "${default_path}/"* "${buildfolder}"
+  fi
+fi
+
+case "$1" in
+  "build")
+  if [ -e "${buildfolder}/uio_netx.c" ]; then
+    echo "To enable DMA support type 'y' else 'n':"
+    read dma_enable
+    if [ "$dma_enable" != "y" ]; then
+      echo "Compile kernel module uio_netx.ko (DMA disabled)"
+      cd "${buildfolder}" && make clean; make KDIR=$kernel_dir DMA_DISABLE=1
+    else
+      echo "Compile kernel modules uio.ko/uio_netx.ko  (DMA enabled)"
+      cd "${buildfolder}" && make clean; make KDIR=$kernel_dir
+    fi
+  else
+    echo "Searching in $buildfolder! uio_netx.c not found!"
+  fi
+  cd "${cur_dir}"
+  ;;
+  
+  "install")
+  if 
+  [ -e "${buildfolder}/uio_netx.ko" ]; then
+    echo "Copying kernel module uio_netx.ko to '/lib/modules/$(uname -r)/kernel/drivers/uio/'"
+    sudo cp "${buildfolder}/uio_netx.ko" /lib/modules/$(uname -r)/kernel/drivers/uio/
+  else
+    echo "Searching in ${buildfolder}! uio_netx.ko not found!"
+    echo "A prior call \"install_uio_netx install\" fix this problem!"
+  fi
+  ;;
+
+  "update")
+  echo "Updating kernel module dependencies."
+  sudo depmod
+  ;;
+ 
+  "load")
+  if 
+  [ -e "/lib/modules/$(uname -r)/kernel/drivers/uio/uio_netx.ko" ]; then
+    echo "Loading kernel module uio_netx.ko."
+    sudo modprobe uio_netx
+  else
+    echo "Kernel module uio_netx.ko currently not installed!"
+    echo "First call \"install_uio_netx install\""
+    echo "Then call \"install_uio_netx update\" to fix this problem!"
+  fi
+  ;;
+
+  "unload")
+  echo "Unload kernel module uio_netx!"
+  sudo modprobe -r uio_netx
+  ;;
+
+  *) echo "Unknown parameter!"
+  echo "Valid options:"
+  echo "-> build  : Builds kernel module uio_netx.ko."                  
+  echo "-> install: Copies the kernel modules into the target directory."
+  echo "-> update : Updates the kernel module dependencies."
+  echo "-> load   : Loads the kernel module."
+  echo "-> unload : Unloads the kernel module."
+esac

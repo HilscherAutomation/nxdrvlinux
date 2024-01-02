@@ -1,0 +1,103 @@
+#!/bin/bash
+
+default_path=$(dirname $(realpath $0))"/../BSL/"
+
+case "$1" in
+  "install")
+
+    if [ -n "$2" ]; then
+      default_path=$2
+    fi
+
+    if 
+    [ -e "$default_path/NETX100-BSL.bin" ]; then
+      echo "Creating directory /opt/cifx/deviceconfig/";
+      sudo mkdir -p /opt/cifx/
+      sudo mkdir -p /opt/cifx/deviceconfig/
+      if [ "$?" = "0" ]; then
+        echo "Copying bootloader files to /opt/cifx/"
+        sudo cp "${default_path}/"* /opt/cifx/
+      fi
+    else
+      echo "Searching in $default_path! No bootloader files found!"
+    fi
+  ;;
+
+  "add_device")
+  if [ -n "$2" ]; then
+      device_num=$2
+      
+      if [ -n "$3" ]; then
+        serial_num=$3
+        echo "Creating directory /opt/cifx/deviceconfig/$device_num/$serial_num/channel0";
+        sudo mkdir -p /opt/cifx/deviceconfig/$device_num/
+        sudo mkdir -p /opt/cifx/deviceconfig/$device_num/$serial_num/
+        sudo mkdir -p /opt/cifx/deviceconfig/$device_num/$serial_num/channel0
+        
+        if [ "$?" = "0" ]; then
+          echo "Copying default config";
+          sudo cp ./device.conf /opt/cifx/deviceconfig/$device_num/$serial_num/
+        fi
+      else
+        echo "Serial number required! Run \"install_firmware help\""
+      fi
+  else
+      echo "Device number required! Run \"install_firmware help\""
+  fi
+ 
+  ;;
+  "create_single_dir")
+    echo "Creating directory /opt/cifx/deviceconfig/FW/channel0";
+    sudo mkdir -p /opt/cifx/deviceconfig/FW/
+    sudo mkdir -p /opt/cifx/deviceconfig/FW/channel0
+    
+    if [ "$?" = "0" ]; then
+      echo "Copying default config";
+      sudo cp ./device.conf /opt/cifx/deviceconfig/FW/
+    fi
+    
+  ;;
+  
+  "add_slot_dir")
+    if [ -n "$2" ]; then
+      slot_num=$2
+      if [ $slot_num -ge 1 ] && [ $slot_num -le 9 ]; then
+        echo "Creating directory /opt/cifx/deviceconfig/Slot_$slot_num/channel0";
+        sudo mkdir -p /opt/cifx/deviceconfig/Slot_$slot_num/
+        sudo mkdir -p /opt/cifx/deviceconfig/Slot_$slot_num/channel0
+        
+        if [ "$?" = "0" ]; then
+          echo "Copying default config";
+          sudo cp ./device.conf /opt/cifx/deviceconfig/Slot_$slot_num/
+        fi
+      else
+        echo "Enter slot number between 1..9!";
+      fi
+    else
+      echo "Slot number required! Run \"install_firmware help\""
+    fi
+  ;;
+  
+  *) echo "Unknown parameter!"
+  echo "Options:"
+  echo "install:"
+  echo "-> Creates directory \"/opt/cifx/deviceconfig/\" and installs bootloader"
+  echo "\nadd_device [device number] [serial number]:"
+  echo "-> Creates configuration directory for device with"
+  echo "   [device number] and [serial number] and adds default"
+  echo "   configuration file \"device.conf\""
+  echo "   e.g. \"install_firmware add_device 1250400 20087\""
+  echo "   results in"
+  echo "   \"/opt/cifx/deviceconfig/1250400/20087/channel0/\""
+  echo "\ncreate_single_dir:"
+  echo "-> Creates directory /opt/cifx/FW and adds default"
+  echo "   configuration file \"device.conf\""
+  echo "\nadd_slot_dir [1..9]:"
+  echo "-> Creates directory /opt/cifx/Slot_[Slotnumber] and adds default"
+  echo "   configuration file \"device.conf\""
+  echo "   e.g. \"install_firmware add_slot_dir 1\""
+  echo "   results in"
+  echo "   \"/opt/cifx/deviceconfig/Slot_1/channel0/\""
+  echo "\nFor more information of the device configuration directories"
+  echo "see Linux cifX Driver manual."
+esac

@@ -1,0 +1,14 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	netX0: netX@f8034000 {
+		status = "ok";
+		compatible = "hilscher,uio-netx";
+		reg = <0xf8034000 0x10000>; // can be multiple (1. DPM 2... extended memory)
+		interrupt-names = "card"; // only "card" supported
+		interrupts = <168 IRQ_TYPE_LEVEL_HIGH>;
+		dma = <1>; // enable / disable
+		startuptype = "auto"; // specifies startup behaviour: flash,ram,auto,donttouch
+		alias = "custom-device"; // device name
+	};
+};
