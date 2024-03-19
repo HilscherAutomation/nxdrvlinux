@@ -233,6 +233,16 @@ void* ServerThread(void* pvParam)
           /* print host-ip */
           printf("Connected with client : %s\n", inet_ntoa(tSockAddr.sin_addr));
 
+          /* NOTE: To prevent timeout on client side, as getnameinfo() may take  */
+          /*       more time, first start client thread then retrieve host name. */
+          if ( setsockopt(hClient, IPPROTO_TCP, TCP_NODELAY, (void*)&iNoDelay, sizeof(iNoDelay)) != 0 )
+          {
+            printf("The server is not able to send small packets.\n");
+            printf("So the communication could be very slow!\n");
+          }
+          ptTcpData->hClient = hClient;
+          pthread_create(&ptTcpData->hClientThread, NULL,ClientThread, (void*)ptTcpData);
+
           /* Query remote name */
           if (0 == getnameinfo( (struct sockaddr *) &tSockAddr, sizeof (struct sockaddr),
                                 szHostname,NI_MAXHOST, NULL, 0, 0))
@@ -243,16 +253,6 @@ void* ServerThread(void* pvParam)
           {
             printf("Host name unknown!\n");
           }
-
-          if ( setsockopt(hClient, IPPROTO_TCP, TCP_NODELAY, (void*)&iNoDelay, sizeof(iNoDelay)) != 0 )
-          {
-            printf("The server is not able to send small packets.\n");
-            printf("So the communication could be very slow!\n");
-          }
-
-          ptTcpData->hClient       = hClient;
-          pthread_create(&ptTcpData->hClientThread, NULL,ClientThread, (void*)ptTcpData);
-
         }
       }
     }
