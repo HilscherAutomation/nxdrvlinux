@@ -566,6 +566,9 @@ static struct pci_device_id netx_pci_ids[] = {
 	{ 0, }
 };
 
+/* publish PCI ids, to provide automatic load for known PCI cards */
+MODULE_DEVICE_TABLE(pci, netx_pci_ids);
+
 static struct pci_driver netx_pci_driver = {
 	.name = "netx",
 	.id_table = netx_pci_ids,

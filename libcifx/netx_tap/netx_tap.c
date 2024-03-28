@@ -264,19 +264,10 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
 
               /* Device successfully created */
               OS_EnterLock( g_eth_list_lock);
-              if ((internal_dev = OS_Memalloc( sizeof(internal_dev))) != NULL)
-              {
-                TAILQ_INSERT_TAIL( &s_DeviceList, internal_dev, lentry);
-                ret = internal_dev;
-              }
+              TAILQ_INSERT_TAIL( &s_DeviceList, internal_dev, lentry);
+              ret = internal_dev;
               OS_LeaveLock( g_eth_list_lock);
-              if(NULL == ret)
-              {
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
-                {
-                  USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Not enough memory to create cifx virtual ethernet interface!");
-                }
-              }
+              return ret;
             }
           }
         }
@@ -288,6 +279,12 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
       if(NULL == ret)
       {
         cifxeth_delete_device( internal_dev);
+      }
+    } else
+    {
+      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      {
+        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Not enough memory to create cifx virtual ethernet interface!");
       }
     }
     channel_no++;
