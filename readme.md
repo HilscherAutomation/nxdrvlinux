@@ -1,17 +1,32 @@
 # Overview
 
+This repository provides the following components:
+
+| component                                                | license       | description
+| ----------------------------------------                 |:-------------:|:-------------:|
+| [libcifx](libcifx/)                                      | [MIT](libcifx/LICENSE.md)                | User space driver for cifX/netX devices ([more information](https://hilscher.atlassian.net/l/cp/JFCHnF6h)).
+|  - [cifX toolkit](libcifx/Toolkit/)                      | [SLA](libcifx/Toolkit/LICENSE.md)        | OS independant device handling abstraction of netX devices. It is referenced by the user space library ([more information](https://hilscher.atlassian.net/l/cp/bBwTb2Wc)).
+| [uio_netx](uio_netx/)                                    | [GPLv-2-only](uio_netx/LICENSE.txt)      | kernel mode driver (required for memory mapped devices)
+| [ax99100](cifx_m2/)                                      | [GPLv-2-only](cifx_m2/LICENSE.txt)       | kernel mode driver (requried for cifX M.2 devices)
+| [cifX examples](examples/)                               | [MIT](LICENSE.md)                        | cifX driver example applications (API, TCP server).
+|  - [marshaller toolkit](examples/tcpserver/Marshaller/)  | in clarification                         | OS independant implementation of the netXtransport protocol device(/server) side. It is referenced by the TCP server ([more information](https://hilscher.atlassian.net/l/cp/e4W3zr1Y)).
+
+
+# Driver architecture
+
 ![](doc/drv_overview.png)
 
 The Linux cifX driver provides support of multiple devices of the [cifX product portfolio](https://www.hilscher.com/products/pc-cards-for-industrial-ethernet-fieldbus).
 The driver consists of a user space and a kernel space component. Depending on your hardware both or only the user space component will be required.
 
-| hardware                       | libcifx       | uio_netx
-| ------------------------------ |:-------------:|:-------------:|
-| PCI based host interface       | (x)           | (x)
-| SPI based host interface       | (x)           | (-)
-| ISA or other memory mapped     | (x)           | (optional)
+| hardware                       | libcifx           | uio_netx      | ax99100
+| ------------------------------ |:-----------------:|:-------------:|:-------------:|
+| PCI based host interface       | (x)               | (x)           | (-)
+| SPI based host interface       | (x)+(SPM_PLUGIN)  | (-)           | (-)
+| ISA or other memory mapped     | (x)               | (optional)    | (-)
+| cifX M.2 device                | (x)+(SPM_PLUGIN)  | (-)           | (x)
 
-Note that this documentation currently provides only a short overview. It will be updated step by step. Transitionally refer to the [superseded driver's documentation](doc/OBSOLETE-cifX-Device-Driver-Linux-DRV-15-EN.pdf). Commands mentioned here
+Note that this documentation currently provides only a short overview. It will be updated step by step. Transitionally refer to the [superseded driver's documentation](doc/OBSOLETE-cifX-Device-Driver-Linux-DRV-15-EN.pdf). Commands mentioned there
 may not work 1:1 since the driver's folder structure changed but it provides background information and still some valid hints.
 
 Note: When the PCI interface is not required remember to disable it. Only then the libcifx's dependency to libpciaccess-dev library will be removed (see "DISABLE_PCI", Manual driver installation).
@@ -85,6 +100,7 @@ All possible options are listed here:
 | SPM_PLUGIN                     | Enables support for SPI devices (spidev framework).
 | TIME                           | Enables toolkit function, setting the device time during device start-up.
 | VIRTETH                        | Enables support for the netX based virtual Ethernet interface. Note: This feature requires dedicated hardware and firmware.
+| SHARED                         | Switch between shared and static library.
 
 3. build and install the driver
 ```
@@ -185,7 +201,3 @@ cmake ../examples/ -DDEBUG=ON
 make
 ./cifxapi
 ```
-
-
-
-
