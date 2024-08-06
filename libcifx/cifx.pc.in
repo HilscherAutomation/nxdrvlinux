@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: libcifx
 Description: Hilscher cifX user space library
 Requires: @REQUIRED_PACKAGES@
-Version: @DRVVERSION@
+Version: @DRV_VERSION@
 Libs: -L@libdir@ -lcifx -lpthread
 Cflags: -I@includedir@/cifx
