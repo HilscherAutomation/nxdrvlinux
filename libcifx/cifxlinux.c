@@ -558,12 +558,14 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
               device->dma_buffer[device->dma_buffer_cnt].ulSize            = CIFX_DEFAULT_DMA_BUFFER_SIZE;
               device->dma_buffer[device->dma_buffer_cnt].ulPhysicalAddress = memaddr;
               device->dma_buffer[device->dma_buffer_cnt].pvBuffer          = membase;
-              device->dma_buffer_cnt++;
               memaddr += CIFX_DEFAULT_DMA_BUFFER_SIZE;
               membase += CIFX_DEFAULT_DMA_BUFFER_SIZE;
 #ifdef VERBOSE
-              printf("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt, membase, ulSize);
+              printf("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
+                     device->dma_buffer[device->dma_buffer_cnt].pvBuffer,
+                     device->dma_buffer[device->dma_buffer_cnt].ulSize);
 #endif
+              device->dma_buffer_cnt++;
               DMACounter--;
             }
           }
