@@ -781,7 +781,7 @@ int get_dt_parameter(struct platform_device *pd, struct netx_custom_dev* custom)
 	int ret = 0;
 
 	while ((ret = of_address_to_resource(custom->dev->of_node, mappings, &res)) == 0) {
-		mappings++;
+		ret = ++mappings;
 	}
 	dev_info( custom->dev, "uio_netx - get_dt_parameter: found %d mappings!\n",mappings);
 	if (mappings == 0)
@@ -818,7 +818,7 @@ int get_dt_parameter(struct platform_device *pd, struct netx_custom_dev* custom)
 	ptr = of_get_property(custom->dev->of_node, "dma", NULL);
 	custom->dma_enable = !!!(*(uint32_t*)ptr) ? 1 : 0;
 #endif
-	return mappings;
+	return ret;
 }
 
 static int __devinit netx_dt_probe(struct platform_device *pd)
