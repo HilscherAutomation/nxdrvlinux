@@ -579,7 +579,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   /* Check for a valid IRQ file (optional) */
   lFd = -1;
   if(pszIRQFile != NULL) {
-    lFd = open(pszIRQFile, O_RDWR|O_NONBLOCK);
+    lFd = open(pszIRQFile, O_RDONLY|O_NONBLOCK);
     if(lFd < 0) {
       fprintf(stderr, "SDPMInit: Invalid SPI IRQ file (%s). Fallback to polling!\n", pszIRQFile);
     }
