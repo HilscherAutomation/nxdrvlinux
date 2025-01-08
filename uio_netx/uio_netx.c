@@ -149,7 +149,7 @@ static LIST_HEAD(custom_list);
 static int netx_enable_irq(struct uio_info *dev_info, s32 irq_on)
 {
 	if (dev_info->irq == 0)
-		return -EPERM; /* Not supported! -> there is no interrupt registered */
+		return -EIO; /* interrupt not configured/supported */
 
 	return 0;
 }
