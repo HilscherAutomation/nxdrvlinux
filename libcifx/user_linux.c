@@ -698,11 +698,16 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
       } else
       {
         char*    szTempData  = NULL;
-        uint32_t ulEnableInt = 0;
+        uint32_t ulEnableInt = 1;
         /* NOTE: We don't want do enable interrupts here! We just want to check if the device provides interrupt support! */
-        /*       ret = ENOSYS => !to be backwards compatible! - verification not provided but device supports interrupt   */
         /*       The check works only in case of an uio device (uio_num>=0).                                              */
-        if ((internaldev->userdevice->uio_num >= 0) && ((ret=write(internaldev->userdevice->uio_fd, (void*)&ulEnableInt, sizeof(uint32_t))) < 0) && (errno != ENOSYS))
+        /*       ret = ENOSYS => !to be backwards compatible! - verification not provided but device supports interrupt   */
+        /*       EACCESS will be returned if DPM>64k (irq need to be controlled via mapped DPM)                           */
+        /*       The check works only in case of an uio device (uio_num>=0).                                              */
+        if ( (internaldev->userdevice->uio_num >= 0) &&
+             (write(internaldev->userdevice->uio_fd, (void*)&ulEnableInt, sizeof(uint32_t)) < 0) &&
+             ((ret = errno) != ENOSYS) &&
+             (ret != EACCES) )
         {
           ret = 0;
           if(g_ulTraceLevel & TRACE_LEVEL_ERROR)

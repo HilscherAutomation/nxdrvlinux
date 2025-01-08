@@ -375,12 +375,16 @@ static void *netx_irq_thread(void *ptr) {
           break;
       }
       if (uio_irq) {
+        /* the kernel module disabled the device irq, so we need to enable it again after processing */
         if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
-          /* if it's open for writing enable irq again (currently function not implemented in uio_netx) */
-          //write(info->userdevice->uio_fd, &bVal, 1);
           HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
           ulVal |= HOST_TO_LE32(IRQ_ENABLE_MASK);
           HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
+        } else {
+          /* we don't have access to the device IRQ control within DPM, */
+          /* so let the kernel module enable the device's system irq    */
+          uint32_t enable_irq = 1;
+          write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq));
         }
       }
     }
