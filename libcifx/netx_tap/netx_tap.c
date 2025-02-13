@@ -75,7 +75,8 @@ typedef struct NETX_ETH_DEV_Ttag
   void*              com_lock;
   void*              send_event;
   uint32_t           active_sends;
-  uint32_t           send_packets;
+  uint32_t           send_packets; /* number of packets tried to send */
+  uint32_t           sent_packets; /* number of packets sent confirmed by firmware */
   uint32_t           recv_packets;
   int                link_up;
   void*              link_event;
@@ -739,6 +740,10 @@ static void* eth_to_cifx_thread(void* arg)
             {
               USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending packet to cifX Device. (Error=0x%08X)", cifx_error);
             }
+
+          } else
+          {
+            internal_dev->send_packets++;
           }
         }
       }
@@ -814,6 +819,8 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
         if(g_ulTraceLevel & TRACE_LEVEL_WARNING) {
           USER_Trace( internal_dev->devinst, TRACE_LEVEL_WARNING, "Ethernet-IF Error: Error signaled by confirmation packet (0x%X)\n", ptPacket->tHeader.ulState);
         }
+      } else {
+        internal_dev->sent_packets++;
       }
     break;
 
@@ -830,6 +837,7 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
             USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending incoming data to ethernet device (%d)\n", ret);
           }
         }
+        internal_dev->recv_packets++;
       }
     }
     break;
@@ -850,6 +858,18 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
     break;
   }
   send_confirmation( internal_dev, ptPacket, ulState, CIFX_TO_CONT_PACKET);
+}
+
+/*****************************************************************************/
+/*! writes packet statistics to the cifx log file
+ *   \param internal_dev Pointer to internal device
+/*****************************************************************************/
+void cifxeth_dump_statistics( NETX_ETH_DEV_T* internal_dev) {
+  USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG,
+            "Ethernet-IF Debug: packet statistic send/sent/recv = %d/%d/%d\n",
+            internal_dev->send_packets,
+            internal_dev->sent_packets,
+            internal_dev->recv_packets);
 }
 
 /*****************************************************************************/
@@ -887,6 +907,9 @@ static void* cifx_to_eth_thread(void* arg)
     }
     if (difftime( time(NULL), last_update) > LINK_STATE_POLL_INTERVAL) {
       cifxeth_update_link_state( internal_dev);
+      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG) {
+        cifxeth_dump_statistics( internal_dev);
+      }
       last_update = time(NULL);
     }
   }
