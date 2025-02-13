@@ -46,7 +46,12 @@
 
 #define TUNTAP_DEVICEPATH    "/dev/net/tun"
 
-#define SEND_RETRIES 0
+#ifndef NETX_TAP_SEND_RETRIES
+  #define NETX_TAP_SEND_RETRIES 0
+#endif
+#ifndef NETX_TAP_MAX_ACTIVE_SENDS
+  #define NETX_TAP_MAX_ACTIVE_SENDS 8
+#endif
 
 #define LINK_STATE_POLL_INTERVAL 5 /* in seconds */
 
@@ -696,7 +701,7 @@ static void* eth_to_cifx_thread(void* arg)
 
         recv_len = read(fd, buffer, sizeof(buffer));
 
-        while (internal_dev->active_sends>0x08)
+        while (internal_dev->active_sends>NETX_TAP_MAX_ACTIVE_SENDS)
         {
           OS_WaitEvent( internal_dev->send_event, 10);
           if (internal_dev->stop_to_cifx == 1)
@@ -714,7 +719,7 @@ static void* eth_to_cifx_thread(void* arg)
             memset( (cifx_packet.tReq.tData.abData + recv_len), 0, (60 - recv_len));
             cifx_packet.tReq.tHead.ulLen = 60;
           }
-          retry = SEND_RETRIES;
+          retry = NETX_TAP_SEND_RETRIES + 1;
           do {
             cifx_error = xChannelPutPacket( internal_dev->cifx_channel, (CIFX_PACKET*)&cifx_packet, CIFX_TO_CONT_PACKET);
             if (cifx_error == CIFX_NO_ERROR) {
@@ -722,11 +727,11 @@ static void* eth_to_cifx_thread(void* arg)
               internal_dev->active_sends++;
               OS_LeaveLock( internal_dev->com_lock);
             }
-          } while ((cifx_error == CIFX_DEV_MAILBOX_FULL) && (retry-->0));
+          } while ((--retry>0) && (cifx_error == CIFX_DEV_MAILBOX_FULL));
 
-          if ((g_ulTraceLevel & TRACE_LEVEL_DEBUG) && ((SEND_RETRIES-retry) != SEND_RETRIES))
+          if ((g_ulTraceLevel & TRACE_LEVEL_DEBUG) && (retry != NETX_TAP_SEND_RETRIES))
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF Error: Sending a packet took %d-%dms)!", (SEND_RETRIES-retry+1)*CIFX_TO_CONT_PACKET, (SEND_RETRIES-retry)*CIFX_TO_CONT_PACKET);
+            USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF Debug: Retried sending packet %d time(s)!", (NETX_TAP_SEND_RETRIES-retry));
           }
           if (CIFX_NO_ERROR != cifx_error)
           {

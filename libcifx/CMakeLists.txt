@@ -32,6 +32,14 @@ else(SHARED)
     add_library( cifx STATIC)
 endif(SHARED)
 
+if(VIRTETH STREQUAL "ON")
+  set(VIRTETH_SEND_RETRIES     "0" CACHE STRING "Number of send retries")
+  set(VIRTETH_MAX_ACTIVE_SENDS "8" CACHE STRING "Maximum active sends - depends on mailbox depth")
+else(VIRTETH STREQUAL "ON")
+  unset(VIRTETH_SEND_RETRIES CACHE)
+  unset(VIRTETH_MAX_ACTIVE_SENDS CACHE)
+endif(VIRTETH STREQUAL "ON")
+
 set(src_dir ${CMAKE_CURRENT_LIST_DIR})
 set(tk_dir  ${src_dir}/Toolkit)
 
@@ -50,6 +58,8 @@ target_compile_definitions( cifx
         $<$<BOOL:${NO_MINSLEEP}>:NO_MIN_SLEEP>
         $<$<BOOL:${TIME}>:CIFX_TOOLKIT_TIME>
         $<$<BOOL:${VIRTETH}>:CIFXETHERNET>
+        $<$<BOOL:${VIRTETH}>:NETX_TAP_SEND_RETRIES=${VIRTETH_SEND_RETRIES}>
+        $<$<BOOL:${VIRTETH}>:NETX_TAP_MAX_ACTIVE_SENDS=${VIRTETH_MAX_ACTIVE_SENDS}>
         $<$<BOOL:${HWIF}>:CIFX_DRV_HWIF>
         $<$<OR:$<BOOL:${PLUGIN}>,$<BOOL:${SPM_PLUGIN}>>:CIFX_DRV_HWIF CIFX_PLUGIN_SUPPORT>
 )
