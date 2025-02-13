@@ -562,7 +562,13 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
       strcpy( internal_dev->cifxeth_name, prefix);
       sprintf(internal_dev->event_path,"/sys/class/net/%s/uevent",prefix);
       internal_dev->eth_fd = ret; /* set temp. since cifxeth_update_device_config() deals with that handle */
-      cifxeth_update_device_config(internal_dev);
+
+      /* if this function fails we will not be able to work with the device */
+      if (cifxeth_update_device_config(internal_dev) != CIFX_NO_ERROR) {
+        close(internal_dev->eth_fd);
+        internal_dev->eth_fd = -1;
+        ret = -1;
+      }
     }
   } else
   {
@@ -989,11 +995,22 @@ static int32_t cifxeth_update_device_config( NETX_ETH_DEV_T* internal_dev)
     struct ifreq ifr;
     memset( &ifr, 0, sizeof(ifr));
 
+    if (0 == memcmp( ifr.ifr_hwaddr.sa_data, tExtInfo.abEthernetMACAddr, 6)) {
+      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      {
+        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Receiving invalid MAC address from device %s. " \
+                    "Make sure that the firmware is correctly configured and it's ethernet interface is enabled.",
+                    internal_dev->cifxeth_name);
+      }
+      return CIFX_FUNCTION_FAILED;
+    }
+
     memcpy( ifr.ifr_hwaddr.sa_data, tExtInfo.abEthernetMACAddr, 6);
     ifr.ifr_hwaddr.sa_family = 1;
 
     if( (ioctl( internal_dev->eth_fd, SIOCSIFHWADDR, (void *) &ifr)) < 0 )
     {
+      lRet = CIFX_FUNCTION_FAILED;
       if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
       {
         USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to set MAC address %02x:%02x:%02x:%02x:%02x:%02x of %s (%d)",
