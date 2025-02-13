@@ -581,26 +581,12 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
  *   \param name         name of device in case device is already closed (->link down) */
 /*****************************************************************************/
 void cifxeth_free_tap(NETX_ETH_DEV_T* internal_dev, char* name) {
+  (void)name;
 
   if (NULL != internal_dev) {
     if (internal_dev->eth_fd>=0) {
-      ioctl(internal_dev->eth_fd, TUNSETPERSIST, 0);
       close(internal_dev->eth_fd);
       internal_dev->eth_fd = -1;
-    }
-  }
-  /* we have also check the name, in case of link down the handle is '-1' */
-  if (name != NULL) {
-    struct ifreq ifr;
-    int          ret;
-
-    if ((ret = open( TUNTAP_DEVICEPATH, O_RDWR))) {
-      memset(&ifr, 0, sizeof(ifr));
-      ifr.ifr_flags = (IFF_TAP | IFF_NO_PI);
-      strncpy( ifr.ifr_name, name, IFNAMSIZ);
-      ioctl(ret, TUNSETIFF, (void *) &ifr);
-      ioctl(ret, TUNSETPERSIST, 0);
-      close(ret);
     }
   }
 }
