@@ -24,6 +24,7 @@ option(HWIF        "Enables the toolkit's Hardware Function Interface (e.g. for 
 option(PLUGIN      "Enables support of device plugins and enables hardware function interface (see HWIF)" OFF)
 option(SPM_PLUGIN  "Build spm-plugin and enables support of device plugins (see PLUGIN)" OFF)
 option(SHARED      "Build shared libary (default: ON)" ON)
+option(VFIO        "Build libary supporting VFIO interface (default: OFF)" OFF)
 
 if(SHARED)
     add_library( cifx SHARED)
@@ -62,6 +63,7 @@ target_compile_definitions( cifx
         $<$<BOOL:${VIRTETH}>:NETX_TAP_MAX_ACTIVE_SENDS=${VIRTETH_MAX_ACTIVE_SENDS}>
         $<$<BOOL:${HWIF}>:CIFX_DRV_HWIF>
         $<$<OR:$<BOOL:${PLUGIN}>,$<BOOL:${SPM_PLUGIN}>>:CIFX_DRV_HWIF CIFX_PLUGIN_SUPPORT>
+        $<$<BOOL:${VFIO}>:VFIO_SUPPORT>
 )
 
 file(GLOB SOURCES "${src_dir}/*.c" "${tk_dir}/Source/*.c")

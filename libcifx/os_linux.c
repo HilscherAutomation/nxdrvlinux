@@ -32,6 +32,12 @@
   #include <pciaccess.h>
 #endif
 
+#ifdef VFIO_SUPPORT
+  #include <sys/ioctl.h>
+  #include <linux/vfio.h>
+  #include <sys/eventfd.h>
+#endif
+
 #include "cifXErrors.h"
 #include "OS_Dependent.h"
 
@@ -56,6 +62,10 @@
 
 #define BLOCK64 sizeof(uint64_t)
 #define BLOCK32 sizeof(uint32_t)
+
+#ifdef VFIO_SUPPORT
+  #define VFIO_IRQ_COUNT 1
+#endif
 
 /*****************************************************************************/
 /*! O/S Specific initialization (initializes libpciaccess)
@@ -265,20 +275,22 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
 /*****************************************************************************/
 int check_uio_irq( PCIFX_DEVICE_INTERNAL_T info, int32_t timeout) {
   int            ret   = 0;
-  int            nfds  = info->userdevice->uio_fd + 1;
+  int            fd = GET_IRQ_FD(info);
+  int            nfds  = fd + 1;
   struct timeval sel_timeout;
   fd_set         readfd;
 
   FD_ZERO(&readfd);
-  FD_SET(info->userdevice->uio_fd, &readfd);
+  FD_SET(fd, &readfd);
 
   sel_timeout.tv_sec  = 0;
   sel_timeout.tv_usec = timeout * 1000; /* Default wait timeout = 500ms */
 
-  if ( ((ret = select(nfds, &readfd, NULL, NULL, &sel_timeout))>0) && FD_ISSET( info->userdevice->uio_fd, &readfd)) {
-    uint32_t buf;
-    if ((ret = read( info->userdevice->uio_fd, &buf, sizeof(buf)))>0)
-      return 1;
+  if ( ((ret = select(nfds, &readfd, NULL, NULL, &sel_timeout))>0) && FD_ISSET( fd, &readfd)) {
+    uint8_t buf[8];
+    if ((ret = read( fd, &buf, GET_IRQ_READ_LEN(info)))>0) {
+        return 1;
+    }
   }
   return ret;
 }
@@ -313,6 +325,64 @@ int check_gpio_irq( PCIFX_DEVICE_INTERNAL_T info, uint32_t timeout) {
   return ret;
 }
 
+#ifdef VFIO_SUPPORT
+void unmask_vfio_irq(PCIFX_DEVICE_INTERNAL_T info) {
+  struct vfio_fd* pfd = (struct vfio_fd*)info->userdevice->userparam;
+
+  if (pfd == NULL)
+    return;
+
+  if (pfd->irq.vfio_irq_ctrl != NULL) {
+    pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_NONE | VFIO_IRQ_SET_ACTION_UNMASK);
+    if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) < 0) {
+      ERR( "Error - VFIO_DEVICE_SET_IRQS (ret=%d)\n", errno);
+    }
+  } else {
+    ERR( "Error - Invalid vfio control information!\n");
+  }
+}
+
+void disable_vfio_irq( PCIFX_DEVICE_INTERNAL_T info) {
+  struct vfio_fd* pfd = (struct vfio_fd*)info->userdevice->userparam;
+
+  if (pfd == NULL)
+    return;
+
+  if (pfd->irq.vfio_irq_ctrl != NULL) {
+    pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_NONE | VFIO_IRQ_SET_ACTION_MASK);
+    if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) < 0) {
+      ERR( "Error masking irq (ret=%d)\n", errno);
+    }
+    free(pfd->irq.vfio_irq_ctrl);
+  }
+}
+
+int enable_vfio_irq( PCIFX_DEVICE_INTERNAL_T info) {
+    int ret = -ENOMEM;
+    struct vfio_fd* pfd = (struct vfio_fd*)info->userdevice->userparam;
+
+    if (pfd == NULL)
+      return -EINVAL;
+
+    pfd->irq.vfio_irq_ctrl = malloc(sizeof(struct vfio_irq_set)+(sizeof(uint32_t)*VFIO_IRQ_COUNT));
+    if (pfd->irq.vfio_irq_ctrl != NULL) {
+        pfd->irq.vfio_irq_ctrl->argsz = sizeof(struct vfio_irq_set)+(sizeof(uint32_t)*VFIO_IRQ_COUNT);
+        pfd->irq.vfio_irq_ctrl->index = 0;
+        pfd->irq.vfio_irq_ctrl->start = 0;
+        pfd->irq.vfio_irq_ctrl->count = VFIO_IRQ_COUNT;
+        pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_EVENTFD|VFIO_IRQ_SET_ACTION_TRIGGER);
+
+        if ((pfd->irq.efd = eventfd( 0, 0)) >= 0) {
+            *((uint32_t*)pfd->irq.vfio_irq_ctrl->data) = pfd->irq.efd;
+            if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) == 0)
+              return 0;
+        }
+        ret = -errno;
+    }
+    return ret;
+}
+#endif
+
 /*****************************************************************************/
 /*! Interrupt Service Thread
 *     \param ptr  Pointer to internal device structure
@@ -321,7 +391,7 @@ int check_gpio_irq( PCIFX_DEVICE_INTERNAL_T info, uint32_t timeout) {
 static void *netx_irq_thread(void *ptr) {
   PCIFX_DEVICE_INTERNAL_T info      = (PCIFX_DEVICE_INTERNAL_T)ptr;
   int                     ret       = 0;
-  int                     uio_irq   = 1;
+  int                     irq_type;
   uint32_t                timeout   = 500;
 
   FUNC_TRACE("entry");
@@ -330,12 +400,10 @@ static void *netx_irq_thread(void *ptr) {
     return (void *) -1;
 
   /* check if it's an uio device or a custom */
-  if ((info->userdevice != NULL) && (info->userdevice->uio_num < 0))
-    uio_irq = 0;
-
+  irq_type = GET_IRQ_TYPE(info);
   while( info->irq_stop == 0 )
   {
-    if (uio_irq) {
+    if (irq_type != eCIFX_IRQ_TYPE_GPIO) {
       ret = check_uio_irq( info, timeout);
     } else {
       ret = check_gpio_irq( info, timeout);
@@ -360,17 +428,23 @@ static void *netx_irq_thread(void *ptr) {
           /* This should never happen, as the uio driver already filters our IRQs */
           break;
       }
-      if (uio_irq) {
+      if (irq_type != eCIFX_IRQ_TYPE_GPIO) {
         /* the kernel module disabled the device irq, so we need to enable it again after processing */
+#ifdef VFIO_SUPPORT
+        if (irq_type == eCIFX_IRQ_TYPE_VFIO)
+            unmask_vfio_irq(info);
+#endif
         if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
           HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
           ulVal |= HOST_TO_LE32(IRQ_ENABLE_MASK);
           HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
         } else {
-          /* we don't have access to the device IRQ control within DPM, */
-          /* so let the kernel module enable the device's system irq    */
-          uint32_t enable_irq = 1;
-          write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq));
+          if (irq_type == eCIFX_IRQ_TYPE_UIO) {
+            /* we don't have access to the device IRQ control within DPM, */
+            /* so let the kernel module enable the device's system irq    */
+            uint32_t enable_irq = 1;
+            write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq));
+          }
         }
       }
     }
@@ -413,6 +487,15 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     }
   }
 
+#ifdef VFIO_SUPPORT
+  if (IS_VFIO_DEVICE(info) != 0) {
+    /* it's a vfio device, we need to enable irq handling */
+    if ((ret = enable_vfio_irq( info)) != 0) {
+      ERR( "Error enabling vfio interrupt (ret=%d)", ret);
+    }
+  }
+#endif
+
   if( (ret = pthread_create( &info->irq_thread, &info->irq_thread_attr, netx_irq_thread,
                       (void*)info )) != 0 )
   {
@@ -448,6 +531,12 @@ void OS_DisableInterrupts(void* pvOSDependent) {
   }
 
   pthread_attr_destroy(&info->irq_thread_attr);
+
+#ifdef VFIO_SUPPORT
+  if (IS_VFIO_DEVICE(info) != 0) {
+    disable_vfio_irq( info);
+  }
+#endif
 }
 
 /*****************************************************************************/
