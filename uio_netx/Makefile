@@ -26,6 +26,10 @@ ifndef DMA_DISABLE
 	ccflags-y += -DDMA_SUPPORT
 endif
 
+ifdef DISABLE_PCI_SUPPORT
+	ccflags-y += -DDISABLE_PCI_SUPPORT
+endif
+
 PWD := $(shell pwd)
 default:
 	$(MAKE) -C $(TMPKDIR) M=$(PWD) modules
