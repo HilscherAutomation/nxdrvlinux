@@ -18,7 +18,7 @@
 
 #include "cifxlinux.h"
 
-#ifndef CIFX_TOOLKIT_DISABLEPCI
+#ifndef CIFX_NO_PCIACCESS_LIB
   #include "pciaccess.h"
 #endif
 
@@ -98,7 +98,7 @@ typedef struct CIFX_DEVICE_INTERNAL_Ttag
   FILE                  *log_file;        /*!< Handle to logfile if any */
 
 
-#ifndef CIFX_TOOLKIT_DISABLEPCI
+#ifndef CIFX_NO_PCIACCESS_LIB
   struct pci_device     pci;              /*!< pci device information if it is a pci device */
 #endif
 

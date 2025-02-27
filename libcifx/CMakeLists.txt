@@ -14,17 +14,17 @@ set(DRVVERSION "\"V${DRV_VERSION}\"")
 
 project("libcifx user space library" VERSION ${DRV_VERSION})
 
-option(DEBUG       "Build Library debug messages" OFF)
-option(DISABLE_PCI "Disable use of PCI" OFF)
-option(TIME        "Enable device time setting during start-up" OFF)
-option(DMA         "Compile driver with dma support" OFF)
-option(NO_MINSLEEP "Disable minimum sleep time" OFF)
-option(VIRTETH     "Enables virtual ethernet interface support" OFF)
-option(HWIF        "Enables the toolkit's Hardware Function Interface (e.g. for SPI)" OFF)
-option(PLUGIN      "Enables support of device plugins and enables hardware function interface (see HWIF)" OFF)
-option(SPM_PLUGIN  "Build spm-plugin and enables support of device plugins (see PLUGIN)" OFF)
-option(SHARED      "Build shared libary (default: ON)" ON)
-option(VFIO        "Build libary supporting VFIO interface (default: OFF)" OFF)
+option(DEBUG                 "Build Library debug messages" OFF)
+option(DISABLE_LIB_PCIACCESS "Disable link to libpciaccess. If set to 'ON' - only VFIO PCI devices are supported" OFF)
+option(TIME                   "Enable device time setting during start-up" OFF)
+option(DMA                    "Compile driver with dma support" OFF)
+option(NO_MINSLEEP            "Disable minimum sleep time" OFF)
+option(VIRTETH                "Enables virtual ethernet interface support" OFF)
+option(HWIF                   "Enables the toolkit's Hardware Function Interface (e.g. for SPI)" OFF)
+option(PLUGIN                 "Enables support of device plugins and enables hardware function interface (see HWIF)" OFF)
+option(SPM_PLUGIN             "Build spm-plugin and enables support of device plugins (see PLUGIN)" OFF)
+option(SHARED                 "Build shared libary (default: ON)" ON)
+option(VFIO                   "Build libary supporting VFIO interface (default: OFF)" OFF)
 
 if(SHARED)
     add_library( cifx SHARED)
@@ -54,7 +54,7 @@ target_compile_definitions( cifx
         $<$<BOOL:${IS_BIG_ENDIAN}>:CIFX_TOOLKIT_BIGENDIAN>
 
         $<$<BOOL:${DEBUG}>:DEBUG>
-        $<$<BOOL:${DISABLE_PCI}>:CIFX_TOOLKIT_DISABLEPCI>
+        $<$<BOOL:${DISABLE_LIB_PCIACCESS}>:CIFX_NO_PCIACCESS_LIB>
         $<$<BOOL:${DMA}>:CIFX_TOOLKIT_DMA>
         $<$<BOOL:${NO_MINSLEEP}>:NO_MIN_SLEEP>
         $<$<BOOL:${TIME}>:CIFX_TOOLKIT_TIME>
@@ -84,7 +84,7 @@ endif(VIRTETH)
 
 target_link_directories( cifx
     PRIVATE
-        $<$<NOT:$<BOOL:${DISABLE_PCI}>>:${LIBPCIACCESS_LIBRARY_DIRS}>
+        $<$<NOT:$<BOOL:${DISABLE_LIB_PCIACCESS}>>:${LIBPCIACCESS_LIBRARY_DIRS}>
         $<$<BOOL:${VIRTETH}>:${LIBDNL_LIBRARY_DIRS}>
         $<$<BOOL:${VIRTETH}>:${LIBDNL_CLI_LIBRARY_DIRS}>
 )
@@ -95,7 +95,7 @@ target_include_directories( cifx
         ${tk_dir}/Source/
         ${tk_dir}/Common/cifXAPI/
         ${tk_dir}/Common/HilscherDefinitions/
-        $<$<NOT:$<BOOL:${DISABLE_PCI}>>:${LIBPCIACCESS_INCLUDE_DIRS}>
+        $<$<NOT:$<BOOL:${DISABLE_LIB_PCIACCESS}>>:${LIBPCIACCESS_INCLUDE_DIRS}>
         $<$<BOOL:${VIRTETH}>:${src_dir}/netx_tap/ ${LIBDNL_CLI_INCLUDE_DIRS} ${LIBDNL_INCLUDE_DIRS}>
 )
 
@@ -103,7 +103,7 @@ target_link_libraries( cifx
     PRIVATE
         pthread
         rt
-        $<$<NOT:$<BOOL:${DISABLE_PCI}>>:pciaccess>
+        $<$<NOT:$<BOOL:${DISABLE_LIB_PCIACCESS}>>:pciaccess>
         $<$<OR:$<BOOL:${PLUGIN}>,$<BOOL:${SPM_PLUGIN}>>:dl>
         $<$<BOOL:${VIRTETH}>:${LIBDNL_LIBRARIES}>
         $<$<BOOL:${VIRTETH}>:${LIBDNL_CLI_LIBRARIES}>

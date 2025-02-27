@@ -28,7 +28,7 @@
 #include <semaphore.h>
 #include <errno.h>
 
-#ifndef CIFX_TOOLKIT_DISABLEPCI
+#ifndef CIFX_NO_PCIACCESS_LIB
   #include <pciaccess.h>
 #endif
 
@@ -78,7 +78,7 @@ int32_t OS_Init(void)
 
   FUNC_TRACE("entry");
 
-#ifndef CIFX_TOOLKIT_DISABLEPCI
+#ifndef CIFX_NO_PCIACCESS_LIB
   if(0 != (err = pci_system_init()))
   {
     ERR( "Error initializing PCI access subsystem (pci_system_init=%d)", err);
@@ -96,7 +96,7 @@ void OS_Deinit(void)
 {
   FUNC_TRACE("entry");
 
-#ifndef CIFX_TOOLKIT_DISABLEPCI
+#ifndef CIFX_NO_PCIACCESS_LIB
   pci_system_cleanup();
 #endif
 }
@@ -212,38 +212,57 @@ void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize) {
   pvDest = memmove(pvDest, pvSrc, ulSize);
 }
 
+#define VFIO_PCI_CONFIG_OFF  0x70000000000
+#define PCI_CONFIG_BUF_SIZE 256
+
 /*****************************************************************************/
 /*! Read PCI configuration area of specified card
 *     \param pvOSDependent OS Dependent parameter to identify card
 *     \return Pointer to configuration data (passed to WritePCIConfig)       */
 /*****************************************************************************/
 void* OS_ReadPCIConfig(void* pvOSDependent) {
-#ifndef CIFX_TOOLKIT_DISABLEPCI
-  PCIFX_DEVICE_INTERNAL_T info    = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
+  PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
-  int                     pci_ret;
-  void                    *pci_buf;
   FUNC_TRACE("entry");
+
   if(!pvOSDependent)
-    return NULL;
+      return NULL;
+#ifdef VFIO_SUPPORT
+  if (IS_VFIO_DEVICE(info)) {
+    void *pci_buf = malloc(256);
 
-  pci_buf = malloc(256);
-  if(!pci_buf)
-  {
-    perror("pci_buf malloc failed");
-    return NULL;
+    if(!pci_buf) {
+      ERR( "Error allocating memory!\n");
+      return NULL;
+    }
+    if (pread( GET_VFIO_PARAM(info)->vfio_fd, pci_buf, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) < 0) {
+      ERR( "Error reading PCI configuration space (ret=%d)!\n", errno);
+    } else {
+      return  pci_buf;
+    }
   }
+#endif
+#ifndef CIFX_NO_PCIACCESS_LIB
+  {
+    int                     pci_ret;
+    void                    *pci_buf;
 
-  if ((pci_ret = pci_device_cfg_read(&info->pci, pci_buf, 0, 256, NULL)) )
-  {
-    DBG("pci_device_cfg_read() returns %d\n", pci_ret);
-    free( pci_buf);
-    pci_buf = NULL;
+    pci_buf = malloc(256);
+    if(!pci_buf)
+    {
+      perror("pci_buf malloc failed");
+      return NULL;
+    }
+    if ((pci_ret = pci_device_cfg_read(&info->pci, pci_buf, 0, PCI_CONFIG_BUF_SIZE, NULL)) )
+    {
+      DBG("pci_device_cfg_read() returns %d\n", pci_ret);
+      free( pci_buf);
+      pci_buf = NULL;
+    }
+    return pci_buf;
   }
-  return pci_buf;
-#else
+#endif /* CIFX_NO_PCIACCESS_LIB */
   return NULL;
-#endif /* CIFX_TOOLKIT_DISABLEPCI */
 }
 
 /*****************************************************************************/
@@ -252,19 +271,36 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 *     \param pvPCIConfig   Pointer returned from ReadPCIConfig               */
 /*****************************************************************************/
 void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
-
-#ifndef CIFX_TOOLKIT_DISABLEPCI
-  int                     pci_ret;
-  PCIFX_DEVICE_INTERNAL_T info    = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
+  PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
   FUNC_TRACE("entry");
 
-  if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, 256, NULL)) )
-  {
-    DBG( "pci_device_cfg_write() returns %d\n", pci_ret);
+  if ( (!pvOSDependent) || (!pvPCIConfig) ) {
+      ERR( "Invalid pointer to PCI configuration space!\n");
+      return;
   }
-  free(pvPCIConfig);
-#endif
+
+#ifdef VFIO_SUPPORT
+
+  if (IS_VFIO_DEVICE(info)) {
+    if (pwrite( GET_VFIO_PARAM(info)->vfio_fd, pvPCIConfig, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) != 256) {
+      ERR( "Error writing PCI configuration space (ret=%d)!\n", errno);
+    }
+    free(pvPCIConfig);
+    return;
+  }
+#endif //VFIO_SUPPORT
+#ifndef CIFX_NO_PCIACCESS_LIB
+  {
+    int pci_ret;
+
+    if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, PCI_CONFIG_BUF_SIZE, NULL)) )
+    {
+      DBG( "pci_device_cfg_write() returns %d\n", pci_ret);
+    }
+    free(pvPCIConfig);
+  }
+#endif //CIFX_NO_PCIACCESS_LIB
 }
 
 /*****************************************************************************/

@@ -1083,7 +1083,7 @@ void cifx_ISA_unmap_dpm( void* dpmaddr, int dpmlen)
   munmap( dpmaddr, dpmlen);
 }
 
-#if defined(VFIO_SUPPORT) || !defined(CIFX_TOOLKIT_DISABLEPCI)
+#if defined(VFIO_SUPPORT) || !defined(CIFX_NO_PCIACCESS_LIB)
 int cifx_hil_pci_flash_based( int device_id, int subdevice_id) {
   if ( ((device_id == NETPLC100C_PCI_DEVICE_ID) && (subdevice_id == NETPLC100C_PCI_SUBYSTEM_ID_FLASH)) ||
        ((device_id == NETJACK100_PCI_DEVICE_ID) && (subdevice_id == NETJACK100_PCI_SUBYSTEM_ID_FLASH)) ||
@@ -1115,37 +1115,52 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
   /*****************************************************************************/
   static int match_pci_card(PDEVICEINSTANCE dev_instance, unsigned long ulPys_Addr)
   {
-    struct pci_device_iterator *pci_dev_it;
-    struct pci_device          *dev;
-    int                         ret        = 0;
+#ifdef VFIO_SUPPORT
+    PCIFX_DEVICE_INTERNAL_T internal = (PCIFX_DEVICE_INTERNAL_T)dev_instance->pvOSDependent;
 
-    static const struct pci_id_match id_match =
+    if (IS_VFIO_DEVICE(internal)) {
+      int ret = 0;
+      if ((ret = cifx_hil_pci_flash_based_by_path( GET_VFIO_PARAM(internal)->device_path)) >= 0) {
+        if (ret > 0)
+          dev_instance->eDeviceType = eCIFX_DEVICE_FLASH_BASED;
+
+        return 1;
+      }
+      return 0;
+    }
+#endif /* VFIO_SUPPORT */
+#if !defined(CIFX_NO_PCIACCESS_LIB)
     {
-      .vendor_id    = PCI_MATCH_ANY,
-      .device_id    = PCI_MATCH_ANY,
-      .subvendor_id = PCI_MATCH_ANY,
-      .subdevice_id = PCI_MATCH_ANY,
-    };
+      struct pci_device_iterator *pci_dev_it;
+      struct pci_device          *dev;
+      int                         ret        = 0;
 
-    pci_dev_it = pci_id_match_iterator_create(&id_match);
-
-    while( NULL != (dev = pci_device_next(pci_dev_it)) )
-    {
-      int bar;
-
-      pci_device_probe(dev);
-
-      for(bar = 0; bar < sizeof(dev->regions) / sizeof(dev->regions[0]); ++bar)
+      static const struct pci_id_match id_match =
       {
-        if(dev->regions[bar].base_addr == (pciaddr_t)ulPys_Addr)
+        .vendor_id    = PCI_MATCH_ANY,
+        .device_id    = PCI_MATCH_ANY,
+        .subvendor_id = PCI_MATCH_ANY,
+        .subdevice_id = PCI_MATCH_ANY,
+      };
+
+      pci_dev_it = pci_id_match_iterator_create(&id_match);
+
+      while( NULL != (dev = pci_device_next(pci_dev_it)) )
+      {
+        int bar;
+
+        pci_device_probe(dev);
+
+        for(bar = 0; bar < sizeof(dev->regions) / sizeof(dev->regions[0]); ++bar)
         {
           PCIFX_DEVICE_INTERNAL_T internal = (PCIFX_DEVICE_INTERNAL_T)dev_instance->pvOSDependent;
 
-          DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
-                dev->bus, dev->dev, dev->func,
-                dev->vendor_id, dev->device_id, dev->subvendor_id, dev->subdevice_id);
-
           if(dev->regions[bar].base_addr == (pciaddr_t)ulPys_Addr) {
+
+            DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
+                  dev->bus, dev->dev, dev->func,
+                  dev->vendor_id, dev->device_id, dev->subvendor_id, dev->subdevice_id);
+
             /* detect flash based card by device- and sub_device id  */
             if (dev->vendor_id == HILSCHER_PCI_VENDOR_ID) {
               if (cifx_hil_pci_flash_based( dev->device_id, dev->subdevice_id) == 1)
@@ -1157,13 +1172,25 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
           }
         }
       }
+
+      pci_iterator_destroy(pci_dev_it);
+
+      return ret;
     }
-
-    pci_iterator_destroy(pci_dev_it);
-
-    return ret;
+#else
+    {
+      if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      {
+        USER_Trace( dev_instance,
+                   TRACE_LEVEL_ERROR,
+                   "cifX Driver was compiled without PCI support. Unable to handle requested (uio based) PCI card @0x%lx!",
+                   ulPys_Addr);
+      }
+    }
+#endif /* CIFX_NO_PCIACCESS_LIB */
+    return 0;
   }
-#endif
+#endif /* defined(VFIO_SUPPORT) || !defined(CIFX_NO_PCIACCESS_LIB) */
 
 /*****************************************************************************/
 /*! Thread for cyclic Toolkit timer, which handles polling of COS bits on
@@ -1360,7 +1387,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 
     if(ptDevice->pci_card != 0)
     {
-#if defined(VFIO_SUPPORT) || !defined(CIFX_TOOLKIT_DISABLEPCI)
+#if defined(VFIO_SUPPORT) || !defined(CIFX_NO_PCIACCESS_LIB)
       /* Try to find the card on the PCI bus. If it is not found, deny to work with this card */
       if(!match_pci_card(ptDevInstance, ptDevice->dpmaddr))
       {
@@ -1376,14 +1403,6 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
       {
         ptDevInstance->fPCICard = 1;
         ret = CIFX_NO_ERROR;
-      }
-#else
-      if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
-      {
-        USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_ERROR,
-                   "cifX Driver was compiled without PCI support. Unable to handle requested PCI card @0x%lx!",
-                   ptDevice->dpmaddr);
       }
 #endif
     } else
