@@ -560,11 +560,11 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
               device->dma_buffer[device->dma_buffer_cnt].pvBuffer          = membase;
               memaddr += CIFX_DEFAULT_DMA_BUFFER_SIZE;
               membase += CIFX_DEFAULT_DMA_BUFFER_SIZE;
-#ifdef VERBOSE
-              printf("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
+
+              DBG("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
                      device->dma_buffer[device->dma_buffer_cnt].pvBuffer,
                      device->dma_buffer[device->dma_buffer_cnt].ulSize);
-#endif
+
               device->dma_buffer_cnt++;
               DMACounter--;
             }
@@ -579,12 +579,11 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
       free(namelist[num_map]);
     }
     free(namelist);
-#ifdef VERBOSE
+
     if (device->dma_buffer_cnt == 0) {
-      printf("\nThe uio_netx driver does not provide memory for DMA support!\n");
-      printf("If DMA is required, the uio_netx driver needs to be build with DMA support!\n\n");
+      DBG("\nThe uio_netx driver does not provide memory for DMA support!\n");
+      DBG("If DMA is required, the uio_netx driver needs to be build with DMA support!\n\n");
     }
-#endif
   }
 }
 
@@ -693,11 +692,11 @@ void cifx_ISA_unmap_dpm( void* dpmaddr, int dpmlen)
         if(dev->regions[bar].base_addr == (pciaddr_t)ulPys_Addr)
         {
           PCIFX_DEVICE_INTERNAL_T internal = (PCIFX_DEVICE_INTERNAL_T)dev_instance->pvOSDependent;
-  #ifdef VERBOSE
-          printf("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
+
+          DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
                 dev->bus, dev->dev, dev->func,
                 dev->vendor_id, dev->device_id, dev->subvendor_id, dev->subdevice_id);
-  #endif
+
           /* detect flash based card by device- and sub_device id  */
           if ( (dev->vendor_id == HILSCHER_PCI_VENDOR_ID) &&
                (
@@ -1579,9 +1578,7 @@ struct CIFX_DEVICE_T* cifXFindDevice(int iNum, int fCheckAccess)
           /* try to map extended memory */
           if (cifx_uio_map_ext_mem(uio_fd, uio_num, &extmembase, &extmemaddr, &extmemlen))
           {
-#ifdef VERBOSE
-              printf("Extended memory found at (0x%X - 0x%X)\n", (unsigned int)extmemaddr, (unsigned int)(extmemaddr + extmemlen));
-#endif
+            DBG("Extended memory found at (0x%X - 0x%X)\n", (unsigned int)extmemaddr, (unsigned int)(extmemaddr + extmemlen));
           }
 
           /* Build device structure */

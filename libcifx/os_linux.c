@@ -226,9 +226,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 
   if ((pci_ret = pci_device_cfg_read(&info->pci, pci_buf, 0, 256, NULL)) )
   {
-#ifdef VERBOSE
-    printf("libnetx: pci_read_block() returns %d\n", pci_ret);
-#endif
+    DBG("pci_device_cfg_read() returns %d\n", pci_ret);
     free( pci_buf);
     pci_buf = NULL;
   }
@@ -253,9 +251,7 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
 
   if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, 256, NULL)) )
   {
-#ifdef VERBOSE
-    printf("libnetx: pci_write_block() returns %d\n", pci_ret);
-#endif
+    DBG( "pci_device_cfg_write() returns %d\n", pci_ret);
   }
   free(pvPCIConfig);
 #endif
@@ -346,9 +342,7 @@ static void *netx_irq_thread(void *ptr) {
     }
     if (ret == 1) {
       uint32_t ulVal = 0;
-#ifdef VERBOSE_1
-      printf("IRQ @status_thread\n");
-#endif
+
       ret = cifXTKitISRHandler(info->devinstance, 1);
 
       switch(ret)
@@ -479,9 +473,8 @@ void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
   }
 
   *pulFileSize = buf.st_size;
-#ifdef VERBOSE
-  printf("opened: %s (%u bytes)\n", szFilename, *pulFileSize);
-#endif
+
+  DBG("opened: %s (%u bytes)\n", szFilename, *pulFileSize);
 
   return fdopen(fd, "r");
 }
