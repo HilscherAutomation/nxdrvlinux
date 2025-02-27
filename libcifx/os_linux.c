@@ -35,6 +35,15 @@
 #include "cifXErrors.h"
 #include "OS_Dependent.h"
 
+/* uncomment next line to trace all os function calls */
+//#define OS_FUNC_TRACE
+#ifdef OS_FUNC_TRACE
+  #define DEBUG
+  #define FUNC_TRACE(x) DBG(x)
+#else
+  #define FUNC_TRACE
+#endif
+
 #include "cifxlinux.h"
 #include "cifxlinux_internal.h"
 #include "cifXEndianess.h"
@@ -56,9 +65,8 @@ int32_t OS_Init(void)
 {
   int32_t ret = CIFX_NO_ERROR;
   int err = 0;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+
+  FUNC_TRACE("entry");
 
 #ifndef CIFX_TOOLKIT_DISABLEPCI
   if(0 != (err = pci_system_init()))
@@ -76,9 +84,7 @@ int32_t OS_Init(void)
 /*****************************************************************************/
 void OS_Deinit(void)
 {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
 #ifndef CIFX_TOOLKIT_DISABLEPCI
   pci_system_cleanup();
@@ -92,9 +98,9 @@ void OS_Deinit(void)
 /*****************************************************************************/
 void* OS_Memalloc(uint32_t ulSize) {
   void *mem_ptr;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+
+  FUNC_TRACE("entry");
+
   mem_ptr = malloc(ulSize);
 
   if( mem_ptr == NULL )
@@ -108,9 +114,7 @@ void* OS_Memalloc(uint32_t ulSize) {
 *     \param pvMem  Block to free                                            */
 /*****************************************************************************/
 void OS_Memfree(void* pvMem) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   free(pvMem);
 }
 
@@ -121,9 +125,7 @@ void OS_Memfree(void* pvMem) {
 *     \return NULL on error                                                  */
 /*****************************************************************************/
 void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   pvMem = realloc(pvMem, ulNewSize);
 
   if( (pvMem == NULL) && (ulNewSize != 0) )
@@ -139,9 +141,7 @@ void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize) {
 *     \param ulSize  Size of the fill block                                  */
 /*****************************************************************************/
 void OS_Memset(void* pvMem, unsigned char bFill, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   memset(pvMem, bFill, ulSize);
 }
 
@@ -154,9 +154,7 @@ void OS_Memset(void* pvMem, unsigned char bFill, uint32_t ulSize) {
 void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize) {
   uint32_t ulDestAlignment = (uint32_t)(unsigned long)pvDest & 0x03;
   uint32_t ulSrcAlignment  = (uint32_t)(unsigned long)pvSrc & 0x03;
-#ifdef VERBOSE_1
-  /* printf("%s() called\n", __FUNCTION__); */
-#endif
+  FUNC_TRACE("entry");
   uint8_t *pDest8 = (uint8_t*)pvDest;
   uint8_t *pSrc8 = (uint8_t*)pvSrc;
   if ( (ulDestAlignment == 0) &&
@@ -189,9 +187,7 @@ void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize) {
 *     \return 0 if blocks are equal                                          */
 /*****************************************************************************/
 int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return memcmp(pvBuf1, pvBuf2, ulSize);
 }
 
@@ -202,9 +198,7 @@ int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize) {
 *     \param ulSize  Size to move                                            */
 /*****************************************************************************/
 void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   pvDest = memmove(pvDest, pvSrc, ulSize);
 }
 
@@ -219,9 +213,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 
   int                     pci_ret;
   void                    *pci_buf;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   if(!pvOSDependent)
     return NULL;
 
@@ -257,9 +249,7 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
   int                     pci_ret;
   PCIFX_DEVICE_INTERNAL_T info    = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, 256, NULL)) )
   {
@@ -338,6 +328,8 @@ static void *netx_irq_thread(void *ptr) {
   int                     uio_irq   = 1;
   uint32_t                timeout   = 500;
 
+  FUNC_TRACE("entry");
+
   if(!info)
     return (void *) -1;
 
@@ -401,9 +393,8 @@ void OS_EnableInterrupts(void* pvOSDependent) {
   int                     ret  = 0;
   uint32_t                ulVal;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   pthread_attr_init(&info->irq_thread_attr);
   pthread_attr_setstacksize(&info->irq_thread_attr, PTHREAD_STACK_MIN + IRQ_STACK_MIN_SIZE);
 
@@ -451,9 +442,7 @@ void OS_DisableInterrupts(void* pvOSDependent) {
   PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
   uint32_t                ulVal;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   info->irq_stop = 1;
   pthread_join(info->irq_thread, NULL);
@@ -476,9 +465,7 @@ void OS_DisableInterrupts(void* pvOSDependent) {
 void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
   int         fd;
   struct stat buf;
-#ifdef VERBOSE_1
-  printf("%s(%s) called\n", __FUNCTION__, szFilename);
-#endif
+  FUNC_TRACE("entry");
   fd = open(szFilename, O_RDONLY);
   if( fd == -1 )
   {
@@ -509,9 +496,8 @@ void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
 /*****************************************************************************/
 uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset,
                           uint32_t ulSize, void* pvBuffer) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   return fread(pvBuffer, 1, ulSize, pvFile);
 }
 
@@ -520,9 +506,8 @@ uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset,
 *     \param pvFile    Handle to the file (acquired by OS_FileOpen)          */
 /*****************************************************************************/
 void OS_FileClose(void* pvFile) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   if( fclose(pvFile) != 0 )
     perror("FileClose failed");
 }
@@ -535,9 +520,8 @@ uint32_t OS_GetMilliSecCounter(void) {
   struct timespec ts_get_milli;
   unsigned int    msec_count;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   if( clock_gettime( CLOCK_MONOTONIC, &ts_get_milli ) != 0 )
   {
     perror("gettime failed");
@@ -600,9 +584,7 @@ void* OS_CreateMutex(void) {
   pthread_mutex_t     *mut = malloc(sizeof(pthread_mutex_t));
   pthread_mutexattr_t attr;
   int                 iRet;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( mut == NULL )
   {
@@ -661,9 +643,7 @@ int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   clock_gettime( CLOCK_REALTIME, &lock_ts );
 
   if (add_msec_to_timespec( &lock_ts, ulTimeout))
@@ -691,9 +671,7 @@ void OS_ReleaseMutex(void* pvMutex) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_unlock(mut)) != 0 )
   {
@@ -709,9 +687,7 @@ void OS_DeleteMutex(void* pvMutex) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_destroy(mut)) != 0 )
     ERR( "Delete mutex: %s\n", strerror(iRet));
@@ -728,9 +704,7 @@ void* OS_CreateLock(void) {
   pthread_mutex_t     *mutex;
   int                 iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   pthread_mutexattr_init(&mta);
   if( (iRet = pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE)) != 0 )
@@ -764,9 +738,7 @@ void OS_EnterLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_lock(mutex)) != 0)
   {
@@ -782,9 +754,7 @@ void OS_LeaveLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_unlock(mutex)) != 0)
   {
@@ -800,9 +770,7 @@ void OS_DeleteLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_destroy(mutex)) != 0 )
     ERR( "Delete lock: %s\n", strerror(iRet));
@@ -817,9 +785,7 @@ void OS_DeleteLock(void* pvLock) {
 *     \return 0 if strings are equal                                         */
 /*****************************************************************************/
 int OS_Strcmp(const char* pszBuf1, const char* pszBuf2) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strcmp(pszBuf1, pszBuf2);
 }
 
@@ -831,9 +797,7 @@ int OS_Strcmp(const char* pszBuf1, const char* pszBuf2) {
 *     \return 0 if strings are equal                                         */
 /*****************************************************************************/
 int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strncasecmp(pszBuf1, pszBuf2, ulLen);
 }
 
@@ -843,9 +807,7 @@ int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen) {
 *     \return Length of given string                                         */
 /*****************************************************************************/
 int OS_Strlen(const char* szText) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strlen(szText);
 }
 
@@ -857,9 +819,7 @@ int OS_Strlen(const char* szText) {
 *     \return Pointer to szDest                                              */
 /*****************************************************************************/
 char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLen) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strncpy(szDest, szSource, ulLen);
 }
 
@@ -874,9 +834,7 @@ char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLen) {
 /*****************************************************************************/
 void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
                 void** ppvMappedMem, void *os_dependent, unsigned char fCached) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   /* We don't need to do any mapping, as we are already in user space */
   *ppvMappedMem = pvDriverMem;
 
@@ -890,9 +848,7 @@ void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
 *     \return 0 on error                                                     */
 /*****************************************************************************/
 int OS_UnmapUserPointer(void* phMapping, void *os_dependent) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return 1;
 }
 
@@ -938,9 +894,7 @@ void* OS_CreateEvent(void) {
   pthread_mutexattr_t ev_mutattr;
   int                 iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( ev == NULL )
   {
@@ -995,9 +949,7 @@ void OS_SetEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( ev == NULL )
   {
@@ -1029,9 +981,7 @@ void OS_SetEvent(void* pvEvent) {
 /*****************************************************************************/
 void OS_ResetEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   if( ev == NULL )
   {
     ERR( "ResetEvent, no event given\n");
@@ -1052,9 +1002,7 @@ void OS_ResetEvent(void* pvEvent) {
 void OS_DeleteEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
   int             iRet;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_cond_destroy(&(ev->cond)) ) != 0 )
     ERR( "Delete event cond: %s\n", strerror(iRet));
@@ -1075,9 +1023,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout) {
   struct os_event *ev = (struct os_event *) pvEvent;
   struct timespec timeout;
   unsigned long   ret = CIFX_EVENT_TIMEOUT;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( clock_gettime(CLOCK_MONOTONIC, &timeout) != 0 )
   {
@@ -1125,6 +1071,8 @@ uint32_t OS_Time( uint32_t *ptTime)
 {
   struct timeval tCurrentTime = {0};
   time_t         tSecSince1970 = 0;
+
+  FUNC_TRACE("entry");
 
   /* get local time */
   if (0 == gettimeofday( &tCurrentTime, NULL))
