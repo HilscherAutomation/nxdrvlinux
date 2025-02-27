@@ -26,6 +26,22 @@
 #include <stdio.h>
 #include "cifXToolkit.h"
 
+#define FORMAT_STR(fmt) "%s: " fmt "\n"
+#define ERR(fmt, ...)  do { \
+                         if (g_ulTraceLevel & TRACE_LEVEL_ERROR) { \
+                           fprintf( stderr, FORMAT_STR(fmt), __func__, ##__VA_ARGS__); \
+                         } \
+                        } while (0)
+#if defined(VERBOSE) || defined(DEBUG)
+  #define DBG(fmt, ...)  do { \
+                           if (g_ulTraceLevel & TRACE_LEVEL_DEBUG) { \
+                             fprintf( stdout, FORMAT_STR(fmt), __func__, ##__VA_ARGS__); \
+                           } \
+                         } while (0)
+#else
+  #define DBG(fmt, ...)
+#endif
+
 extern void* g_eth_list_lock;
 
 typedef struct CIFX_DEVICE_INTERNAL_Ttag

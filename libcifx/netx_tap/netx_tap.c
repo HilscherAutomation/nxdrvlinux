@@ -43,6 +43,7 @@
 #include "cifXErrors.h"
 #include "cifXHWFunctions.h"
 #include "netx_tap.h"
+#include "cifxlinux_internal.h"
 
 #define TUNTAP_DEVICEPATH    "/dev/net/tun"
 
@@ -208,7 +209,7 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
 
       if(CIFX_NO_ERROR != (cifx_error = xDriverOpen( &internal_dev->cifx_driver)))
       {
-        fprintf(stderr, "Ethernet-IF Error: %s: Error opening cifX Device Driver (Ret=0x%08X)\n", __TIME__, cifx_error);
+        ERR( "Error opening cifX Device Driver (Ret=0x%08X)\n", cifx_error);
 
       } else if(CIFX_NO_ERROR == (cifx_error = xChannelOpen(internal_dev->cifx_driver,
                                                             config->cifx_name,
@@ -279,7 +280,7 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
         }
       } else
       {
-        fprintf(stderr, "Ethernet-IF Error: %s: Error opening cifX Ethernet Channel (Board=%s, Channel=%u, Errror=0x%08X)\n", __TIME__,
+        ERR( "Error opening cifX Ethernet Channel (Board=%s, Channel=%u, Errror=0x%08X)\n",
                 config->cifx_name, internal_dev->channel_no, cifx_error);
       }
       if(NULL == ret)
@@ -453,13 +454,13 @@ int32_t cifxeth_search_eth_channel( char*  szDeviceName,
 
   if (CIFX_NO_ERROR != xDriverOpen(&hDriver))
   {
-    fprintf( stderr, "Ethernet-IF Error: %s: Error opening driver to for ethernet interface (lRet=0x%08X)\n",__TIME__,lRet);
+    ERR( "Error opening driver to for ethernet interface (lRet=0x%08X)\n", lRet);
     /* Check if we have a channel that might be used for Ethernet / NDIS */
   } else if(CIFX_NO_ERROR != (lRet = xSysdeviceOpen( hDriver,
                                               szDeviceName,
                                               &hSysdevice)))
   {
-    fprintf( stderr, "Ethernet-IF Error: %s: Error opening system device to read channel info block to detect channels usable for ethernet interface (lRet=0x%08X). - %s\n",__TIME__,lRet, szDeviceName);
+    ERR( "Error opening system device to read channel info block to detect channels usable for ethernet interface (lRet=0x%08X). - %s\n",lRet, szDeviceName);
   } else
   {
     /* Read channel information block */

@@ -63,7 +63,7 @@ int32_t OS_Init(void)
 #ifndef CIFX_TOOLKIT_DISABLEPCI
   if(0 != (err = pci_system_init()))
   {
-    fprintf( stderr, "Error initializing PCI access subsystem (pci_system_init=%d)", err);
+    ERR( "Error initializing PCI access subsystem (pci_system_init=%d)", err);
     ret = CIFX_FUNCTION_FAILED;
   }
 #endif
@@ -412,7 +412,7 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedpolicy(&info->irq_thread_attr, info->irq_scheduler_algo)) != 0)
     {
-      fprintf( stderr, "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
+      ERR( "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
     }
   }
 
@@ -424,14 +424,14 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedparam(&info->irq_thread_attr, &sched_param)) != 0)
     {
-      fprintf( stderr, "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
+      ERR( "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
     }
   }
 
   if( (ret = pthread_create( &info->irq_thread, &info->irq_thread_attr, netx_irq_thread,
                       (void*)info )) != 0 )
   {
-    fprintf( stderr, "Enabling Interrupts (pthread_create=%d)", ret);
+    ERR( "Enabling Interrupts (pthread_create=%d)", ret);
   } else
   {
     info->irq_stop = 0;
@@ -611,12 +611,12 @@ void* OS_CreateMutex(void) {
   }
   if( (iRet = pthread_mutexattr_init(&attr)) != 0 )
   {
-    fprintf( stderr, "Mutex init attr: %s\n", strerror(iRet));
+    ERR( "Mutex init attr: %s\n", strerror(iRet));
     goto err_out;
   }
   if( (iRet = pthread_mutex_init(mut, &attr)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto err_out;
   }
   return (void*) mut;
@@ -668,14 +668,14 @@ int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout) {
 
   if (add_msec_to_timespec( &lock_ts, ulTimeout))
   {
-    fprintf( stderr, "OS_WaitMutex(): Faild to calculate time to block\n");
+    ERR( "Faild to calculate time to block\n");
     return 0;
   } else
   {
     if( (iRet = pthread_mutex_timedlock(mut, &lock_ts)) != 0 )
     {
       if (iRet != ETIMEDOUT)
-        fprintf( stderr, "Mutex wait: %s\n", strerror(iRet));
+        ERR( "Mutex wait: %s\n", strerror(iRet));
 
       return 0;
     }
@@ -697,7 +697,7 @@ void OS_ReleaseMutex(void* pvMutex) {
 
   if( (iRet = pthread_mutex_unlock(mut)) != 0 )
   {
-    fprintf( stderr, "Mutex unlock: %s\n", strerror(iRet));
+    ERR( "Mutex unlock: %s\n", strerror(iRet));
   }
 }
 
@@ -714,7 +714,7 @@ void OS_DeleteMutex(void* pvMutex) {
 #endif
 
   if( (iRet = pthread_mutex_destroy(mut)) != 0 )
-    fprintf( stderr, "Delete mutex: %s\n", strerror(iRet));
+    ERR( "Delete mutex: %s\n", strerror(iRet));
 
   free(mut);
 }
@@ -735,7 +735,7 @@ void* OS_CreateLock(void) {
   pthread_mutexattr_init(&mta);
   if( (iRet = pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE)) != 0 )
   {
-    fprintf( stderr, "Mutex set attr: %s\n", strerror(iRet));
+    ERR( "Mutex set attr: %s\n", strerror(iRet));
     return NULL;
   }
   mutex = malloc( sizeof(pthread_mutex_t) );
@@ -746,7 +746,7 @@ void* OS_CreateLock(void) {
   }
   if( (iRet = pthread_mutex_init(mutex, &mta)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto err_out;
   }
   return mutex;
@@ -770,7 +770,7 @@ void OS_EnterLock(void* pvLock) {
 
   if( (iRet = pthread_mutex_lock(mutex)) != 0)
   {
-    fprintf( stderr, "EnterLock failed: %s\n", strerror(iRet));
+    ERR( "EnterLock failed: %s\n", strerror(iRet));
   }
 }
 
@@ -788,7 +788,7 @@ void OS_LeaveLock(void* pvLock) {
 
   if( (iRet = pthread_mutex_unlock(mutex)) != 0)
   {
-    fprintf( stderr, "Mutex unlock: %s\n", strerror(iRet));
+    ERR( "Mutex unlock: %s\n", strerror(iRet));
   }
 }
 
@@ -805,7 +805,7 @@ void OS_DeleteLock(void* pvLock) {
 #endif
 
   if( (iRet = pthread_mutex_destroy(mutex)) != 0 )
-    fprintf( stderr, "Delete lock: %s\n", strerror(iRet));
+    ERR( "Delete lock: %s\n", strerror(iRet));
 
   free(mutex);
 }
@@ -950,7 +950,7 @@ void* OS_CreateEvent(void) {
 
   if( (iRet = pthread_condattr_init( &ev_attr )) != 0 )
   {
-    fprintf( stderr, "Cond init attr: %s\n", strerror(iRet));
+    ERR( "Cond init attr: %s\n", strerror(iRet));
     goto free_out;
   }
 
@@ -958,22 +958,22 @@ void* OS_CreateEvent(void) {
 
   if( (iRet = pthread_cond_init( &(ev->cond), &ev_attr )) != 0 )
   {
-    fprintf( stderr, "Cond init: %s\n", strerror(iRet));
+    ERR( "Cond init: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutexattr_init(&ev_mutattr)) != 0 )
   {
-    fprintf( stderr, "Mutex init attr: %s\n", strerror(iRet));
+    ERR( "Mutex init attr: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutexattr_setprotocol(&ev_mutattr, PTHREAD_PRIO_INHERIT)) != 0 )
   {
-    fprintf( stderr, "Mutex set attr: %s\n", strerror(iRet));
+    ERR( "Mutex set attr: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutex_init(&(ev->mutex), &ev_mutattr)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto free_out;
   }
 
@@ -1001,7 +1001,7 @@ void OS_SetEvent(void* pvEvent) {
 
   if( ev == NULL )
   {
-    fprintf(stderr, "SetEvent, no event given\n");
+    ERR( "SetEvent, no event given\n");
   } else
   {
     pthread_mutex_lock(&ev->mutex);
@@ -1014,7 +1014,7 @@ void OS_SetEvent(void* pvEvent) {
       if(ev->waiting_threads > 0)
       {
         if( (iRet = pthread_cond_signal(&(ev->cond))) != 0 )
-          fprintf( stderr, "SetEvent: %s\n", strerror(iRet));
+          ERR( "SetEvent: %s\n", strerror(iRet));
 
       }
     }
@@ -1034,7 +1034,7 @@ void OS_ResetEvent(void* pvEvent) {
 #endif
   if( ev == NULL )
   {
-    fprintf(stderr, "ResetEvent, no event given\n");
+    ERR( "ResetEvent, no event given\n");
   } else
   {
     pthread_mutex_lock(&ev->mutex);
@@ -1057,10 +1057,10 @@ void OS_DeleteEvent(void* pvEvent) {
 #endif
 
   if( (iRet = pthread_cond_destroy(&(ev->cond)) ) != 0 )
-    fprintf( stderr, "Delete event cond: %s\n", strerror(iRet));
+    ERR( "Delete event cond: %s\n", strerror(iRet));
 
   if( (iRet = pthread_mutex_destroy(&(ev->mutex)) ) != 0 )
-    fprintf( stderr, "Delete mutex: %s\n", strerror(iRet));
+    ERR( "Delete mutex: %s\n", strerror(iRet));
 
   free(ev);
 }
@@ -1086,7 +1086,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout) {
   {
     if (add_msec_to_timespec( &timeout, ulTimeout))
     {
-      fprintf( stderr, "OS_WaitEvent(): Faild to calculate time to block\n");
+      ERR( "Faild to calculate time to block\n");
       return ret;
     }
 

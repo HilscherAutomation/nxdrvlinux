@@ -24,15 +24,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include "cifxlinux.h"
-
-/******************************************************************************/
-/*** GLOBAL DEFINITIONS *******************************************************/
-/******************************************************************************/
-#if defined(VERBOSE) || defined(DEBUG)
-#define DBG(fmt, ...)  printf(fmt, ##__VA_ARGS__)
-#else
-#define DBG(fmt, ...)
-#endif
+#include "cifxlinux_internal.h"
 
 #define CHECK_STATE /* enable error message in case of dpm status changes to != 0x11 (printed to stderr) */
 
@@ -118,7 +110,7 @@ static void EnterLock(void* pvLock) {
 
   if( (iRet = pthread_mutex_lock(mutex)) != 0)
   {
-    fprintf( stderr, "Locking failed: %s\n", strerror(iRet));
+    ERR( "Locking failed: %s\n", strerror(iRet));
   }
 }
 
@@ -132,7 +124,7 @@ static void LeaveLock(void* pvLock) {
 
   if( (iRet = pthread_mutex_unlock(mutex)) != 0)
   {
-    fprintf( stderr, "Unlock failed: %s\n", strerror(iRet));
+    ERR( "Unlock failed: %s\n", strerror(iRet));
   }
 }
 
@@ -167,12 +159,12 @@ static int SPITransferMessage(struct SPI_PARAM_T* ptSPIParam, uint8_t *pbData, u
   tSPITransfer.cs_change = fCSChange;
 
   if(0 > (ret = ioctl( ptSPIParam->iSPIFD, SPI_IOC_MESSAGE(1), &tSPITransfer)))
-    fprintf(stderr, "SPITransferMessage: Failed to transfer message on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPITransferMessage: Failed to transfer message on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
 #ifdef CHECK_STATE
   if (0x11 != pbData[0]) {
     ret = -EAGAIN;
-    fprintf(stderr, "DPM status changed 0x%X (OK => 0x11)!\n", pbData[0]);
+    ERR( "DPM status changed 0x%X (OK => 0x11)!\n", pbData[0]);
   }
 #endif
 
@@ -198,7 +190,7 @@ static void SPIReadChunk( struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
 
   /* Check buffer size */
   if(*(uint16_t*)ptSPIParam->pabRXBuffer < ulLen) {
-    fprintf(stderr, "SPIReadChunk: RX SPI buffer is too small\n");
+    ERR( "SPIReadChunk: RX SPI buffer is too small\n");
     return;
   }
 
@@ -215,7 +207,7 @@ static void SPIReadChunk( struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   ret = SPITransferMessage(ptSPIParam, (uint8_t*)ptSPIRDMsg, ulLen+4, ptSPIParam->bCSChange);
 #ifdef CHECK_STATE
   if (0>ret) {
-    fprintf(stderr, "Error SPIReadChunk: DPM Addr=0x%X / Len=0x%X\n", ulDpmAddr, ulLen) ;
+    ERR( "Error SPIReadChunk: DPM Addr=0x%X / Len=0x%X\n", ulDpmAddr, ulLen) ;
   }
 #endif
 
@@ -242,7 +234,7 @@ static void SPIWriteChunk(struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
 
   /* Check buffer size */
   if(*(uint16_t*)ptSPIParam->pabTXBuffer < ulLen) {
-    fprintf(stderr, "SPIWriteChunk: TX SPI buffer is too small\n");
+    ERR( "SPIWriteChunk: TX SPI buffer is too small\n");
     return;
   }
 
@@ -259,7 +251,7 @@ static void SPIWriteChunk(struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   ret = SPITransferMessage(ptSPIParam, (uint8_t*)ptSPIWRMsg, ulLen+3, ptSPIParam->bCSChange);
 #ifdef CHECK_STATE
   if (0>ret) {
-    fprintf(stderr, "Error SPIWriteChunk: DPM Addr=0x%X / Len=0x%X\n", ulDpmAddr, ulLen) ;
+    ERR( "Error SPIWriteChunk: DPM Addr=0x%X / Len=0x%X\n", ulDpmAddr, ulLen) ;
   }
 #endif
 
@@ -394,7 +386,7 @@ int32_t DoDummyRead( struct SPI_PARAM_T* ptSPIParam)
 
     /* issue dummy transfer */
     if(0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_MESSAGE(1), &tSPITransfer))) {
-      fprintf( stderr, "SPIHWIFInit: Failed to send message on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+      ERR( "SPIHWIFInit: Failed to send message on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
       ptSPIParam->iError = errno;
     } else {
       if(bRetry == 0) {
@@ -408,8 +400,8 @@ int32_t DoDummyRead( struct SPI_PARAM_T* ptSPIParam)
         /* check if DPM is in the correct status (serial DPM enabled and unlocked) */
         if(abData[0] != 0x11) {
           lRet = CIFX_FUNCTION_FAILED;
-          fprintf( stderr, "SPIHWIFInit: Failed to read from serial DPM. Incorrect DPM status of SPI device '%s' (0x%X).\n", ptSPIParam->szName, abData[0]);
-          fprintf( stderr, "SPIHWIFInit: Check the SPI connection and the serial DPM configuration of the device connected on '%s'.\n", ptSPIParam->szName);
+          ERR( "SPIHWIFInit: Failed to read from serial DPM. Incorrect DPM status of SPI device '%s' (0x%X).\n", ptSPIParam->szName, abData[0]);
+          ERR( "SPIHWIFInit: Check the SPI connection and the serial DPM configuration of the device connected on '%s'.\n", ptSPIParam->szName);
         } else {
           ptSPIParam->ulUDelay = 0;
           ptSPIParam->eState   = eInitialized;
@@ -435,7 +427,7 @@ static int32_t SPIHWIFInit(struct CIFX_DEVICE_T* ptDevice)
   DBG("++SPIHWIFInit\n");
 
   if (NULL == ptSPIParam) {
-    fprintf(stderr, "SPIHWIFInit: Invalid initialization parameter for SPI device '%s'\n", ptSPIParam->szName);
+    ERR( "SPIHWIFInit: Invalid initialization parameter for SPI device '%s'\n", ptSPIParam->szName);
     DBG("--SPIHWIFInit\n");
     return CIFX_INVALID_PARAMETER;
   }
@@ -444,33 +436,33 @@ static int32_t SPIHWIFInit(struct CIFX_DEVICE_T* ptDevice)
 
   if (0 > (ptSPIParam->iSPIFD = open(ptSPIParam->szName, O_RDWR))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to open SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to open SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
     DBG("--SPIHWIFInit\n");
     return CIFX_FILE_OPEN_FAILED;
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_WR_MODE, &ptSPIParam->bMode))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_WR_MODE' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_WR_MODE' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_RD_MODE, &ptSPIParam->bMode))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_RD_MODE' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_RD_MODE' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_WR_BITS_PER_WORD, &ptSPIParam->bBits))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_WR_BITS_PER_WORD' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_WR_BITS_PER_WORD' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_RD_BITS_PER_WORD, &ptSPIParam->bBits))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_RD_BITS_PER_WORD' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_RD_BITS_PER_WORD' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_WR_MAX_SPEED_HZ, &ptSPIParam->ulSpeed))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_WR_MAX_SPEED_HZ' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_WR_MAX_SPEED_HZ' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_RD_MAX_SPEED_HZ, &ptSPIParam->ulSpeed))) {
     ptSPIParam->iError = errno;
-    fprintf( stderr, "SPIHWIFInit: Failed to set 'SPI_IOC_RD_MAX_SPEED_HZ' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
+    ERR( "SPIHWIFInit: Failed to set 'SPI_IOC_RD_MAX_SPEED_HZ' on SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
 
   } else {/* successfuly initialized SPI interface */
     /* create SPI access lock */
@@ -537,14 +529,14 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   /* Allocate memory for the cifX device */
   ptSPIDev = calloc( 1, sizeof(*ptSPIDev));
   if(ptSPIDev == NULL) {
-    fprintf(stderr, "SDPMInit: Allocate memory for the cifX device\n");
+    ERR( "SDPMInit: Allocate memory for the cifX device\n");
     goto error_out;
   }
 
   /* Allocate zero initialized memory for the SPI device */
   ptSPIParam = calloc(1, sizeof(*ptSPIParam));
   if(ptSPIParam == NULL) {
-    fprintf(stderr, "SDPMInit: Allocate memory for SPI parameters\n");
+    ERR( "SDPMInit: Allocate memory for SPI parameters\n");
     goto error_out;
   }
 
@@ -565,14 +557,14 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   }
   lFd = open(pszSPIDevice, O_RDWR);
   if (lFd < 0) {
-    fprintf(stderr, "SDPMInit: Invalid or missing SPI device(%s)\n", pszSPIDevice);
+    ERR( "SDPMInit: Invalid or missing SPI device(%s)\n", pszSPIDevice);
     goto error_out;
   }
   close(lFd);
 
   /* Check for a valid SPI mode */
   if((bMode < SPI_MODE_0) || (SPI_MODE_3 < bMode)) {
-    fprintf(stderr, "SDPMInit: Invalid SPI mode (%d <= x <= %u)\n", SPI_MODE_0, SPI_MODE_3);
+    ERR( "SDPMInit: Invalid SPI mode (%d <= x <= %lu)\n", SPI_MODE_0, SPI_MODE_3);
     goto error_out;
   }
 
@@ -581,7 +573,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   if(pszIRQFile != NULL) {
     lFd = open(pszIRQFile, O_RDONLY|O_NONBLOCK);
     if(lFd < 0) {
-      fprintf(stderr, "SDPMInit: Invalid SPI IRQ file (%s). Fallback to polling!\n", pszIRQFile);
+      ERR( "SDPMInit: Invalid SPI IRQ file (%s). Fallback to polling!\n", pszIRQFile);
     }
   }
 
@@ -632,7 +624,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   /* Allocate buffer for TX SPI-transfers */
   ptSPIParam->pabTXBuffer = malloc(2+DEFAULT_BUFFER_SIZE+3); /* Length field (required by SPIWriteChunk) and SPI header are included */
   if(ptSPIParam->pabTXBuffer == NULL) {
-    fprintf(stderr, "SDPMInit: Allocate memory for the TX buffer\n");
+    ERR( "SDPMInit: Allocate memory for the TX buffer\n");
     goto error_out;
   }
   *(uint16_t*)ptSPIParam->pabTXBuffer = DEFAULT_BUFFER_SIZE; /* store buffer length */
@@ -640,7 +632,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   /* Allocate buffer for RX SPI-transfers */
   ptSPIParam->pabRXBuffer = malloc(2+DEFAULT_BUFFER_SIZE+4); /* Length field (required by SPIReadChunk) and SPI header are included */
   if(ptSPIParam->pabRXBuffer == NULL) {
-    fprintf(stderr, "SDPMInit: Allocate memory for the RX buffer\n");
+    ERR( "SDPMInit: Allocate memory for the RX buffer\n");
     goto error_out;
   }
   *(uint16_t*)ptSPIParam->pabRXBuffer = DEFAULT_BUFFER_SIZE; /* store buffer length */

@@ -140,6 +140,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cifx.pc DESTINATION ${CMAKE_INSTALL_PR
 
 # can't add it as subdir as long it's one above
 if (SPM_PLUGIN)
-    set(CIFX_HEADER ${tk_dir}/Common/cifXAPI/ ${src_dir}/)
+    set(CIFX_HEADER ${tk_dir}/Common/cifXAPI/ ${tk_dir}/Common/HilscherDefinitions/ ${tk_dir}/Source/  ${src_dir}/)
     include(${src_dir}/../plugins/netx-spm/CMakeLists.txt)
 endif(SPM_PLUGIN)

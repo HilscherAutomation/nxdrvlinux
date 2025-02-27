@@ -27,9 +27,6 @@ extern "C"
 #define LINUXCIFXDRV_VERSION  LIBRARYNAME VERSION_INFO
 
 #define APIENTRY
-#ifdef CIFX_TOOLKIT_HWIF
-#include "cifXHWFunctions.h"
-#endif
 #include "cifXUser.h"
 #include "cifXErrors.h"
 
