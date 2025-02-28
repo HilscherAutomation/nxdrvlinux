@@ -148,7 +148,6 @@ static int kbhit()
 
   if(ch != EOF)
   {
-    ungetc(ch, stdin);
     iRet = 1;
   }
   return iRet;
