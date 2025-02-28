@@ -123,8 +123,8 @@ target_sources( cifx
         ${NETXTAP_SOURCES}
 )
 
-# removes warning about snprintf buffer truncation
-set_target_properties(cifx PROPERTIES COMPILE_FLAGS -Wformat-truncation=0)
+# -Wformat-truncation=0 removes warning about snprintf buffer truncation
+set_target_properties(cifx PROPERTIES COMPILE_FLAGS "-Wformat-truncation=0 -Wall -Wextra -Wpedantic")
 
 # configure pkgconfig file
 set(prefix       ${CMAKE_INSTALL_PREFIX})

@@ -47,7 +47,7 @@
   #define DEBUG
   #define FUNC_TRACE(x) DBG(x)
 #else
-  #define FUNC_TRACE
+  #define FUNC_TRACE(x) //no function trace
 #endif
 
 #include "cifxlinux.h"
@@ -74,15 +74,18 @@
 int32_t OS_Init(void)
 {
   int32_t ret = CIFX_NO_ERROR;
-  int err = 0;
 
   FUNC_TRACE("entry");
 
 #ifndef CIFX_NO_PCIACCESS_LIB
-  if(0 != (err = pci_system_init()))
   {
-    ERR( "Error initializing PCI access subsystem (pci_system_init=%d)", err);
-    ret = CIFX_FUNCTION_FAILED;
+    int err = 0;
+
+    if(0 != (err = pci_system_init()))
+    {
+      ERR( "Error initializing PCI access subsystem (pci_system_init=%d)", err);
+      ret = CIFX_FUNCTION_FAILED;
+    }
   }
 #endif
 
@@ -221,6 +224,9 @@ void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize) {
 *     \return Pointer to configuration data (passed to WritePCIConfig)       */
 /*****************************************************************************/
 void* OS_ReadPCIConfig(void* pvOSDependent) {
+#if !defined(VFIO_SUPPORT) && defined(CIFX_NO_PCIACCESS_LIB)
+  (void)pvOSDependent;
+#else
   PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
   FUNC_TRACE("entry");
@@ -262,6 +268,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
     return pci_buf;
   }
 #endif /* CIFX_NO_PCIACCESS_LIB */
+#endif /* !defined(VFIO_SUPPORT) && !defined(CIFX_NO_PCIACCESS_LIB) */
   return NULL;
 }
 
@@ -271,6 +278,10 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 *     \param pvPCIConfig   Pointer returned from ReadPCIConfig               */
 /*****************************************************************************/
 void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
+#if !defined(VFIO_SUPPORT) && defined(CIFX_NO_PCIACCESS_LIB)
+  (void)pvOSDependent;
+  (void)pvPCIConfig;
+#else
   PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
   FUNC_TRACE("entry");
@@ -289,7 +300,7 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
     free(pvPCIConfig);
     return;
   }
-#endif //VFIO_SUPPORT
+#endif /* VFIO_SUPPORT */
 #ifndef CIFX_NO_PCIACCESS_LIB
   {
     int pci_ret;
@@ -300,7 +311,8 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
     }
     free(pvPCIConfig);
   }
-#endif //CIFX_NO_PCIACCESS_LIB
+#endif /* CIFX_NO_PCIACCESS_LIB */
+#endif /* !defined(VFIO_SUPPORT) && defined(CIFX_NO_PCIACCESS_LIB) */
 }
 
 /*****************************************************************************/
@@ -953,6 +965,11 @@ char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLen) {
 void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
                 void** ppvMappedMem, void *os_dependent, unsigned char fCached) {
   FUNC_TRACE("entry");
+
+  (void)ulMemSize;
+  (void)os_dependent;
+  (void)fCached;
+
   /* We don't need to do any mapping, as we are already in user space */
   *ppvMappedMem = pvDriverMem;
 
@@ -967,6 +984,10 @@ void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
 /*****************************************************************************/
 int OS_UnmapUserPointer(void* phMapping, void *os_dependent) {
   FUNC_TRACE("entry");
+
+  (void)phMapping;
+  (void)os_dependent;
+
   return 1;
 }
 
@@ -978,6 +999,8 @@ int OS_UnmapUserPointer(void* phMapping, void *os_dependent) {
 /*****************************************************************************/
 void OS_InvalidateCacheMemory_FromDevice(void* pvCachedMemPtr, unsigned long ulMemSize) {
   /* not implemented yet */
+  (void)pvCachedMemPtr;
+  (void)ulMemSize;
 }
 
 /*****************************************************************************/
@@ -988,6 +1011,8 @@ void OS_InvalidateCacheMemory_FromDevice(void* pvCachedMemPtr, unsigned long ulM
 void OS_FlushCacheMemory_ToDevice(void* pvMem, unsigned long ulMemSize)
 {
   /* not implemented yet */
+  (void)pvMem;
+  (void)ulMemSize;
 }
 
 /*****************************************************************************/

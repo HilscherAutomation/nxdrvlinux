@@ -79,6 +79,13 @@ static SLIST_HEAD(PLUGIN_LIST, CIFX_PLUGIN_T) s_tPluginList = SLIST_HEAD_INITIAL
 
 #endif
 
+static char* s_cifx_device_type_str[] = { "uio",
+                                          "spi",
+#ifdef VFIO_SUPPORT
+                                          "vfio",
+#endif
+                                          "unknown"};
+
 #define COS_THREAD_STACK_MIN  0x1000  /* Stack size needed by Thread for
                                          handling Toolkit's cyclic actions */
 
@@ -105,8 +112,10 @@ static unsigned short polling_thread_stop    = 0;
   void* HWIFDPMWrite( uint32_t ulOpt, void* pvDevInstance, void* pvDpmAddr, void* pvSrc, uint32_t ulLen);
 #endif
 
-static void cifx_unmap_dma_buffer(struct CIFX_DEVICE_T *device);
-static int sysfs_get_pci_id( char* dev_path, char* file, int* id);
+#ifdef CIFX_TOOLKIT_DMA
+  static void cifx_unmap_dma_buffer(struct CIFX_DEVICE_T *device);
+#endif
+static int sysfs_get_pci_id( char* dev_path, char* file, unsigned int* id);
 static int pci_get_hilscher_device_id_by_idx( int index, char* device_id, uint32_t name_len, int full_path);
 
 /*****************************************************************************/
@@ -263,7 +272,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
     goto alloc_err;
   }
 
-  pfd->container -1;
+  pfd->container = -1;
   pfd->group = -1;
   pfd->vfio_fd = -1;
 
@@ -289,7 +298,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
     goto open_err;
   }
 
-  if (!ioctl(pfd->container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU) < 0) {
+  if (ioctl(pfd->container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU) < 0) {
     ret = -EINVAL;
     ERR( "Error - expecting \"VFIO_TYPE1_IOMMU\" support!\n");
     goto open_err;
@@ -395,6 +404,10 @@ static int cifx_open( char* path, int dev_type, int dev_num, int fCheckAccess, s
 {
   if (device == NULL)
     return -EINVAL;
+
+#ifndef VFIO_SUPPORT
+  (void)path;
+#endif
 
   if (dev_type == eCIFX_DEVICE_TYPE_UIO) {
     if ((device->uio_fd = cifx_uio_open( dev_num, fCheckAccess)) >= 0) {
@@ -649,9 +662,9 @@ char* cifx_uio_get_device_alias(int uio_num)
   {
     if (1==fscanf(file,"%s",ret)) {
       char* buf = strstr(ret, ",");
-      if ((buf != NULL) && ((buf+1-ret)<strlen(ret))) {
+      if ((buf != NULL) && ((long unsigned int)(buf+1-ret)<strlen(ret))) {
         buf = strstr(buf+1, ",");
-        if ((buf != NULL) && ((buf+1-ret)<strlen(ret))) {
+        if ((buf != NULL) && ((long unsigned int)(buf+1-ret)<strlen(ret))) {
           if (strcmp((buf+1),"-") != 0) {
             alias = (char*)malloc(CIFx_MAX_INFO_NAME_LENTH);
             sprintf(alias,"%s",buf+1);
@@ -684,7 +697,7 @@ CIFX_TOOLKIT_DEVICETYPE_E cifx_uio_get_device_startuptype(int uio_num)
   {
     if (1==fscanf(file,"%s",buf)) {
       next = strstr(buf, ",");
-      if ((next != NULL) && ((next+1-buf)<strlen(buf))) {
+      if ((next != NULL) && ((long unsigned int)(next+1-buf)<strlen(buf))) {
         char* end = strstr(next+1, ",");
         next+=1;
         if (end != NULL) {
@@ -756,9 +769,8 @@ int cifx_uio_validate_name(int uio_num, const char* name)
 *     \param ret_val     pointer returning the requested parameter
 *     \return 0 on success or < 0 on error                                   */
 /*****************************************************************************/
-static int vfio_get_pci_resource( char* device_path, uint8_t resource, uint8_t param, long* ret_val) {
+static int vfio_get_pci_resource( char* device_path, uint8_t resource, uint8_t param, unsigned long* ret_val) {
   int ret = -EINVAL;
-  long val = 0;
   char tmp_buf[1024];
   char* pb = tmp_buf;
   FILE *fs = NULL;
@@ -795,7 +807,7 @@ static int vfio_get_pci_resource( char* device_path, uint8_t resource, uint8_t p
 *     \param size     pointer returning the region size on success
 *     \return 0 on success or < 0 on error                                   */
 /*****************************************************************************/
-int cifx_vfio_get_region_size( struct CIFX_DEVICE_T* device, int region, long* size) {
+int cifx_vfio_get_region_size( struct CIFX_DEVICE_T* device, int region, long unsigned int* size) {
   int ret = -EINVAL;
   struct vfio_fd* pfd = GET_VFIO_PARAM_FROM_DEV(device);
   struct vfio_region_info reg = { .argsz = sizeof(reg),
@@ -874,8 +886,8 @@ static int cifx_uio_map_mem(int uio_fd, int uio_num,
 {
   int ret = -EINVAL;
 
-  if( (~0 != (*memaddr = cifx_uio_get_mem_addr(uio_num, map_num))) &&
-      (~0 != (*memlen  = cifx_uio_get_mem_size(uio_num, map_num))) )
+  if( (~0UL != (*memaddr = cifx_uio_get_mem_addr(uio_num, map_num))) &&
+      (~0UL != (*memlen  = cifx_uio_get_mem_size(uio_num, map_num))) )
   {
     *membase = mmap(NULL, *memlen,
                     PROT_READ|PROT_WRITE,
@@ -996,7 +1008,6 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
   void *membase = NULL;
   unsigned long memaddr = 0;
   unsigned long memlen = (CIFX_DMA_BUFFER_COUNT*CIFX_DEFAULT_DMA_BUFFER_SIZE);
-  int err = 0;
   struct vfio_fd* pfd = GET_VFIO_PARAM_FROM_DEV(device);
   int DMACounter = 0;
 
@@ -1035,7 +1046,7 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
   } else
 #endif
   {
-    dma_map.vaddr = membase;
+    dma_map.vaddr = (long long unsigned int)membase;
     dma_map.size = memlen;
     dma_map.iova = 0; /* starting at 0x0 from device view */
     dma_map.flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE;
@@ -1051,7 +1062,7 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
       device->dma_buffer[device->dma_buffer_cnt].ulPhysicalAddress = memaddr;
       device->dma_buffer[device->dma_buffer_cnt].pvBuffer          = membase;
       memaddr += CIFX_DEFAULT_DMA_BUFFER_SIZE;
-      membase += CIFX_DEFAULT_DMA_BUFFER_SIZE;
+      membase = (uint8_t*)membase + CIFX_DEFAULT_DMA_BUFFER_SIZE;
 
       DBG( "DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
          device->dma_buffer[device->dma_buffer_cnt].pvBuffer,
@@ -1109,7 +1120,7 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
               device->dma_buffer[device->dma_buffer_cnt].ulPhysicalAddress = memaddr;
               device->dma_buffer[device->dma_buffer_cnt].pvBuffer          = membase;
               memaddr += CIFX_DEFAULT_DMA_BUFFER_SIZE;
-              membase += CIFX_DEFAULT_DMA_BUFFER_SIZE;
+              membase = (uint8_t*)membase + CIFX_DEFAULT_DMA_BUFFER_SIZE;
 
               DBG("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
                      device->dma_buffer[device->dma_buffer_cnt].pvBuffer,
@@ -1253,7 +1264,7 @@ int cifx_hil_pci_flash_based( int device_id, int subdevice_id) {
 }
 
 int cifx_hil_pci_flash_based_by_path( char* pci_path) {
-  int vendor_id, device_id, subdevice_id;
+  unsigned int vendor_id, device_id, subdevice_id;
 
   if (pci_path != NULL) {
     if (IS_HILSCHER_PCI_DEV(pci_path, &vendor_id)) {
@@ -1306,7 +1317,7 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
 
       while( NULL != (dev = pci_device_next(pci_dev_it)) )
       {
-        int bar;
+        size_t bar;
 
         pci_device_probe(dev);
 
@@ -1387,7 +1398,7 @@ static void cifXWrapEvent(void* pvDeviceInstance, CIFX_TOOLKIT_NOTIFY_E eEvent)
   PCIFX_DEVICE_INTERNAL_T ptInternal    = (PCIFX_DEVICE_INTERNAL_T)ptDevInstance->pvOSDependent;
   struct CIFX_DEVICE_T*   ptDevice      = ptInternal->userdevice;
 
-  ptDevice->notify(ptDevice, eEvent);
+  ptDevice->notify(ptDevice, (CIFX_NOTIFY_E)eEvent);
 }
 
 /*****************************************************************************/
@@ -1455,7 +1466,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 #ifdef CIFX_TOOLKIT_DMA
     if (ptDevice->dma_buffer_cnt)
     {
-      int i = 0;
+      unsigned int i = 0;
       ptDevInstance->ulDMABufferCount = ptDevice->dma_buffer_cnt;
       for (i=0;i<ptDevice->dma_buffer_cnt;i++)
       {
@@ -1649,7 +1660,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 {
   int32_t lRet = cifXTKitInit();
   unsigned int num = 0;
-  unsigned int temp;
+  int temp;
 
 #ifdef CIFXETHERNET
   /* in case of unordinary shutdown of the application the devices may still */
@@ -1670,7 +1681,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 
     polling_thread_running = 0;
 
-    if(poll_interval != CIFX_POLLINTERVAL_DISABLETHREAD)
+    if(poll_interval != (unsigned long)CIFX_POLLINTERVAL_DISABLETHREAD)
     {
       struct sched_param sched_param = {0};
       sched_param.sched_priority = init_params->poll_priority;
@@ -1890,6 +1901,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
    uint32_t   ulIdx = 0;
 
    UNREFERENCED_PARAMETER(pvData);
+   UNREFERENCED_PARAMETER(hDriver);
 
    OS_EnterLock(g_pvTkitLock);
 
@@ -2094,7 +2106,7 @@ void cifXDriverDeinit()
 /*****************************************************************************/
 int32_t cifXGetDriverVersion(uint32_t ulSize, char* szVersion)
 {
-  if(ulSize < OS_Strlen(LINUXCIFXDRV_VERSION))
+  if(ulSize < strlen(LINUXCIFXDRV_VERSION))
     return CIFX_INVALID_BUFFERSIZE;
 
   OS_Strncpy(szVersion, LINUXCIFXDRV_VERSION, OS_Strlen(LINUXCIFXDRV_VERSION));
@@ -2109,7 +2121,7 @@ int32_t cifXGetDriverVersion(uint32_t ulSize, char* szVersion)
 *   \param id         returned id
 *   \returns 0 on success < 0 on error                                       */
 /*****************************************************************************/
-static int sysfs_get_pci_id( char* dev_path, char* file, int* id) {
+static int sysfs_get_pci_id( char* dev_path, char* file, unsigned int* id) {
   char tmp_buf[CIFX_MAX_FILE_NAME_LENGTH];
   char* pb = dev_path;
   int ret = -EINVAL;
@@ -2185,6 +2197,10 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
         ERR("Error extracting uio device number of '%s'", dev_type_path);
       }
 #else
+#ifndef VFIO_SUPPORT
+      (void)dev_type;
+      (void)dev_num;
+#endif
       ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!", pci_path);
 #endif
       return ret;
@@ -2233,7 +2249,7 @@ static int pci_get_hilscher_device_id_by_idx( int index, char* device_id, uint32
   if(pci_devs > 0) {
     for (int i=0; i<pci_devs;i++) {
       char dev_path[CIFX_MAX_FILE_NAME_LENGTH];
-      int id;
+      unsigned int id;
 
       snprintf( dev_path, CIFX_MAX_FILE_NAME_LENGTH,"%s/%s", pci_bus_path, namelist[i]->d_name);
       if (ret == 0) {
@@ -2284,7 +2300,7 @@ static int cifx_uio_get_custom_device_count(void) {
 
     for(currentuio = 0; currentuio < num_uios; ++currentuio)
     {
-      int uio_num;
+      unsigned int uio_num;
 
       if(0 == sscanf(namelist[currentuio]->d_name,
                      "uio%u",
@@ -2324,7 +2340,7 @@ int cifXGetDeviceCount(void)
 /*****************************************************************************/
 static int check_if_compatible_pci_card( char* pci_path) {
   if (pci_path != NULL) {
-    int id = 0;
+    unsigned int id = 0;
 
     if (IS_HILSCHER_PCI_DEV(pci_path, &id)) {
       /* now check if the driver can handle the device */
@@ -2369,13 +2385,12 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
   num_uios = scandir("/sys/class/uio", &namelist, 0, alphasort);
   if(num_uios > 0)
   {
-    int netx_uios = 0;
     int currentuio;
     int founddevice = 0;
 
     for(currentuio = 0; currentuio < num_uios; ++currentuio)
     {
-      int uio_num = 0;
+      unsigned int uio_num = 0;
 
       if(founddevice)
       {
@@ -2464,7 +2479,6 @@ static struct CIFX_DEVICE_T* cifx_find_pci_device(int iNum, int fCheckAccess) {
     for(int current_dev = 0; current_dev < num_devs; ++current_dev) {
       int num_dev;
       char pci_dev_path[CIFX_MAX_FILE_NAME_LENGTH];
-      int id =0 ;
 
       snprintf( pci_dev_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/%s", SYSFS_PCI_DEV_PATH, namelist[current_dev]->d_name);
 
