@@ -30,10 +30,22 @@
 #include <time.h>
 
 #define CIFX_DEV "cifX0"
+#define DEFAULT_TRACE_LEVEL 0xFF
 
 #ifndef UNREFERENCED_PARAMETER
   #define UNREFERENCED_PARAMETER(a) (a=a)
 #endif
+
+#define WAIT_FOR_USER(x) printf("\n\nPress a key to execute \"%s\"...\n", #x); \
+                           while(!kbhit()){}
+
+#define TEST_FUNC(x, ret) do { \
+                              WAIT_FOR_USER(x); \
+                              if ((ret = x) != 0) { \
+                                printf("\n\nFailed to run " #x " (ret=0x%X) - aborting demo!\n\n", ret); \
+                                goto err; \
+                              } \
+                          } while (0)
 
 typedef struct SYNC_CALLBACK_DATAtag
 {
@@ -41,6 +53,9 @@ typedef struct SYNC_CALLBACK_DATAtag
   CIFXHANDLE hDevice;
 } SYNC_CALLBACK_DATA;
 
+static char s_card[] = "cifxXX";
+
+static int s_debug = 0;
 
 /*****************************************************************************/
 /*! Callback rountine for events
@@ -176,10 +191,8 @@ void ShowError( int32_t lError )
 /*****************************************************************************/
 void DumpData(unsigned char* pbData, unsigned long ulDataLen)
 {
-	unsigned long ulIdx;
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
+  unsigned long ulIdx;
+
   for(ulIdx = 0; ulIdx < ulDataLen; ++ulIdx)
   {
     if(0 == (ulIdx % 16))
@@ -197,9 +210,6 @@ void DumpData(unsigned char* pbData, unsigned long ulDataLen)
 /*****************************************************************************/
 void DumpPacket(CIFX_PACKET* ptPacket)
 {
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
   printf("Dest   : 0x%08lX      ID   : 0x%08lX\r\n",(long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulDest),  (long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulId));
   printf("Src    : 0x%08lX      Sta  : 0x%08lX\r\n",(long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulSrc),   (long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulState));
   printf("DestID : 0x%08lX      Cmd  : 0x%08lX\r\n",(long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulDestId),(long unsigned int)HOST_TO_LE32(ptPacket->tHeader.ulCmd));
@@ -217,13 +227,13 @@ void DumpPacket(CIFX_PACKET* ptPacket)
  *   \param  ptVTable Pointer to cifX API function table
  *   \return CIFX_NO_ERROR on success                                        */
 /*****************************************************************************/
-void DisplayDriverInformation (void)
+int32_t DisplayDriverInformation (void)
 {
   int32_t            lRet             = CIFX_NO_ERROR;
   DRIVER_INFORMATION tDriverInfo      = {0};
   char               szDrvVersion[32] = "";
   CIFXHANDLE         hDriver          = NULL;
- 
+
   if (CIFX_NO_ERROR == (lRet = xDriverOpen(&hDriver)))
   {
     printf("\n---------- Display Driver Version ----------\n");
@@ -233,14 +243,13 @@ void DisplayDriverInformation (void)
       ShowError( lRet);
     else
       printf("Driver Version: %s, based on %.32s \n\n", szDrvVersion, tDriverInfo.abDriverVersion);
-    
+
     /* close previously opened driver */
     xDriverClose(hDriver);
-    
-  } 
-  
+  }
   printf(" State = 0x%08X\r\n", (unsigned int)lRet);
   printf("----------------------------------------------------\r\n");
+  return lRet;
 }
 
 
@@ -250,9 +259,6 @@ void DisplayDriverInformation (void)
 /*****************************************************************************/
 int32_t EnumBoardDemo(void)
 {
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
   CIFXHANDLE hDriver = NULL;
   int32_t    lRet    = xDriverOpen(&hDriver);
 
@@ -325,9 +331,6 @@ int32_t EnumBoardDemo(void)
 /*****************************************************************************/
 int32_t SysdeviceDemo()
 {
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
   CIFXHANDLE hDriver = NULL;
   int32_t    lRet    = xDriverOpen(&hDriver);
 
@@ -337,7 +340,7 @@ int32_t SysdeviceDemo()
   {
     /* Driver/Toolkit successfully opened */
     CIFXHANDLE hSys = NULL;
-    lRet = xSysdeviceOpen(hDriver, CIFX_DEV, &hSys);
+    lRet = xSysdeviceOpen(hDriver, s_card, &hSys);
 
     if(CIFX_NO_ERROR != lRet)
     {
@@ -496,9 +499,6 @@ int32_t SysdeviceDemo()
 /*****************************************************************************/
 int32_t ChannelDemo()
 {
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
   CIFXHANDLE hDriver = NULL;
   int32_t    lRet    = xDriverOpen(&hDriver);
 
@@ -508,7 +508,7 @@ int32_t ChannelDemo()
   {
     /* Driver/Toolkit successfully opened */
     CIFXHANDLE hChannel = NULL;
-    lRet = xChannelOpen(hDriver, CIFX_DEV, 0, &hChannel);
+    lRet = xChannelOpen(hDriver, s_card, 0, &hChannel);
 
     if(CIFX_NO_ERROR != lRet)
     {
@@ -572,7 +572,7 @@ int32_t ChannelDemo()
       }
 
       sleep(1);
-      
+
       printf("\nStart read/write IO-Data!\n");
 
       /* Read and write I/O data (32Bytes). Output data will be incremented each cyle */
@@ -584,10 +584,10 @@ int32_t ChannelDemo()
       if(CIFX_NO_ERROR != (lRet = xChannelBusState(hChannel, CIFX_BUS_STATE_ON,(uint32_t*) &ulState, 10000)))
       {
         printf("Error setting Bus state lRet = 0x%08X!\r\n",(unsigned int)lRet);
-        
-         xChannelClose(hChannel);
-         xDriverClose(hDriver);
-         return lRet;
+        xChannelClose(hChannel);
+        xDriverClose(hDriver);
+        /* do not return an error here, since the communication might be not configured */
+        return CIFX_NO_ERROR;
       }
 
       printf("IO Demo running <Hit any key to abort>:\n");
@@ -603,10 +603,10 @@ int32_t ChannelDemo()
           break;
         } else
         {
-#ifdef DEBUG
-          printf("IORead Data:");
-          DumpData(abRecvData, sizeof(abRecvData));
-#endif
+          if (s_debug) {
+            printf("IORead Data:");
+            DumpData(abRecvData, sizeof(abRecvData));
+          }
           memcpy(abSendData, abRecvData, sizeof(abRecvData));
 
           /* On a CB-AB32 we will echo the input 8 buttons if one is pressed, otherwise a counter
@@ -620,10 +620,10 @@ int32_t ChannelDemo()
             break;
           } else
           {
-#ifdef DEBUG
-            printf("IOWrite Data:");
-            DumpData(abSendData, sizeof(abSendData));
-#endif
+            if (s_debug) {
+              printf("IOWrite Data:");
+              DumpData(abSendData, sizeof(abSendData));
+            }
           }
         }
       }
@@ -645,7 +645,6 @@ int32_t ChannelDemo()
   printf("----------------------------------------------------\r\n");
 
   return lRet;
-
 }
 
 /*****************************************************************************/
@@ -656,16 +655,14 @@ int32_t BlockDemo( void)
 {
   CIFXHANDLE hDriver = NULL;
   int32_t    lRet    = xDriverOpen(&hDriver);
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
+
   printf("\n--- Read / Write Block Information ---\r\n");  
 
   /* Open channel */
   if(CIFX_NO_ERROR == lRet)
   {
     CIFXHANDLE hDevice = NULL;
-    lRet = xChannelOpen(hDriver, CIFX_DEV, 0, &hDevice);
+    lRet = xChannelOpen(hDriver, s_card, 0, &hDevice);
     if(lRet != CIFX_NO_ERROR)
     {
       printf("Error opening Channel!\r\n");
@@ -693,20 +690,24 @@ int32_t BlockDemo( void)
       lRet = xChannelCommonStatusBlock( hDevice, CIFX_CMD_WRITE_DATA, 0, 4, &abBuffer[0]);
 
       /* this is expected to fail, as this block must not be written by Host */
-      if(CIFX_NO_ERROR != lRet)
-        printf("Error writing to common status block. lRet = 0x%08X\r\n", (unsigned int)lRet);
+      if(CIFX_INVALID_COMMAND == lRet) {
+        printf("Failed as expected - could not write to common status block. lRet = 0x%08X\r\n", (unsigned int)lRet);
+        lRet = CIFX_NO_ERROR;
+      }
 
       printf("Read EXTENDED Status Block \r\n");  
       memset( abBuffer, 0, sizeof(abBuffer));
       lRet = xChannelExtendedStatusBlock( hDevice, CIFX_CMD_READ_DATA, 0, 4, &abBuffer[0]);
       DumpData(abBuffer, 4);
-    
+
       printf("Write EXTENDED Status Block \r\n");  
       lRet = xChannelExtendedStatusBlock( hDevice, CIFX_CMD_WRITE_DATA, 0, 4, &abBuffer[0]);
 
       /* this is expected to fail, as this block must not be written by Host */
-      if(CIFX_NO_ERROR != lRet)
-        printf("Error writing to extended status block. lRet = 0x%08X\r\n", (unsigned int)lRet);
+      if(CIFX_INVALID_COMMAND == lRet) {
+        printf("Failed as expected - could not write to extended status block. lRet = 0x%08X\r\n", (unsigned int)lRet);
+        lRet = CIFX_NO_ERROR;
+      }
 
       xChannelClose(hDevice);
     }
@@ -731,7 +732,7 @@ int32_t StateDemo (void)
   if (CIFX_NO_ERROR == lRet)
   {
     /* Open channel */
-    if( CIFX_NO_ERROR != (lRet = xChannelOpen(hDriver, CIFX_DEV, 0, &hChannel)))
+    if( CIFX_NO_ERROR != (lRet = xChannelOpen(hDriver, s_card, 0, &hChannel)))
     {
       printf("Error opening Channel!\n");
 
@@ -796,7 +797,7 @@ int32_t StateDemo (void)
 /*! Function to demonstrate event handling
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-void TestEventHandling(void)
+int32_t TestEventHandling(void)
 {
   CIFXHANDLE    hDriver  = NULL;
   CIFXHANDLE    hDevice  = NULL;
@@ -808,7 +809,7 @@ void TestEventHandling(void)
   /* Open channel */
   if (CIFX_NO_ERROR == lRet)
   {
-    lRet = xChannelOpen(hDriver, CIFX_DEV, 0, &hDevice);
+    lRet = xChannelOpen(hDriver, s_card, 0, &hDevice);
     if(lRet != CIFX_NO_ERROR)
     {
       /* Read driver error description */
@@ -923,8 +924,21 @@ void TestEventHandling(void)
     }
     xDriverClose(hDriver);
   }
+  return lRet;
 }
 
+void help() {
+  printf("cifX API demo application: cifx_api [options]\n");
+  printf("\noptions:\n");
+  printf(" -n {number}\n");
+  printf(" \tNumber of the device the driver should take control (by default the driver tries to acquire control over all device it finds).\n");
+  printf(" -c {card name}\n");
+  printf(" \tName of the device to run the tests on (default=%s).\n", CIFX_DEV);
+  printf(" -t {trace level}\n");
+  printf(" \tlibcifx trace level (default=0x%X).\n", DEFAULT_TRACE_LEVEL);
+  printf(" -d\n");
+  printf(" \tEnables debug prints of demo application (default=off).\n");
+}
 
 /*****************************************************************************/
 /*! Main entry function
@@ -932,7 +946,10 @@ void TestEventHandling(void)
 /*****************************************************************************/
 int main(int argc, char* argv[])
 {
-
+  int opt;
+  int card_no = -1;
+  int32_t ret;
+  struct CIFX_DEVICE_T* device = NULL;
   struct CIFX_LINUX_INIT init =
   {
     .init_options        = CIFX_DRIVER_INIT_AUTOSCAN,
@@ -941,46 +958,82 @@ int main(int argc, char* argv[])
     .base_dir            = NULL,
     .poll_interval       = 0,
     .poll_StackSize      = 0,   /* set to 0 to use default */
-    .trace_level         = 255,
+    .trace_level         = DEFAULT_TRACE_LEVEL,
     .user_card_cnt       = 0,
     .user_cards          = NULL,
+    .poll_priority       = 0,
   };
-	
-#ifdef DEBUG
-	printf("%s() called\n", __FUNCTION__);
-#endif
+
+  strncpy(s_card, CIFX_DEV, strlen(CIFX_DEV)+1);
+  while((opt = getopt(argc, argv, "n:c:t:d")) != -1) {
+    switch(opt)
+    {
+      case 'n':
+        card_no = atoi(optarg);
+        break;
+      case 'c':
+        strncpy(s_card, optarg, strlen(s_card));
+        break;
+      case 't':
+        init.trace_level = atoi(optarg);
+        break;
+      case 'd':
+        s_debug = 1;
+        break;
+      default:
+        help();
+        return -1;
+    }
+  }
+
+  if (card_no >= 0) {
+    if ((device = cifXFindDevice( card_no, 0)) != NULL) {
+      init.init_options = CIFX_DRIVER_INIT_NOSCAN;
+      init.user_cards = device;
+      init.user_card_cnt = 1;
+    } else {
+        printf("Error - given card %d not found!\n", card_no);
+        return -1;
+    }
+  } else {
+    printf("The driver will take control over all found devices...\n");
+  }
+
+  printf("The demo runs on device \"%s\".\n", s_card);
 
   /* First of all initialize toolkit */
-  int32_t lRet = cifXDriverInit(&init);
-
-  if(CIFX_NO_ERROR == lRet)
-  {
-
-    /* Display version of cifXRTXDrv and cifXToolkit */
-    DisplayDriverInformation();
-  
-    /* Demonstrate the board/channel enumeration */
-    EnumBoardDemo();
-  
-    /* Demonstrate system channel functionality */
-    SysdeviceDemo();
-  
-    /* Demonstrate communication channel functionality */
-    ChannelDemo();
-  
-    /* Demonstrate control/status block functionality */
-    BlockDemo();
-  
-    /* Demonstrate event handling */
-    TestEventHandling();
-  
-    /* Demonstrate host/bus state functions */
-    StateDemo ();
-
+  if ((ret = cifXDriverInit(&init)) != CIFX_NO_ERROR) {
+    printf("Error while initializing the driver (ret=%d)\n", ret);
+    return -1;
   }
+
+  /* Display version of cifXRTXDrv and cifXToolkit */
+  TEST_FUNC(DisplayDriverInformation(), ret);
+
+  /* Demonstrate the board/channel enumeration */
+  TEST_FUNC(EnumBoardDemo(), ret);
+
+  /* Demonstrate system channel functionality */
+  TEST_FUNC(SysdeviceDemo(), ret);
+
+  /* Demonstrate communication channel functionality */
+  TEST_FUNC(ChannelDemo(), ret);
+
+  /* Demonstrate control/status block functionality */
+  TEST_FUNC(BlockDemo(), ret);
+
+  /* Demonstrate event handling */
+  TEST_FUNC(TestEventHandling(), ret);
+
+  /* Demonstrate host/bus state functions */
+  TEST_FUNC(StateDemo (), ret);
 
   cifXDriverDeinit();
 
-
   return 0;
+
+err:
+  cifXDriverDeinit();
+
+  return -1;
 }
