@@ -894,7 +894,6 @@ static int cifx_uio_map_mem(int uio_fd, int uio_num,
 /*****************************************************************************/
 /*! Map the memory of a cifx device
 *     \param device   pointer to device structure
-*     \param fd       fd returned by cifx_open
 *     \param bar      number of mapping
 *     \param dpmbase  Pointer to returned virtual base address of memory area
 *     \param dpmaddr  Pointer to returned physical address of memory area
@@ -912,13 +911,17 @@ static int cifx_map_mem( struct CIFX_DEVICE_T* device,
     return -EINVAL;
 
   if (device->uio_num >= 0) {
-    return cifx_uio_map_mem( device->uio_fd,
-                device->uio_num,
-                bar_num,
-                membase,
-                memaddr,
-                memlen,
-                flags);
+    int map_no = 0;
+    /* find correct mapping number */
+    if (CIFX_NO_ERROR == find_memtype( device->uio_num, bar_num, &map_no)) {
+      return cifx_uio_map_mem( device->uio_fd,
+                  device->uio_num,
+                  map_no,
+                  membase,
+                  memaddr,
+                  memlen,
+                  flags);
+    }
 #ifdef VFIO_SUPPORT
   } else if (device->uio_num == UIO_NUM_VFIO_DEVICE) {
     return cifx_vfio_map_mem( device,
@@ -959,28 +962,6 @@ static void cifx_unmap( struct CIFX_DEVICE_T* device) {
       device->extmem = NULL;
     }
   }
-}
-
-/*****************************************************************************/
-/*! Map the extended memory of a uio_netx device
-*     \param fd   fd returned by uio_open
-*     \param dpmbase  Pointer to returned virtual base address of memory area
-*     \param dpmaddr  Pointer to returned physical address of memory area
-*     \param dpmlen   Pointer to returned length of memory area
-*     \return == 0 if mapping succeeded                                      */
-/*****************************************************************************/
-static int cifx_uio_map_ext_mem(int uio_fd, int uio_num,
-                     void** dpmbase,
-                     unsigned long* dpmaddr,
-                     unsigned long* dpmlen)
-{
-  int bar = 0;
-
-  if (CIFX_NO_ERROR == find_memtype( uio_num, eMEM_EXTMEM, &bar))
-  {
-    return cifx_uio_map_mem( uio_fd, uio_num, bar, dpmbase, dpmaddr, dpmlen, 0);
-  }
-  return -EINVAL;
 }
 
 #ifdef CIFX_TOOLKIT_DMA
