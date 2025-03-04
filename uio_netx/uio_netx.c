@@ -35,6 +35,10 @@
 
 #define UIO_NETX_VERSION "2.2.0"
 
+#if defined(DISABLE_PCI_SUPPORT) && defined(DMA_SUPPORT)
+	#error "Invalid configuration detected DISABLE_PCI_SUPPORT && DMA_SUPPORT!"
+#endif
+
 int           addr_cnt = 0;
 unsigned long custom_dpm_len[MAX_USER_CARDS] = {0};
 int           len_cnt = 0;

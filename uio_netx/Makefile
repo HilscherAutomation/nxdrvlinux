@@ -22,12 +22,14 @@ ifdef INSTALL_PATH
 	endif
 endif
 
-ifndef DMA_DISABLE
-	ccflags-y += -DDMA_SUPPORT
-endif
-
 ifdef DISABLE_PCI_SUPPORT
 	ccflags-y += -DDISABLE_PCI_SUPPORT
+	#TODO: disable silently ???
+	#DMA_DISABLE=1
+endif
+
+ifndef DMA_DISABLE
+	ccflags-y += -DDMA_SUPPORT
 endif
 
 PWD := $(shell pwd)
