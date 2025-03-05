@@ -628,6 +628,12 @@ uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset,
                           uint32_t ulSize, void* pvBuffer) {
   FUNC_TRACE("entry");
 
+  if (ulOffset > 0) {
+    if (fseek( pvFile, ulOffset, SEEK_SET) < 0) {
+      ERR( "Error setting file offset (ret=%d)\n", errno);
+    }
+  }
+
   return fread(pvBuffer, 1, ulSize, pvFile);
 }
 
