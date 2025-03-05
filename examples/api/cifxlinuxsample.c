@@ -221,7 +221,7 @@ void DumpPacket(CIFX_PACKET* ptPacket)
 void DisplayDriverInformation (void)
 {
   int32_t            lRet             = CIFX_NO_ERROR;
-  DRIVER_INFORMATION tDriverInfo      = {{0}};
+  DRIVER_INFORMATION tDriverInfo      = {0};
   char               szDrvVersion[32] = "";
   CIFXHANDLE         hDriver          = NULL;
  
@@ -280,7 +280,7 @@ int32_t EnumBoardDemo(void)
       printf(" DPM Size     : %lu\r\n",(long unsigned int)tBoardInfo.ulDpmTotalSize);
 
       unsigned long       ulChannel    = 0;
-      CHANNEL_INFORMATION tChannelInfo = {{0}};
+      CHANNEL_INFORMATION tChannelInfo = {0};
 
       /* iterate over all channels on the current board */
       while(CIFX_NO_ERROR == xDriverEnumChannels(hDriver, ulBoard, ulChannel, sizeof(tChannelInfo), &tChannelInfo))
@@ -346,7 +346,7 @@ int32_t SysdeviceDemo()
 
     } else
     {
-      SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK    tSysInfoBlock = {{0}};
+      SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK    tSysInfoBlock = {0};
       SYSTEM_CHANNEL_SYSTEM_INFORMATION   tSysInfo      = {0};
       SYSTEM_CHANNEL_SYSTEM_CONTROL_BLOCK tControlBlock = {0};
       SYSTEM_CHANNEL_SYSTEM_STATUS_BLOCK  tStatusBlock  = {0};
@@ -441,8 +441,8 @@ int32_t SysdeviceDemo()
       printf("System Mailbox State: MaxSend = %lu, Pending Receive = %lu\r\n",
              ulSendPktCount, ulRecvPktCount);
 
-      HIL_SECURITY_EEPROM_READ_REQ_T tCryptoRead    = {{0}};
-      HIL_SECURITY_EEPROM_READ_CNF_T tCryptoReadCnf = {{0}};
+      HIL_SECURITY_EEPROM_READ_REQ_T tCryptoRead    = {0};
+      HIL_SECURITY_EEPROM_READ_CNF_T tCryptoReadCnf = {0};
 
       tCryptoRead.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
       tCryptoRead.tHead.ulLen    = HOST_TO_LE32(sizeof(tCryptoRead.tData));
@@ -517,7 +517,7 @@ int32_t ChannelDemo()
 
     } else
     {
-      CHANNEL_INFORMATION tChannelInfo = {{0}};
+      CHANNEL_INFORMATION tChannelInfo = {0};
 
       /* Channel successfully opened, so query basic information */
       if( CIFX_NO_ERROR != (lRet = xChannelInfo(hChannel, sizeof(CHANNEL_INFORMATION), &tChannelInfo)))
@@ -543,8 +543,8 @@ int32_t ChannelDemo()
       }
       uint32_t    ulSendPktCount = 0;
       uint32_t    ulRecvPktCount = 0;
-      CIFX_PACKET tSendPkt       = {{0}};
-      CIFX_PACKET tRecvPkt       = {{0}};
+      CIFX_PACKET tSendPkt       = {0};
+      CIFX_PACKET tRecvPkt       = {0};
 
       printf("\nStart put/get packet Demo!\n");
 
@@ -876,7 +876,7 @@ void TestEventHandling(void)
         {
           uint32_t    ulRecvPktCount = 0;
           uint32_t    ulSendPktCount = 0;
-          CIFX_PACKET tSendPkt       = {{0}};
+          CIFX_PACKET tSendPkt       = {0};
 
           xChannelGetMBXState( hDevice, (uint32_t*)&ulRecvPktCount, (uint32_t*)&ulSendPktCount);
           if (ulSendPktCount > 0)
