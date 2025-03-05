@@ -1210,7 +1210,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout) {
 *     \param ptTime Pointer to store  the time value
 *     \return actual time vlaue */
 /*****************************************************************************/
-uint32_t OS_Time( uint32_t *ptTime)
+uint64_t OS_Time( uint64_t *ptTime)
 {
   struct timeval tCurrentTime = {0};
   time_t         tSecSince1970 = 0;
