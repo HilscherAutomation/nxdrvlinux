@@ -1,15 +1,10 @@
+// SPDX-License-Identifier: MIT
 /**************************************************************************************
  *
- * Copyright (c) 2024, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
+ * Copyright (c) 2025, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
  *
  * Description: ciX plugin implementation offers a flexible interface for cifX access.
  *              For a sample implementation see libsdpm.c
- *
- * Changes:
- *
- *   Version   Date        Author   Description
- *   ----------------------------------------------------------------------------------
- *   1        02.01.24    SD        changed licensing terms
  *
  **************************************************************************************/
 

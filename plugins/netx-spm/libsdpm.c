@@ -1,15 +1,10 @@
+// SPDX-License-Identifier: MIT
 /**************************************************************************************
  *
- * Copyright (c) 2024, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
+ * Copyright (c) 2025, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
  *
  * Description: This plugin library can be used to initialize and use a spidev as a "common"
  *              cifX device. The access is based on the cifX toolkit's 'HW-access' functions.
- *
- * Changes:
- *
- *   Version   Date        Author   Description
- *   ----------------------------------------------------------------------------------
- *   1        02.01.24    SD        changed licensing terms
  *
  **************************************************************************************/
 
