@@ -14,17 +14,25 @@ set(DRVVERSION "\"V${DRV_VERSION}\"")
 
 project("libcifx user space library" VERSION ${DRV_VERSION})
 
-option(DEBUG                 "Build Library debug messages" OFF)
+# general
+option(DEBUG                 "Build Library including debug messages (not printable to log file)" OFF)
+option(SHARED                "Build shared libary (default: ON)" ON)
 option(DISABLE_LIB_PCIACCESS "Disable link to libpciaccess. If set to 'ON' - only VFIO PCI devices are supported" OFF)
+#toolkit
 option(TIME                   "Enable device time setting during start-up" OFF)
 option(DMA                    "Compile driver with dma support" OFF)
 option(NO_MINSLEEP            "Disable minimum sleep time" OFF)
-option(VIRTETH                "Enables virtual ethernet interface support" OFF)
+# virteth
+option(VIRTETH                                "Enables virtual ethernet interface support" OFF)
+set(VIRTETH_SEND_RETRIES     "0" CACHE STRING "Number of send retries (modifying may reduce performance)")
+set(VIRTETH_MAX_ACTIVE_SENDS "8" CACHE STRING "Maximum active sends - (parameter depends on mailbox depth - modifying may reduce performance drastically)")
+# hw-interface / plugin
 option(HWIF                   "Enables the toolkit's Hardware Function Interface (e.g. for SPI)" OFF)
-option(PLUGIN                 "Enables support of device plugins and enables hardware function interface (see HWIF)" OFF)
-option(SPM_PLUGIN             "Build spm-plugin and enables support of device plugins (see PLUGIN)" OFF)
-option(SHARED                 "Build shared libary (default: ON)" ON)
+option(PLUGIN                 "Enables support of device plugins and enables hardware function interface (sets HWIF)" OFF)
+option(SPM_PLUGIN             "Build spm-plugin and enables support of device plugins (sets as well HWIF and PLUGIN)" OFF)
+# vfio
 option(VFIO                   "Build libary supporting VFIO interface (default: OFF)" OFF)
+option(VFIO_FORCE_LEGACY      "Force library supporting only the legacy vfio interface and not cdev interface (CONFIG_VFIO_DEVICE_CDEV) (sets VFIO)" OFF)
 
 if(SHARED)
     add_library( cifx SHARED)
@@ -32,20 +40,6 @@ if(SHARED)
 else(SHARED)
     add_library( cifx STATIC)
 endif(SHARED)
-
-if(VIRTETH STREQUAL "ON")
-  set(VIRTETH_SEND_RETRIES     "0" CACHE STRING "Number of send retries")
-  set(VIRTETH_MAX_ACTIVE_SENDS "8" CACHE STRING "Maximum active sends - depends on mailbox depth")
-else(VIRTETH STREQUAL "ON")
-  unset(VIRTETH_SEND_RETRIES CACHE)
-  unset(VIRTETH_MAX_ACTIVE_SENDS CACHE)
-endif(VIRTETH STREQUAL "ON")
-
-if(VFIO STREQUAL "ON")
-  set(VFIO_FORCE_LEGACY FALSE CACHE BOOL "Force library supporting only the legacy vfio interface and not cdev interface (CONFIG_VFIO_DEVICE_CDEV) (default: OFF)")
-else(VFIO STREQUAL "ON")
-  unset(VFIO_FORCE_LEGACY CACHE)
-endif(VFIO STREQUAL "ON")
 
 set(src_dir ${CMAKE_CURRENT_LIST_DIR})
 set(tk_dir  ${src_dir}/Toolkit)
@@ -58,18 +52,21 @@ target_compile_definitions( cifx
     PRIVATE
         VERSION_INFO="\"${DRVVERSION}\""
         $<$<BOOL:${IS_BIG_ENDIAN}>:CIFX_TOOLKIT_BIGENDIAN>
-
         $<$<BOOL:${DEBUG}>:DEBUG>
         $<$<BOOL:${DISABLE_LIB_PCIACCESS}>:CIFX_NO_PCIACCESS_LIB>
+
         $<$<BOOL:${DMA}>:CIFX_TOOLKIT_DMA>
         $<$<BOOL:${NO_MINSLEEP}>:NO_MIN_SLEEP>
         $<$<BOOL:${TIME}>:CIFX_TOOLKIT_TIME>
+
         $<$<BOOL:${VIRTETH}>:CIFXETHERNET>
         $<$<BOOL:${VIRTETH}>:NETX_TAP_SEND_RETRIES=${VIRTETH_SEND_RETRIES}>
         $<$<BOOL:${VIRTETH}>:NETX_TAP_MAX_ACTIVE_SENDS=${VIRTETH_MAX_ACTIVE_SENDS}>
+
         $<$<BOOL:${HWIF}>:CIFX_DRV_HWIF>
         $<$<OR:$<BOOL:${PLUGIN}>,$<BOOL:${SPM_PLUGIN}>>:CIFX_DRV_HWIF CIFX_PLUGIN_SUPPORT>
-        $<$<BOOL:${VFIO}>:VFIO_SUPPORT>
+
+        $<$<OR:$<BOOL:${VFIO}>,$<BOOL:${VFIO_FORCE_LEGACY}>>:VFIO_SUPPORT>
         $<$<NOT:$<BOOL:${VFIO_FORCE_LEGACY}>>:VFIO_CDEV>
 )
 
