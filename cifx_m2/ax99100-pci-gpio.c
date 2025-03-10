@@ -31,7 +31,7 @@
 
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 
