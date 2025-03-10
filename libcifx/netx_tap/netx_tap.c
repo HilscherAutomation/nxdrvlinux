@@ -43,10 +43,16 @@
 #include "cifXErrors.h"
 #include "cifXHWFunctions.h"
 #include "netx_tap.h"
+#include "cifxlinux_internal.h"
 
 #define TUNTAP_DEVICEPATH    "/dev/net/tun"
 
-#define SEND_RETRIES 0
+#ifndef NETX_TAP_SEND_RETRIES
+  #define NETX_TAP_SEND_RETRIES 0
+#endif
+#ifndef NETX_TAP_MAX_ACTIVE_SENDS
+  #define NETX_TAP_MAX_ACTIVE_SENDS 8
+#endif
 
 #define LINK_STATE_POLL_INTERVAL 5 /* in seconds */
 
@@ -70,7 +76,8 @@ typedef struct NETX_ETH_DEV_Ttag
   void*              com_lock;
   void*              send_event;
   uint32_t           active_sends;
-  uint32_t           send_packets;
+  uint32_t           send_packets; /* number of packets tried to send */
+  uint32_t           sent_packets; /* number of packets sent confirmed by firmware */
   uint32_t           recv_packets;
   int                link_up;
   void*              link_event;
@@ -202,7 +209,7 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
 
       if(CIFX_NO_ERROR != (cifx_error = xDriverOpen( &internal_dev->cifx_driver)))
       {
-        fprintf(stderr, "Ethernet-IF Error: %s: Error opening cifX Device Driver (Ret=0x%08X)\n", __TIME__, cifx_error);
+        ERR( "Error opening cifX Device Driver (Ret=0x%08X)\n", cifx_error);
 
       } else if(CIFX_NO_ERROR == (cifx_error = xChannelOpen(internal_dev->cifx_driver,
                                                             config->cifx_name,
@@ -273,7 +280,7 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
         }
       } else
       {
-        fprintf(stderr, "Ethernet-IF Error: %s: Error opening cifX Ethernet Channel (Board=%s, Channel=%u, Errror=0x%08X)\n", __TIME__,
+        ERR( "Error opening cifX Ethernet Channel (Board=%s, Channel=%u, Errror=0x%08X)\n",
                 config->cifx_name, internal_dev->channel_no, cifx_error);
       }
       if(NULL == ret)
@@ -447,13 +454,13 @@ int32_t cifxeth_search_eth_channel( char*  szDeviceName,
 
   if (CIFX_NO_ERROR != xDriverOpen(&hDriver))
   {
-    fprintf( stderr, "Ethernet-IF Error: %s: Error opening driver to for ethernet interface (lRet=0x%08X)\n",__TIME__,lRet);
+    ERR( "Error opening driver to for ethernet interface (lRet=0x%08X)\n", lRet);
     /* Check if we have a channel that might be used for Ethernet / NDIS */
   } else if(CIFX_NO_ERROR != (lRet = xSysdeviceOpen( hDriver,
                                               szDeviceName,
                                               &hSysdevice)))
   {
-    fprintf( stderr, "Ethernet-IF Error: %s: Error opening system device to read channel info block to detect channels usable for ethernet interface (lRet=0x%08X). - %s\n",__TIME__,lRet, szDeviceName);
+    ERR( "Error opening system device to read channel info block to detect channels usable for ethernet interface (lRet=0x%08X). - %s\n",lRet, szDeviceName);
   } else
   {
     /* Read channel information block */
@@ -562,7 +569,13 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
       strcpy( internal_dev->cifxeth_name, prefix);
       sprintf(internal_dev->event_path,"/sys/class/net/%s/uevent",prefix);
       internal_dev->eth_fd = ret; /* set temp. since cifxeth_update_device_config() deals with that handle */
-      cifxeth_update_device_config(internal_dev);
+
+      /* if this function fails we will not be able to work with the device */
+      if (cifxeth_update_device_config(internal_dev) != CIFX_NO_ERROR) {
+        close(internal_dev->eth_fd);
+        internal_dev->eth_fd = -1;
+        ret = -1;
+      }
     }
   } else
   {
@@ -581,26 +594,12 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
  *   \param name         name of device in case device is already closed (->link down) */
 /*****************************************************************************/
 void cifxeth_free_tap(NETX_ETH_DEV_T* internal_dev, char* name) {
+  (void)name;
 
   if (NULL != internal_dev) {
     if (internal_dev->eth_fd>=0) {
-      ioctl(internal_dev->eth_fd, TUNSETPERSIST, 0);
       close(internal_dev->eth_fd);
       internal_dev->eth_fd = -1;
-    }
-  }
-  /* we have also check the name, in case of link down the handle is '-1' */
-  if (name != NULL) {
-    struct ifreq ifr;
-    int          ret;
-
-    if ((ret = open( TUNTAP_DEVICEPATH, O_RDWR))) {
-      memset(&ifr, 0, sizeof(ifr));
-      ifr.ifr_flags = (IFF_TAP | IFF_NO_PI);
-      strncpy( ifr.ifr_name, name, IFNAMSIZ);
-      ioctl(ret, TUNSETIFF, (void *) &ifr);
-      ioctl(ret, TUNSETPERSIST, 0);
-      close(ret);
     }
   }
 }
@@ -704,7 +703,7 @@ static void* eth_to_cifx_thread(void* arg)
 
         recv_len = read(fd, buffer, sizeof(buffer));
 
-        while (internal_dev->active_sends>0x08)
+        while (internal_dev->active_sends>NETX_TAP_MAX_ACTIVE_SENDS)
         {
           OS_WaitEvent( internal_dev->send_event, 10);
           if (internal_dev->stop_to_cifx == 1)
@@ -722,7 +721,7 @@ static void* eth_to_cifx_thread(void* arg)
             memset( (cifx_packet.tReq.tData.abData + recv_len), 0, (60 - recv_len));
             cifx_packet.tReq.tHead.ulLen = 60;
           }
-          retry = SEND_RETRIES;
+          retry = NETX_TAP_SEND_RETRIES + 1;
           do {
             cifx_error = xChannelPutPacket( internal_dev->cifx_channel, (CIFX_PACKET*)&cifx_packet, CIFX_TO_CONT_PACKET);
             if (cifx_error == CIFX_NO_ERROR) {
@@ -730,11 +729,11 @@ static void* eth_to_cifx_thread(void* arg)
               internal_dev->active_sends++;
               OS_LeaveLock( internal_dev->com_lock);
             }
-          } while ((cifx_error == CIFX_DEV_MAILBOX_FULL) && (retry-->0));
+          } while ((--retry>0) && (cifx_error == CIFX_DEV_MAILBOX_FULL));
 
-          if ((g_ulTraceLevel & TRACE_LEVEL_DEBUG) && ((SEND_RETRIES-retry) != SEND_RETRIES))
+          if ((g_ulTraceLevel & TRACE_LEVEL_DEBUG) && (retry != NETX_TAP_SEND_RETRIES))
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF Error: Sending a packet took %d-%dms)!", (SEND_RETRIES-retry+1)*CIFX_TO_CONT_PACKET, (SEND_RETRIES-retry)*CIFX_TO_CONT_PACKET);
+            USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF Debug: Retried sending packet %d time(s)!", (NETX_TAP_SEND_RETRIES-retry));
           }
           if (CIFX_NO_ERROR != cifx_error)
           {
@@ -742,6 +741,10 @@ static void* eth_to_cifx_thread(void* arg)
             {
               USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending packet to cifX Device. (Error=0x%08X)", cifx_error);
             }
+
+          } else
+          {
+            internal_dev->send_packets++;
           }
         }
       }
@@ -817,6 +820,8 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
         if(g_ulTraceLevel & TRACE_LEVEL_WARNING) {
           USER_Trace( internal_dev->devinst, TRACE_LEVEL_WARNING, "Ethernet-IF Error: Error signaled by confirmation packet (0x%X)\n", ptPacket->tHeader.ulState);
         }
+      } else {
+        internal_dev->sent_packets++;
       }
     break;
 
@@ -833,6 +838,7 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
             USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending incoming data to ethernet device (%d)\n", ret);
           }
         }
+        internal_dev->recv_packets++;
       }
     }
     break;
@@ -853,6 +859,18 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
     break;
   }
   send_confirmation( internal_dev, ptPacket, ulState, CIFX_TO_CONT_PACKET);
+}
+
+/*****************************************************************************/
+/*! writes packet statistics to the cifx log file
+ *   \param internal_dev Pointer to internal device
+/*****************************************************************************/
+void cifxeth_dump_statistics( NETX_ETH_DEV_T* internal_dev) {
+  USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG,
+            "Ethernet-IF Debug: packet statistic send/sent/recv = %d/%d/%d\n",
+            internal_dev->send_packets,
+            internal_dev->sent_packets,
+            internal_dev->recv_packets);
 }
 
 /*****************************************************************************/
@@ -890,6 +908,9 @@ static void* cifx_to_eth_thread(void* arg)
     }
     if (difftime( time(NULL), last_update) > LINK_STATE_POLL_INTERVAL) {
       cifxeth_update_link_state( internal_dev);
+      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG) {
+        cifxeth_dump_statistics( internal_dev);
+      }
       last_update = time(NULL);
     }
   }
@@ -1003,11 +1024,22 @@ static int32_t cifxeth_update_device_config( NETX_ETH_DEV_T* internal_dev)
     struct ifreq ifr;
     memset( &ifr, 0, sizeof(ifr));
 
+    if (0 == memcmp( ifr.ifr_hwaddr.sa_data, tExtInfo.abEthernetMACAddr, 6)) {
+      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      {
+        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Receiving invalid MAC address from device %s. " \
+                    "Make sure that the firmware is correctly configured and it's ethernet interface is enabled.",
+                    internal_dev->cifxeth_name);
+      }
+      return CIFX_FUNCTION_FAILED;
+    }
+
     memcpy( ifr.ifr_hwaddr.sa_data, tExtInfo.abEthernetMACAddr, 6);
     ifr.ifr_hwaddr.sa_family = 1;
 
     if( (ioctl( internal_dev->eth_fd, SIOCSIFHWADDR, (void *) &ifr)) < 0 )
     {
+      lRet = CIFX_FUNCTION_FAILED;
       if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
       {
         USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to set MAC address %02x:%02x:%02x:%02x:%02x:%02x of %s (%d)",

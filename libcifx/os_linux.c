@@ -35,6 +35,15 @@
 #include "cifXErrors.h"
 #include "OS_Dependent.h"
 
+/* uncomment next line to trace all os function calls */
+//#define OS_FUNC_TRACE
+#ifdef OS_FUNC_TRACE
+  #define DEBUG
+  #define FUNC_TRACE(x) DBG(x)
+#else
+  #define FUNC_TRACE
+#endif
+
 #include "cifxlinux.h"
 #include "cifxlinux_internal.h"
 #include "cifXEndianess.h"
@@ -56,14 +65,13 @@ int32_t OS_Init(void)
 {
   int32_t ret = CIFX_NO_ERROR;
   int err = 0;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+
+  FUNC_TRACE("entry");
 
 #ifndef CIFX_TOOLKIT_DISABLEPCI
   if(0 != (err = pci_system_init()))
   {
-    fprintf( stderr, "Error initializing PCI access subsystem (pci_system_init=%d)", err);
+    ERR( "Error initializing PCI access subsystem (pci_system_init=%d)", err);
     ret = CIFX_FUNCTION_FAILED;
   }
 #endif
@@ -76,9 +84,7 @@ int32_t OS_Init(void)
 /*****************************************************************************/
 void OS_Deinit(void)
 {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
 #ifndef CIFX_TOOLKIT_DISABLEPCI
   pci_system_cleanup();
@@ -92,9 +98,9 @@ void OS_Deinit(void)
 /*****************************************************************************/
 void* OS_Memalloc(uint32_t ulSize) {
   void *mem_ptr;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+
+  FUNC_TRACE("entry");
+
   mem_ptr = malloc(ulSize);
 
   if( mem_ptr == NULL )
@@ -108,9 +114,7 @@ void* OS_Memalloc(uint32_t ulSize) {
 *     \param pvMem  Block to free                                            */
 /*****************************************************************************/
 void OS_Memfree(void* pvMem) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   free(pvMem);
 }
 
@@ -121,9 +125,7 @@ void OS_Memfree(void* pvMem) {
 *     \return NULL on error                                                  */
 /*****************************************************************************/
 void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   pvMem = realloc(pvMem, ulNewSize);
 
   if( (pvMem == NULL) && (ulNewSize != 0) )
@@ -139,9 +141,7 @@ void* OS_Memrealloc(void* pvMem, uint32_t ulNewSize) {
 *     \param ulSize  Size of the fill block                                  */
 /*****************************************************************************/
 void OS_Memset(void* pvMem, unsigned char bFill, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   memset(pvMem, bFill, ulSize);
 }
 
@@ -154,9 +154,7 @@ void OS_Memset(void* pvMem, unsigned char bFill, uint32_t ulSize) {
 void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize) {
   uint32_t ulDestAlignment = (uint32_t)(unsigned long)pvDest & 0x03;
   uint32_t ulSrcAlignment  = (uint32_t)(unsigned long)pvSrc & 0x03;
-#ifdef VERBOSE_1
-  /* printf("%s() called\n", __FUNCTION__); */
-#endif
+  FUNC_TRACE("entry");
   uint8_t *pDest8 = (uint8_t*)pvDest;
   uint8_t *pSrc8 = (uint8_t*)pvSrc;
   if ( (ulDestAlignment == 0) &&
@@ -189,9 +187,7 @@ void OS_Memcpy(void* pvDest, void* pvSrc, uint32_t ulSize) {
 *     \return 0 if blocks are equal                                          */
 /*****************************************************************************/
 int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return memcmp(pvBuf1, pvBuf2, ulSize);
 }
 
@@ -202,9 +198,7 @@ int OS_Memcmp(void* pvBuf1, void* pvBuf2, uint32_t ulSize) {
 *     \param ulSize  Size to move                                            */
 /*****************************************************************************/
 void OS_Memmove(void* pvDest, void* pvSrc, uint32_t ulSize) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   pvDest = memmove(pvDest, pvSrc, ulSize);
 }
 
@@ -219,9 +213,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 
   int                     pci_ret;
   void                    *pci_buf;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   if(!pvOSDependent)
     return NULL;
 
@@ -234,9 +226,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
 
   if ((pci_ret = pci_device_cfg_read(&info->pci, pci_buf, 0, 256, NULL)) )
   {
-#ifdef VERBOSE
-    printf("libnetx: pci_read_block() returns %d\n", pci_ret);
-#endif
+    DBG("pci_device_cfg_read() returns %d\n", pci_ret);
     free( pci_buf);
     pci_buf = NULL;
   }
@@ -257,15 +247,11 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
   int                     pci_ret;
   PCIFX_DEVICE_INTERNAL_T info    = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, 256, NULL)) )
   {
-#ifdef VERBOSE
-    printf("libnetx: pci_write_block() returns %d\n", pci_ret);
-#endif
+    DBG( "pci_device_cfg_write() returns %d\n", pci_ret);
   }
   free(pvPCIConfig);
 #endif
@@ -338,6 +324,8 @@ static void *netx_irq_thread(void *ptr) {
   int                     uio_irq   = 1;
   uint32_t                timeout   = 500;
 
+  FUNC_TRACE("entry");
+
   if(!info)
     return (void *) -1;
 
@@ -354,9 +342,7 @@ static void *netx_irq_thread(void *ptr) {
     }
     if (ret == 1) {
       uint32_t ulVal = 0;
-#ifdef VERBOSE_1
-      printf("IRQ @status_thread\n");
-#endif
+
       ret = cifXTKitISRHandler(info->devinstance, 1);
 
       switch(ret)
@@ -375,12 +361,16 @@ static void *netx_irq_thread(void *ptr) {
           break;
       }
       if (uio_irq) {
+        /* the kernel module disabled the device irq, so we need to enable it again after processing */
         if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
-          /* if it's open for writing enable irq again (currently function not implemented in uio_netx) */
-          //write(info->userdevice->uio_fd, &bVal, 1);
           HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
           ulVal |= HOST_TO_LE32(IRQ_ENABLE_MASK);
           HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
+        } else {
+          /* we don't have access to the device IRQ control within DPM, */
+          /* so let the kernel module enable the device's system irq    */
+          uint32_t enable_irq = 1;
+          write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq));
         }
       }
     }
@@ -397,9 +387,8 @@ void OS_EnableInterrupts(void* pvOSDependent) {
   int                     ret  = 0;
   uint32_t                ulVal;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   pthread_attr_init(&info->irq_thread_attr);
   pthread_attr_setstacksize(&info->irq_thread_attr, PTHREAD_STACK_MIN + IRQ_STACK_MIN_SIZE);
 
@@ -408,7 +397,7 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedpolicy(&info->irq_thread_attr, info->irq_scheduler_algo)) != 0)
     {
-      fprintf( stderr, "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
+      ERR( "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
     }
   }
 
@@ -420,14 +409,14 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedparam(&info->irq_thread_attr, &sched_param)) != 0)
     {
-      fprintf( stderr, "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
+      ERR( "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
     }
   }
 
   if( (ret = pthread_create( &info->irq_thread, &info->irq_thread_attr, netx_irq_thread,
                       (void*)info )) != 0 )
   {
-    fprintf( stderr, "Enabling Interrupts (pthread_create=%d)", ret);
+    ERR( "Enabling Interrupts (pthread_create=%d)", ret);
   } else
   {
     info->irq_stop = 0;
@@ -447,9 +436,7 @@ void OS_DisableInterrupts(void* pvOSDependent) {
   PCIFX_DEVICE_INTERNAL_T info = (PCIFX_DEVICE_INTERNAL_T)pvOSDependent;
   uint32_t                ulVal;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   info->irq_stop = 1;
   pthread_join(info->irq_thread, NULL);
@@ -472,9 +459,7 @@ void OS_DisableInterrupts(void* pvOSDependent) {
 void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
   int         fd;
   struct stat buf;
-#ifdef VERBOSE_1
-  printf("%s(%s) called\n", __FUNCTION__, szFilename);
-#endif
+  FUNC_TRACE("entry");
   fd = open(szFilename, O_RDONLY);
   if( fd == -1 )
   {
@@ -488,9 +473,8 @@ void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
   }
 
   *pulFileSize = buf.st_size;
-#ifdef VERBOSE
-  printf("opened: %s (%u bytes)\n", szFilename, *pulFileSize);
-#endif
+
+  DBG("opened: %s (%u bytes)\n", szFilename, *pulFileSize);
 
   return fdopen(fd, "r");
 }
@@ -505,9 +489,8 @@ void* OS_FileOpen(char* szFilename, uint32_t * pulFileSize) {
 /*****************************************************************************/
 uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset,
                           uint32_t ulSize, void* pvBuffer) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   return fread(pvBuffer, 1, ulSize, pvFile);
 }
 
@@ -516,9 +499,8 @@ uint32_t OS_FileRead(void* pvFile, uint32_t ulOffset,
 *     \param pvFile    Handle to the file (acquired by OS_FileOpen)          */
 /*****************************************************************************/
 void OS_FileClose(void* pvFile) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   if( fclose(pvFile) != 0 )
     perror("FileClose failed");
 }
@@ -531,9 +513,8 @@ uint32_t OS_GetMilliSecCounter(void) {
   struct timespec ts_get_milli;
   unsigned int    msec_count;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
+
   if( clock_gettime( CLOCK_MONOTONIC, &ts_get_milli ) != 0 )
   {
     perror("gettime failed");
@@ -596,9 +577,7 @@ void* OS_CreateMutex(void) {
   pthread_mutex_t     *mut = malloc(sizeof(pthread_mutex_t));
   pthread_mutexattr_t attr;
   int                 iRet;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( mut == NULL )
   {
@@ -607,12 +586,12 @@ void* OS_CreateMutex(void) {
   }
   if( (iRet = pthread_mutexattr_init(&attr)) != 0 )
   {
-    fprintf( stderr, "Mutex init attr: %s\n", strerror(iRet));
+    ERR( "Mutex init attr: %s\n", strerror(iRet));
     goto err_out;
   }
   if( (iRet = pthread_mutex_init(mut, &attr)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto err_out;
   }
   return (void*) mut;
@@ -657,21 +636,19 @@ int OS_WaitMutex(void* pvMutex, uint32_t ulTimeout) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   clock_gettime( CLOCK_REALTIME, &lock_ts );
 
   if (add_msec_to_timespec( &lock_ts, ulTimeout))
   {
-    fprintf( stderr, "OS_WaitMutex(): Faild to calculate time to block\n");
+    ERR( "Faild to calculate time to block\n");
     return 0;
   } else
   {
     if( (iRet = pthread_mutex_timedlock(mut, &lock_ts)) != 0 )
     {
       if (iRet != ETIMEDOUT)
-        fprintf( stderr, "Mutex wait: %s\n", strerror(iRet));
+        ERR( "Mutex wait: %s\n", strerror(iRet));
 
       return 0;
     }
@@ -687,13 +664,11 @@ void OS_ReleaseMutex(void* pvMutex) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_unlock(mut)) != 0 )
   {
-    fprintf( stderr, "Mutex unlock: %s\n", strerror(iRet));
+    ERR( "Mutex unlock: %s\n", strerror(iRet));
   }
 }
 
@@ -705,12 +680,10 @@ void OS_DeleteMutex(void* pvMutex) {
   pthread_mutex_t *mut = (pthread_mutex_t*) pvMutex;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_destroy(mut)) != 0 )
-    fprintf( stderr, "Delete mutex: %s\n", strerror(iRet));
+    ERR( "Delete mutex: %s\n", strerror(iRet));
 
   free(mut);
 }
@@ -724,14 +697,12 @@ void* OS_CreateLock(void) {
   pthread_mutex_t     *mutex;
   int                 iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   pthread_mutexattr_init(&mta);
   if( (iRet = pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE)) != 0 )
   {
-    fprintf( stderr, "Mutex set attr: %s\n", strerror(iRet));
+    ERR( "Mutex set attr: %s\n", strerror(iRet));
     return NULL;
   }
   mutex = malloc( sizeof(pthread_mutex_t) );
@@ -742,7 +713,7 @@ void* OS_CreateLock(void) {
   }
   if( (iRet = pthread_mutex_init(mutex, &mta)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto err_out;
   }
   return mutex;
@@ -760,13 +731,11 @@ void OS_EnterLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_lock(mutex)) != 0)
   {
-    fprintf( stderr, "EnterLock failed: %s\n", strerror(iRet));
+    ERR( "EnterLock failed: %s\n", strerror(iRet));
   }
 }
 
@@ -778,13 +747,11 @@ void OS_LeaveLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_unlock(mutex)) != 0)
   {
-    fprintf( stderr, "Mutex unlock: %s\n", strerror(iRet));
+    ERR( "Mutex unlock: %s\n", strerror(iRet));
   }
 }
 
@@ -796,12 +763,10 @@ void OS_DeleteLock(void* pvLock) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) pvLock;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_mutex_destroy(mutex)) != 0 )
-    fprintf( stderr, "Delete lock: %s\n", strerror(iRet));
+    ERR( "Delete lock: %s\n", strerror(iRet));
 
   free(mutex);
 }
@@ -813,9 +778,7 @@ void OS_DeleteLock(void* pvLock) {
 *     \return 0 if strings are equal                                         */
 /*****************************************************************************/
 int OS_Strcmp(const char* pszBuf1, const char* pszBuf2) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strcmp(pszBuf1, pszBuf2);
 }
 
@@ -827,9 +790,7 @@ int OS_Strcmp(const char* pszBuf1, const char* pszBuf2) {
 *     \return 0 if strings are equal                                         */
 /*****************************************************************************/
 int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strncasecmp(pszBuf1, pszBuf2, ulLen);
 }
 
@@ -839,9 +800,7 @@ int OS_Strnicmp(const char* pszBuf1, const char* pszBuf2, uint32_t ulLen) {
 *     \return Length of given string                                         */
 /*****************************************************************************/
 int OS_Strlen(const char* szText) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strlen(szText);
 }
 
@@ -853,9 +812,7 @@ int OS_Strlen(const char* szText) {
 *     \return Pointer to szDest                                              */
 /*****************************************************************************/
 char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLen) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return strncpy(szDest, szSource, ulLen);
 }
 
@@ -870,9 +827,7 @@ char* OS_Strncpy(char* szDest, const char* szSource, uint32_t ulLen) {
 /*****************************************************************************/
 void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
                 void** ppvMappedMem, void *os_dependent, unsigned char fCached) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   /* We don't need to do any mapping, as we are already in user space */
   *ppvMappedMem = pvDriverMem;
 
@@ -886,9 +841,7 @@ void* OS_MapUserPointer(void* pvDriverMem, uint32_t ulMemSize,
 *     \return 0 on error                                                     */
 /*****************************************************************************/
 int OS_UnmapUserPointer(void* phMapping, void *os_dependent) {
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   return 1;
 }
 
@@ -934,9 +887,7 @@ void* OS_CreateEvent(void) {
   pthread_mutexattr_t ev_mutattr;
   int                 iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( ev == NULL )
   {
@@ -946,7 +897,7 @@ void* OS_CreateEvent(void) {
 
   if( (iRet = pthread_condattr_init( &ev_attr )) != 0 )
   {
-    fprintf( stderr, "Cond init attr: %s\n", strerror(iRet));
+    ERR( "Cond init attr: %s\n", strerror(iRet));
     goto free_out;
   }
 
@@ -954,22 +905,22 @@ void* OS_CreateEvent(void) {
 
   if( (iRet = pthread_cond_init( &(ev->cond), &ev_attr )) != 0 )
   {
-    fprintf( stderr, "Cond init: %s\n", strerror(iRet));
+    ERR( "Cond init: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutexattr_init(&ev_mutattr)) != 0 )
   {
-    fprintf( stderr, "Mutex init attr: %s\n", strerror(iRet));
+    ERR( "Mutex init attr: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutexattr_setprotocol(&ev_mutattr, PTHREAD_PRIO_INHERIT)) != 0 )
   {
-    fprintf( stderr, "Mutex set attr: %s\n", strerror(iRet));
+    ERR( "Mutex set attr: %s\n", strerror(iRet));
     goto free_out;
   }
   if( (iRet = pthread_mutex_init(&(ev->mutex), &ev_mutattr)) != 0 )
   {
-    fprintf( stderr, "Mutex init: %s\n", strerror(iRet));
+    ERR( "Mutex init: %s\n", strerror(iRet));
     goto free_out;
   }
 
@@ -991,13 +942,11 @@ void OS_SetEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
   int             iRet;
 
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( ev == NULL )
   {
-    fprintf(stderr, "SetEvent, no event given\n");
+    ERR( "SetEvent, no event given\n");
   } else
   {
     pthread_mutex_lock(&ev->mutex);
@@ -1010,7 +959,7 @@ void OS_SetEvent(void* pvEvent) {
       if(ev->waiting_threads > 0)
       {
         if( (iRet = pthread_cond_signal(&(ev->cond))) != 0 )
-          fprintf( stderr, "SetEvent: %s\n", strerror(iRet));
+          ERR( "SetEvent: %s\n", strerror(iRet));
 
       }
     }
@@ -1025,12 +974,10 @@ void OS_SetEvent(void* pvEvent) {
 /*****************************************************************************/
 void OS_ResetEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
   if( ev == NULL )
   {
-    fprintf(stderr, "ResetEvent, no event given\n");
+    ERR( "ResetEvent, no event given\n");
   } else
   {
     pthread_mutex_lock(&ev->mutex);
@@ -1048,15 +995,13 @@ void OS_ResetEvent(void* pvEvent) {
 void OS_DeleteEvent(void* pvEvent) {
   struct os_event *ev = (struct os_event *) pvEvent;
   int             iRet;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( (iRet = pthread_cond_destroy(&(ev->cond)) ) != 0 )
-    fprintf( stderr, "Delete event cond: %s\n", strerror(iRet));
+    ERR( "Delete event cond: %s\n", strerror(iRet));
 
   if( (iRet = pthread_mutex_destroy(&(ev->mutex)) ) != 0 )
-    fprintf( stderr, "Delete mutex: %s\n", strerror(iRet));
+    ERR( "Delete mutex: %s\n", strerror(iRet));
 
   free(ev);
 }
@@ -1071,9 +1016,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout) {
   struct os_event *ev = (struct os_event *) pvEvent;
   struct timespec timeout;
   unsigned long   ret = CIFX_EVENT_TIMEOUT;
-#ifdef VERBOSE_1
-  printf("%s() called\n", __FUNCTION__);
-#endif
+  FUNC_TRACE("entry");
 
   if( clock_gettime(CLOCK_MONOTONIC, &timeout) != 0 )
   {
@@ -1082,7 +1025,7 @@ uint32_t OS_WaitEvent(void* pvEvent, uint32_t ulTimeout) {
   {
     if (add_msec_to_timespec( &timeout, ulTimeout))
     {
-      fprintf( stderr, "OS_WaitEvent(): Faild to calculate time to block\n");
+      ERR( "Faild to calculate time to block\n");
       return ret;
     }
 
@@ -1121,6 +1064,8 @@ uint32_t OS_Time( uint32_t *ptTime)
 {
   struct timeval tCurrentTime = {0};
   time_t         tSecSince1970 = 0;
+
+  FUNC_TRACE("entry");
 
   /* get local time */
   if (0 == gettimeofday( &tCurrentTime, NULL))

@@ -112,7 +112,9 @@ MODULE_PARM_DESC(dma_buffer_size, "Size of a DMA-buffer.");
 #define EXT_MEM_NAME "extmem"
 #define DMA_MEM_NAME "dma"
 
-DEFINE_MUTEX(custom_list_lock);
+static DEFINE_MUTEX(custom_list_lock);
+static DEFINE_SPINLOCK(uio_netx_irq_lock);
+
 uint8_t card_count = 0;
 
 struct pxa_dev_info {
@@ -126,6 +128,7 @@ struct uio_netx_priv {
 	int32_t memcount;
 	struct pxa_dev_info *pxa_info;
 	int8_t no_irq_stat;
+	int8_t irq_enabled;
 };
 
 
@@ -148,22 +151,48 @@ static LIST_HEAD(custom_list);
 
 static int netx_enable_irq(struct uio_info *dev_info, s32 irq_on)
 {
-	if (dev_info->irq == 0)
-		return -EPERM; /* Not supported! -> there is no interrupt registered */
+	unsigned long flags;
+	struct uio_netx_priv* priv = (struct uio_netx_priv*)dev_info->priv;
+
+	/* NOTE: System irq state will only be changed if device irq control is */
+	/*       not available. Make sure irq is not shared or can be disabled. */
+	if (dev_info->irq == 0) /* irq not configured/supported */
+		return -EIO;
+
+	/* irq need to be controlled via DPM (mapped memory) */
+	if (!priv->no_irq_stat)
+		return -EACCES;
+
+	if (priv->irq_enabled == (irq_on != 0 ? 1 : 0))
+		return 0; /* ignore request */
+
+	spin_lock_irqsave(&uio_netx_irq_lock, flags);
+	if (irq_on != 0)
+		enable_irq( dev_info->irq);
+	else
+		disable_irq( dev_info->irq);
+
+	priv->irq_enabled = (irq_on != 0 ? 1 : 0);
+	spin_unlock_irqrestore(&uio_netx_irq_lock, flags);
 
 	return 0;
 }
 
 static irqreturn_t netx_handler(int irq, struct uio_info *dev_info)
 {
-	if(((struct uio_netx_priv*)dev_info->priv)->pxa_info != NULL)
+	struct uio_netx_priv* priv = (struct uio_netx_priv*)dev_info->priv;
+
+	if(priv->pxa_info != NULL)
 	{
 		/* This is a PLX device and cannot produce an IRQ */
 		return IRQ_NONE;
 	} else
 	{
+		/* in case an interrupt occurred, disabled it - the user space */
+		/* driver will process it and enable it again                 */
+
 		/* check if the device provides a global interrupt status reg */
-		if (!((struct uio_netx_priv*)dev_info->priv)->no_irq_stat) {
+		if (!priv->no_irq_stat) {
 
 			void __iomem *int_enable_reg = dev_info->mem[0].internal_addr
 							+ DPM_HOST_INT_EN0;
@@ -178,6 +207,13 @@ static irqreturn_t netx_handler(int irq, struct uio_info *dev_info)
 			/* Disable interrupt */
 			iowrite32(ioread32(int_enable_reg) & ~DPM_HOST_INT_GLOBAL_EN,
 					int_enable_reg);
+		} else {
+			unsigned long flags;
+			spin_lock_irqsave(&uio_netx_irq_lock, flags);
+			/* disable system irq as there is no irq control access */
+			disable_irq( irq);
+			priv->irq_enabled = 0;
+			spin_unlock_irqrestore(&uio_netx_irq_lock, flags);
 		}
 		return IRQ_HANDLED;
 	}
@@ -398,6 +434,13 @@ static int __devinit netx_pci_probe(struct pci_dev *dev,
 # endif
 	info->handler = netx_handler;
 	info->irqcontrol = netx_enable_irq;
+
+	/* a few cards (e.g. comX with PCI adapter) may have less than 64k */
+	/* and therefore no global register block and so no irq status     */
+	if (info->mem[DPM_INDEX].size<NETX_DPM_SIZE_64K) {
+		((struct uio_netx_priv*)(info->priv))->no_irq_stat = 1;
+		((struct uio_netx_priv*)(info->priv))->irq_enabled = 1;
+	}
 
 	if ((id->device == PCI_DEVICE_ID_HILSCHER_NETX) ||
 		(id->device == PCI_DEVICE_ID_HILSCHER_NETPLC) ||
@@ -698,8 +741,14 @@ static int map_custom_card( struct netx_custom_dev* custom, int no_of_maps)
 		return -ENOMEM;
 	}
 	/* check if device provides global interrupt status reg */
-	if (custom->dpm_len[0]<NETX_DPM_SIZE_64K)
+	if (custom->dpm_len[0]<NETX_DPM_SIZE_64K) {
+		if (custom->irq[0] != 0)
+			dev_warn(custom->dev, "uio_netx - custom card(%d): Make sure "\
+			         "IRQ %d is not shared!\n", card_count, custom->irq[0]);
+
 		((struct uio_netx_priv*)(info->priv))->no_irq_stat = 1;
+		((struct uio_netx_priv*)(info->priv))->irq_enabled = 1;
+	}
 
 	info->irq = custom->irq[0];
 # if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0))

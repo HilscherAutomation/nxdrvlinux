@@ -132,7 +132,7 @@ int cifx_uio_open(int uio_num, int fCheckAccess)
     {
       if (errno == EWOULDBLOCK)
       {
-        fprintf( stderr, "cifX%d may be opened by another process!\n", uio_num);
+        ERR( "cifX%d may be opened by another process!\n", uio_num);
       }
       close(fd);
       fd = -1;
@@ -560,11 +560,11 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
               device->dma_buffer[device->dma_buffer_cnt].pvBuffer          = membase;
               memaddr += CIFX_DEFAULT_DMA_BUFFER_SIZE;
               membase += CIFX_DEFAULT_DMA_BUFFER_SIZE;
-#ifdef VERBOSE
-              printf("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
+
+              DBG("DMA buffer %d found at 0x%p / size=%d\n", device->dma_buffer_cnt,
                      device->dma_buffer[device->dma_buffer_cnt].pvBuffer,
                      device->dma_buffer[device->dma_buffer_cnt].ulSize);
-#endif
+
               device->dma_buffer_cnt++;
               DMACounter--;
             }
@@ -579,12 +579,11 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
       free(namelist[num_map]);
     }
     free(namelist);
-#ifdef VERBOSE
+
     if (device->dma_buffer_cnt == 0) {
-      printf("\nThe uio_netx driver does not provide memory for DMA support!\n");
-      printf("If DMA is required, the uio_netx driver needs to be build with DMA support!\n\n");
+      DBG("\nThe uio_netx driver does not provide memory for DMA support!\n");
+      DBG("If DMA is required, the uio_netx driver needs to be build with DMA support!\n\n");
     }
-#endif
   }
 }
 
@@ -693,11 +692,11 @@ void cifx_ISA_unmap_dpm( void* dpmaddr, int dpmlen)
         if(dev->regions[bar].base_addr == (pciaddr_t)ulPys_Addr)
         {
           PCIFX_DEVICE_INTERNAL_T internal = (PCIFX_DEVICE_INTERNAL_T)dev_instance->pvOSDependent;
-  #ifdef VERBOSE
-          printf("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
+
+          DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
                 dev->bus, dev->dev, dev->func,
                 dev->vendor_id, dev->device_id, dev->subvendor_id, dev->subdevice_id);
-  #endif
+
           /* detect flash based card by device- and sub_device id  */
           if ( (dev->vendor_id == HILSCHER_PCI_VENDOR_ID) &&
                (
@@ -778,16 +777,16 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 #ifdef CIFX_DRV_HWIF
   if ( ((ptDevice->hwif_read) && (NULL == ptDevice->hwif_write)) ||
        ((ptDevice->hwif_write) && (NULL == ptDevice->hwif_read))) {
-    fprintf(stderr, "Error initializing device! Misconfigured HW-Function Interface (read- or write-function is not defined)!");
+    ERR( "Error initializing device! Misconfigured HW-Function Interface (read- or write-function is not defined)!");
     return CIFX_INVALID_PARAMETER;
   }
 #endif
   if(NULL == (ptInternalDev = (PCIFX_DEVICE_INTERNAL_T)malloc(sizeof(*ptInternalDev))))
   {
-    fprintf(stderr,"Error allocating internal device structures");
+    ERR( "Error allocating internal device structures");
   } else if(NULL == (ptDevInstance = (PDEVICEINSTANCE)malloc(sizeof(*ptDevInstance))))
   {
-    fprintf(stderr, "Error allocating internal device structures");
+    ERR( "Error allocating internal device structures");
     free(ptInternalDev);
     ptInternalDev = NULL;
   } else
@@ -1056,33 +1055,33 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 
       if( (ret = pthread_attr_init(&polling_thread_attr)) != 0 )
       {
-        fprintf( stderr, "cifXDriverInit: Failed to initialize attributes for polling thread (pthread_attr_init=%d)", ret);
+        ERR( "cifXDriverInit: Failed to initialize attributes for polling thread (pthread_attr_init=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       } else if (init_params->poll_priority && ( (ret = pthread_attr_setinheritsched( &polling_thread_attr, PTHREAD_EXPLICIT_SCHED)) != 0))
       {
-        fprintf( stderr, "cifXDriverInit: Failed to set the polling thread attributes (pthread_attr_setinheritsched=%d)", ret);
+        ERR( "cifXDriverInit: Failed to set the polling thread attributes (pthread_attr_setinheritsched=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       } else if (init_params->poll_priority && ( (ret = pthread_attr_setschedpolicy(&polling_thread_attr, init_params->poll_schedpolicy)) != 0))
       {
-        fprintf( stderr, "cifXDriverInit: Failed to set scheduler policy of polling thread (pthread_attr_setschedpolicy=%d)", ret);
+        ERR( "cifXDriverInit: Failed to set scheduler policy of polling thread (pthread_attr_setschedpolicy=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       /* Setup Stack size to minimum */
       } else if( (ret = pthread_attr_setstacksize(&polling_thread_attr, PTHREAD_STACK_MIN + tStackSize)) != 0)
       {
-        fprintf( stderr, "cifXDriverInit: Failed to set stack size of polling thread (pthread_attr_setstacksize=%d)", ret);
+        ERR( "cifXDriverInit: Failed to set stack size of polling thread (pthread_attr_setstacksize=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       /* Set polling thread priority */
       } else if(init_params->poll_priority && ((ret = pthread_attr_setschedparam(&polling_thread_attr, &sched_param) != 0)))
       {
-        fprintf( stderr, "cifXDriverInit: Failed to set priority of polling thread (pthread_attr_setschedparam=%d)", ret);
+        ERR( "cifXDriverInit: Failed to set priority of polling thread (pthread_attr_setschedparam=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
       } else if( (ret = pthread_create(&polling_thread, &polling_thread_attr, cifXPollingThread, (void*)poll_interval)) != 0 )
       {
-        fprintf( stderr, "cifXDriverInit: Could not create polling thread (pthread_create=%d)", ret);
+        ERR( "cifXDriverInit: Could not create polling thread (pthread_create=%d)", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
       }
       polling_thread_running = 1;
@@ -1109,14 +1108,14 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 
         if(NULL == (ptDevice = cifXFindDevice( iDevice, init_params->fEnableCardLocking)))
         {
-          fprintf(stderr, "Error opening device with number %u\n", iDevice);
+          ERR( "Error opening device with number %u\n", iDevice);
           lRet = CIFX_INVALID_BOARD;
         } else
         {
           lRet = cifXDriverAddDevice(ptDevice, 0, 0);
           if(CIFX_NO_ERROR != lRet)
           {
-            fprintf(stderr, "Error adding automatically found cifX device @ Phys. Addr 0x%lX. (Status=0x%08X)\n", ptDevice->dpmaddr, lRet);
+            ERR( "Error adding automatically found cifX device @ Phys. Addr 0x%lX. (Status=0x%08X)\n", ptDevice->dpmaddr, lRet);
           }
         }
         /* Automatically scan for uio devices */
@@ -1130,13 +1129,13 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
         {
           if(NULL == (ptDevice = cifXFindDevice( iDevice, init_params->fEnableCardLocking)))
           {
-            fprintf(stderr, "Error opening device with number %u\n", iDevice);
+            ERR( "Error opening device with number %u\n", iDevice);
           } else
           {
             uint32_t lTemp = cifXDriverAddDevice(ptDevice, num, 0);
             if(CIFX_NO_ERROR != lTemp)
             {
-              fprintf(stderr, "Error adding automatically found cifX device @ Phys. Addr 0x%lX. (Status=0x%08X)\n", ptDevice->dpmaddr, lTemp);
+              ERR( "Error adding automatically found cifX device @ Phys. Addr 0x%lX. (Status=0x%08X)\n", ptDevice->dpmaddr, lTemp);
             } else
             {
               num++;
@@ -1170,7 +1169,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
                 void* hFile = dlopen(szPath, RTLD_NOW | RTLD_LOCAL);
                 if(NULL == hFile)
                 {
-                  fprintf(stderr, "Error loading plugin library %s with error=%s)\n", dirent->d_name, dlerror());
+                  ERR( "Error loading plugin library %s with error=%s)\n", dirent->d_name, dlerror());
                 } else
                 {
                   PFN_CIFX_PLUGIN_GET_DEVICE_COUNT pfnCount;
@@ -1180,7 +1179,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
                       (NULL == (pfnAlloc = dlsym(hFile, CIFX_PLUGIN_ALLOC_DEVICE))) ||
                       (NULL == dlsym(hFile, CIFX_PLUGIN_FREE_DEVICE)) )
                   {
-                    fprintf(stderr, "Error loading plugin library %s, as it does not contain required exports\n", dirent->d_name);
+                    ERR( "Error loading plugin library %s, as it does not contain required exports\n", dirent->d_name);
                     dlclose(hFile);
                   } else
                   {
@@ -1201,14 +1200,14 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 
                       if(NULL == plugin->aptDevices[i])
                       {
-                        fprintf(stderr, "Error: Plugin (%s) return no device for idx=%i\n",
+                        ERR( "Error: Plugin (%s) return no device for idx=%i\n",
                           dirent->d_name, i);
                       } else
                       {
                         lTemp = cifXDriverAddDevice(plugin->aptDevices[i], num, 1);
                         if(CIFX_NO_ERROR != lTemp)
                         {
-                          fprintf(stderr, "Error adding plugin (%s) device %u@0x%lX. (Status=0x%08X)\n",
+                          ERR( "Error adding plugin (%s) device %u@0x%lX. (Status=0x%08X)\n",
                             dirent->d_name, i, plugin->aptDevices[i]->dpmaddr, lTemp);
                         } else
                         {
@@ -1232,7 +1231,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
         {
           if(cifXDriverAddDevice(&init_params->user_cards[temp], num, 1) != CIFX_NO_ERROR )
           {
-            fprintf(stderr, "Adding user device #%d failed \n", temp);
+            ERR( "Adding user device #%d failed \n", temp);
           } else
           {
             ++num;
@@ -1579,9 +1578,7 @@ struct CIFX_DEVICE_T* cifXFindDevice(int iNum, int fCheckAccess)
           /* try to map extended memory */
           if (cifx_uio_map_ext_mem(uio_fd, uio_num, &extmembase, &extmemaddr, &extmemlen))
           {
-#ifdef VERBOSE
-              printf("Extended memory found at (0x%X - 0x%X)\n", (unsigned int)extmemaddr, (unsigned int)(extmemaddr + extmemlen));
-#endif
+            DBG("Extended memory found at (0x%X - 0x%X)\n", (unsigned int)extmemaddr, (unsigned int)(extmemaddr + extmemlen));
           }
 
           /* Build device structure */
