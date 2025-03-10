@@ -133,7 +133,7 @@ int check_if_locked( int fd) {
 
   /* lock file access (non blocking) */
   if (flock( fd, LOCK_EX | LOCK_NB) < 0) {
-    ret = errno;
+    ret = -errno;
     if (errno == EWOULDBLOCK) {
         DBG( "cifX device may be opened by another process!\n");
     }
@@ -195,7 +195,7 @@ static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAcces
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL ) ||
        ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
-    ERR( "cifx_vfio_open: Error allocating memory for device '%s'!\n", device_path);
+    ERR( "Error allocating memory for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
   }
@@ -216,7 +216,7 @@ static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAcces
     vfio_bind.iommufd = pfd->iommu_fd;
     /* unbind is automatically done when closing */
     if (ioctl( pfd->vfio_fd, VFIO_DEVICE_BIND_IOMMUFD, &vfio_bind) < 0) {
-      ret = errno;
+      ret = -errno;
       ERR( "Error binding \"%s\" to IOMMU cdev interface! (err=%d)\n", dev_name, ret);
     } else {
       device->userparam = (void*)pfd;
@@ -281,7 +281,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
 
   /* Create a new container */
   if ((pfd->container = open("/dev/vfio/vfio", O_RDWR)) < 0) {
-    ret = errno;
+    ret = -errno;
     ERR( "Error opening container (ret=%d)!\n", ret);
     goto open_err;
   }
@@ -299,36 +299,36 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
   }
   /* get group within container */
   if ((pfd->group = open( group_path, O_RDWR)) < 0) {
-    ret = errno;
+    ret = -errno;
     ERR( "Error - opening IOMMU group (ret=%d)!\n", ret);
     goto open_err;
   } else {
     /* Test the group is viable and available */
     if (ioctl(pfd->group, VFIO_GROUP_GET_STATUS, &group_status) < 0) {
-      ret = errno;
+      ret = -errno;
       ERR( "Error - VFIO_GROUP_GET_STATUS (ret=%d)!\n", ret);
       goto open_err;
     } else {
       if (!(group_status.flags & VFIO_GROUP_FLAGS_VIABLE)) {
-        ret = errno;
-        ERR( "Error - VFIO_GROUP_FLAGS_VIABLE (ret=%d)!\n", ret);
+        ret = -EAGAIN;
+        ERR( "Not all devices are under VFIO control (ret=%d)!\n", ret);
         goto open_err;
       } else {
         /* Add the group to the container */
         if (ioctl(pfd->group, VFIO_GROUP_SET_CONTAINER, &pfd->container) < 0) {
-          ret = errno;
+          ret = -errno;
           ERR( "Error - VFIO_GROUP_SET_CONTAINER (ret=%d)!\n", ret);
           goto open_err;
         } else {
           /* Enable the IOMMU model we want */
           if (ioctl(pfd->container, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU) < 0) {
-            ret = errno;
+            ret = -errno;
             ERR( "Error - VFIO_SET_IOMMU (ret=%d)!\n", ret);
             goto open_err;
           } else {
             /* Get a file descriptor for the device */
             if ((pfd->vfio_fd = ioctl(pfd->group, VFIO_GROUP_GET_DEVICE_FD, device_id)) <0) {
-              ret = errno;
+              ret = -errno;
               ERR( "Error - VFIO_GROUP_GET_DEVICE_FD (ret=%d)!\n", ret);
               goto open_err;
             } else {
@@ -809,8 +809,8 @@ int cifx_vfio_get_region_size( struct CIFX_DEVICE_T* device, int region, long un
 
   if (pfd != NULL) {
     if (ioctl( pfd->vfio_fd, VFIO_DEVICE_GET_REGION_INFO, &reg) < 0) {
-      ret = errno;
-      ERR( "Error get device info (ret=%d)\n", ret);
+      ret = -errno;
+      ERR( "Error - VFIO_DEVICE_GET_REGION_INFO (err=%d)\n", ret);
     } else {
       *size = reg.size;
       return 0;
@@ -840,11 +840,11 @@ static int cifx_vfio_map_mem( struct CIFX_DEVICE_T* device,
 
   if (pfd != NULL) {
     if ((ret = vfio_get_pci_resource( pfd->device_path, bar, 0, dpmaddr)) != 0) {
-      ERR( "Error get pci pysical address (ret=%d)\n", ret);
+      ERR( "Failed retrieving physical address vfio_get_pci_resource() (err=%d)\n", ret);
       return ret;
     }
     if ((ret = cifx_vfio_get_region_size( device, bar, dpmlen)) != 0) {
-      ERR( "Error get device region info (ret=%d)\n", ret);
+      ERR( "cifx_vfio_get_region_size() (err=%d)\n", ret);
       return ret;
     }
     *dpmbase = mmap(0, *dpmlen, PROT_READ | PROT_WRITE,
@@ -855,7 +855,7 @@ static int cifx_vfio_map_mem( struct CIFX_DEVICE_T* device,
       return 0;
     } else {
       ret = -errno;
-      //ERR( "Error mapping memory (ret=%d) fd=%d / addr=0x%lX / len=0x%lX / off=0x%lX!\n",
+      //ERR( "Error - mmap() (err=%d) fd=%d / addr=0x%lX / len=0x%lX / off=0x%lX!\n",
       //          ret, pfd->vfio_fd, *dpmaddr, *dpmlen, VFIO_BAR_OFF(bar));
     }
   }
@@ -1006,7 +1006,7 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
   int DMACounter = 0;
 
   if (pfd == NULL) {
-    ERR( "Invalid paramter passed!\n");
+    ERR( "Invalid parameter passed!\n");
     goto err_ioctl;
   }
 
@@ -1137,7 +1137,7 @@ void cifx_uio_map_dma_buffer(struct CIFX_DEVICE_T *device)
 
     if (device->dma_buffer_cnt == 0) {
       DBG("\nThe uio_netx driver does not provide memory for DMA support!\n");
-      DBG("If DMA is required, the uio_netx driver needs to be build with DMA support!\n\n");
+      DBG("If DMA is required, the uio_netx driver needs to be build with DMA support!\n");
     }
   }
 }
@@ -1321,7 +1321,7 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
 
           if(dev->regions[bar].base_addr == (pciaddr_t)ulPys_Addr) {
 
-            DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x \n",
+            DBG("matched pci card @ bus=%d,dev=%d,func=%d,vendor=0x%x,device=0x%x,subvendor=0x%x,subdevice=0x%x\n",
                   dev->bus, dev->dev, dev->func,
                   dev->vendor_id, dev->device_id, dev->subvendor_id, dev->subdevice_id);
 
@@ -1411,16 +1411,16 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 #ifdef CIFX_DRV_HWIF
   if ( ((ptDevice->hwif_read) && (NULL == ptDevice->hwif_write)) ||
        ((ptDevice->hwif_write) && (NULL == ptDevice->hwif_read))) {
-    ERR( "Error initializing device! Misconfigured HW-Function Interface (read- or write-function is not defined)!");
+    ERR( "Error initializing device! Misconfigured HW-Function Interface (read- or write-function is not defined)!\n");
     return CIFX_INVALID_PARAMETER;
   }
 #endif
   if(NULL == (ptInternalDev = (PCIFX_DEVICE_INTERNAL_T)malloc(sizeof(*ptInternalDev))))
   {
-    ERR( "Error allocating internal device structures");
+    ERR( "Error allocating internal device structures\n");
   } else if(NULL == (ptDevInstance = (PDEVICEINSTANCE)malloc(sizeof(*ptDevInstance))))
   {
-    ERR( "Error allocating internal device structures");
+    ERR( "Error allocating internal device structures\n");
     free(ptInternalDev);
     ptInternalDev = NULL;
   } else
@@ -1693,33 +1693,33 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 
       if( (ret = pthread_attr_init(&polling_thread_attr)) != 0 )
       {
-        ERR( "cifXDriverInit: Failed to initialize attributes for polling thread (pthread_attr_init=%d)", ret);
+        ERR( "Failed to initialize attributes for polling thread (pthread_attr_init=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       } else if (init_params->poll_priority && ( (ret = pthread_attr_setinheritsched( &polling_thread_attr, PTHREAD_EXPLICIT_SCHED)) != 0))
       {
-        ERR( "cifXDriverInit: Failed to set the polling thread attributes (pthread_attr_setinheritsched=%d)", ret);
+        ERR( "Failed to set the polling thread attributes (pthread_attr_setinheritsched=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       } else if (init_params->poll_priority && ( (ret = pthread_attr_setschedpolicy(&polling_thread_attr, init_params->poll_schedpolicy)) != 0))
       {
-        ERR( "cifXDriverInit: Failed to set scheduler policy of polling thread (pthread_attr_setschedpolicy=%d)", ret);
+        ERR( "Failed to set scheduler policy of polling thread (pthread_attr_setschedpolicy=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       /* Setup Stack size to minimum */
       } else if( (ret = pthread_attr_setstacksize(&polling_thread_attr, PTHREAD_STACK_MIN + tStackSize)) != 0)
       {
-        ERR( "cifXDriverInit: Failed to set stack size of polling thread (pthread_attr_setstacksize=%d)", ret);
+        ERR( "Failed to set stack size of polling thread (pthread_attr_setstacksize=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
 
       /* Set polling thread priority */
       } else if(init_params->poll_priority && ((ret = pthread_attr_setschedparam(&polling_thread_attr, &sched_param) != 0)))
       {
-        ERR( "cifXDriverInit: Failed to set priority of polling thread (pthread_attr_setschedparam=%d)", ret);
+        ERR( "Failed to set priority of polling thread (pthread_attr_setschedparam=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
       } else if( (ret = pthread_create(&polling_thread, &polling_thread_attr, cifXPollingThread, (void*)poll_interval)) != 0 )
       {
-        ERR( "cifXDriverInit: Could not create polling thread (pthread_create=%d)", ret);
+        ERR( "Could not create polling thread (pthread_create=%d)\n", ret);
         lRet = CIFX_DRV_INIT_STATE_ERROR;
       }
       polling_thread_running = 1;
@@ -1869,7 +1869,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
         {
           if(cifXDriverAddDevice(&init_params->user_cards[temp], num, 1) != CIFX_NO_ERROR )
           {
-            ERR( "Adding user device #%d failed \n", temp);
+            ERR( "Adding user device %d failed!\n", temp);
           } else
           {
             ++num;
@@ -2184,18 +2184,18 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
 #ifndef CIFX_NO_PCIACCESS_LIB
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/uio/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "uio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as uio_netx based", dev_type_path);
+        DBG("Identified device '%s' as uio_netx based\n", dev_type_path);
         *dev_type = eCIFX_DEVICE_TYPE_UIO;
         return 0;
       } else {
-        ERR("Error extracting uio device number of '%s'", dev_type_path);
+        ERR("Error extracting uio device number of '%s'\n", dev_type_path);
       }
 #else
 #ifndef VFIO_SUPPORT
       (void)dev_type;
       (void)dev_num;
 #endif
-      ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!", pci_path);
+      ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!\n", pci_path);
 #endif
       return ret;
     }
@@ -2204,14 +2204,14 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
 #ifdef VFIO_CDEV
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as vfio based (cdev)", dev_type_path);
+        DBG("Identified device '%s' as vfio based (cdev)\n", dev_type_path);
         *dev_type = eCIFX_DEVICE_TYPE_VFIO;
         ret = 0;
         return 0;
       }
 #endif
       /* assume its a non-cdev interface */
-      DBG("Identified device '%s' as vfio based (legacy)", dev_type_path);
+      DBG("Identified device '%s' as vfio based (legacy)\n", dev_type_path);
       *dev_type = eCIFX_DEVICE_TYPE_VFIO;
       *dev_num = -1; /* mark it as legacy interface */
       return 0;
@@ -2323,7 +2323,7 @@ int cifXGetDeviceCount(void)
   int uio_count = cifx_uio_get_custom_device_count();
   int pci_count = cifx_get_pci_device_count();
 
-  DBG("Found %d uio_netx (custom) and %d pci devices.", uio_count, pci_count);
+  DBG("Found %d uio_netx (custom) and %d pci devices.\n", uio_count, pci_count);
 
   return uio_count + pci_count;
 }
@@ -2345,10 +2345,10 @@ static int check_if_compatible_pci_card( char* pci_path) {
               (id == CIFX4000_PCI_DEVICE_ID) ) {
           return 0;
         } else {
-          DBG( "Skip Hilscher device '%s' as it is not listed as a compatible device (sub device id=0x%X)", pci_path, id);
+          DBG( "Skip Hilscher device '%s' as it is not listed as a compatible device (sub device id=0x%X)\n", pci_path, id);
         }
       } else {
-        ERR( "Error retrieving sub device id of '%s' - skip device", pci_path);
+        ERR( "Error retrieving sub device id of '%s' - skip device\n", pci_path);
       }
     }
   }
@@ -2370,7 +2370,7 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
   struct CIFX_DEVICE_T* device = NULL;
 
   if ((device = malloc(sizeof(*device))) == NULL) {
-    ERR( "Error allocating memory for uio_netx custom device %d", iNum);
+    ERR( "Error allocating memory for uio_netx custom device %d\n", iNum);
     return NULL;
   }
   memset(device, 0, sizeof(*device));
@@ -2409,7 +2409,7 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
       {
         int ret = 0;
 
-        DBG("Found cifx %d: uio_netx custom device", iNum);
+        DBG("Found cifx %d: uio_netx custom device\n", iNum);
 
         if ((ret = cifx_open( NULL, eCIFX_DEVICE_TYPE_UIO, uio_num, fCheckAccess, device)) < 0) {
           ERR( "cifx_open() failed (ret=%d)\n", ret);
@@ -2493,7 +2493,7 @@ static struct CIFX_DEVICE_T* cifx_find_pci_device(int iNum, int fCheckAccess) {
       } else {
         int ret = 0;
 
-        DBG("Found cifx %d: PCI device ('%s')", iNum, pci_dev_path);
+        DBG("Found cifx %d: PCI device ('%s')\n", iNum, pci_dev_path);
 
         if ((ret = cifx_open( pci_dev_path, dev_type, num_dev, fCheckAccess, device)) < 0) {
           ERR( "cifx_open() failed (ret=%d)\n", ret);
