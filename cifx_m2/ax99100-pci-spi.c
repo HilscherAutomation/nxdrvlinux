@@ -29,14 +29,24 @@
 #define HILSCHER_PCI_SUB_DEVICE_ID_GPIO  0x1002
 #define HILSCHER_PCI_SUB_DEVICE_ID_SPI   0x6001
 
+#include <linux/version.h>
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
+    #define SPI_DEV_GET_CONTROLLER(x) (x->controller)
+    #define SPI_FUNC(func, ...)       (spi_controller_ ## func(__VA_ARGS__))
+    #define SPI_CONTROLLER_STRUCT     spi_controller
+#else
+    #define SPI_DEV_GET_CONTROLLER(x) (x->master)
+    #define SPI_FUNC(func, ...)       (spi_master_ ## func(__VA_ARGS__))
+    #define SPI_CONTROLLER_STRUCT     spi_master
+#endif
+
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/spi/spi.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
-
-#include <linux/version.h>
 
 /* -------------------------------------------------------------------------- */
 /* ------ Global chip settings ---------------------------------------------- */
@@ -142,7 +152,7 @@ struct regdef_common {
 struct priv_data {
 	struct pci_dev *pci;
 
-	struct spi_master *spi_master;
+	struct SPI_CONTROLLER_STRUCT *spi_master;
 	struct spi_device *spi[NUM_CHIPSELECT];
 
 	struct {
@@ -200,7 +210,7 @@ do { \
  */
 static void ax99100_pci_spi_set_frequency(struct spi_device *spi, uint32_t freq)
 {
-	struct priv_data *pd = spi_master_get_devdata(spi->master);
+	struct priv_data *pd = SPI_FUNC(get_devdata, SPI_DEV_GET_CONTROLLER(spi));
 
 	if (freq > spi->max_speed_hz)
 		dev_warn(&spi->dev, "The requested frequency (%dkHz) exceeds the defined max. frequency (%dkHz) of the SPI device.",
@@ -219,7 +229,7 @@ static void ax99100_pci_spi_set_frequency(struct spi_device *spi, uint32_t freq)
  */
 static void ax99100_pci_spi_set_mode(struct spi_device *spi, uint32_t mode)
 {
-	struct priv_data *pd = spi_master_get_devdata(spi->master);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, SPI_DEV_GET_CONTROLLER(spi));
 
 	iomod8(sCM_CPHA(-1) | sCM_CPOL(-1),
 	       sCM_CPHA(!!(mode & SPI_CPHA)) | sCM_CPOL(!!(mode & SPI_CPOL)), &pd->reg.spi->cm);
@@ -230,9 +240,9 @@ static void ax99100_pci_spi_set_mode(struct spi_device *spi, uint32_t mode)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static void ax99100_pci_spi_enable_irq(struct spi_master *sm)
+static void ax99100_pci_spi_enable_irq(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 
 	iomod8(0, sSDC_STCIE(1) | sSDC_STERRIE(1), &pd->reg.spi->sdc);
 }
@@ -242,9 +252,9 @@ static void ax99100_pci_spi_enable_irq(struct spi_master *sm)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static void ax99100_pci_spi_disable_irq(struct spi_master *sm)
+static void ax99100_pci_spi_disable_irq(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 
 	iomod8(sSDC_STCIE(1) | sSDC_STERRIE(1), 0, &pd->reg.spi->sdc);
 }
@@ -260,9 +270,9 @@ static void ax99100_pci_spi_disable_irq(struct spi_master *sm)
  *
  * Return:  Always 0
  */
-static inline void ax99100_pci_spi_do_dma_transfer(struct spi_master *sm)
+static inline void ax99100_pci_spi_do_dma_transfer(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	struct scatterlist *rx_sgl, *tx_sgl;
 
 	if (!pd->rx_sgt.nents && !pd->tx_sgt.nents) {
@@ -310,9 +320,9 @@ static inline void ax99100_pci_spi_do_dma_transfer(struct spi_master *sm)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static inline void ax99100_pci_spi_read_fifo(struct spi_master *sm)
+static inline void ax99100_pci_spi_read_fifo(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	uint8_t nbytes = min_t(uint32_t, pd->rx_len, 8);
 	uint8_t byte, i = 0;
 
@@ -332,9 +342,9 @@ static inline void ax99100_pci_spi_read_fifo(struct spi_master *sm)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static inline void ax99100_pci_spi_write_fifo(struct spi_master *sm)
+static inline void ax99100_pci_spi_write_fifo(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	uint8_t nbytes = min_t(uint32_t, pd->tx_len, 8);
 	uint8_t byte, i = 0;
 
@@ -379,7 +389,7 @@ static inline void ax99100_pci_spi_write_fifo(struct spi_master *sm)
  *
  * Return:  true, if a dma transfer is possible; otherwise false
  */
-static bool ax99100_pci_spi_can_dma(struct spi_master *sm, struct spi_device *spi, struct spi_transfer *transfer)
+static bool ax99100_pci_spi_can_dma(struct SPI_CONTROLLER_STRUCT *sm, struct spi_device *spi, struct spi_transfer *transfer)
 {
 	if (transfer->len < DMA_MIN_SIZE)
 		return false;
@@ -394,7 +404,8 @@ static bool ax99100_pci_spi_can_dma(struct spi_master *sm, struct spi_device *sp
  */
 static void ax99100_pci_spi_set_cs(struct spi_device *spi, bool deselect)
 {
-	struct priv_data *pd = spi_master_get_devdata(spi->master);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, SPI_DEV_GET_CONTROLLER(spi));
+	u8 cs = 0;
 
 	/* NOTE:
 	 * To prevent toggling of SCLK and MOSI/MISO,
@@ -402,10 +413,16 @@ static void ax99100_pci_spi_set_cs(struct spi_device *spi, bool deselect)
 	 */
 	ax99100_pci_spi_set_mode(spi, spi->mode);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0))
+	cs = spi->chip_select[0];
+#else
+	cs = spi->chip_select;
+#endif
+
 	if (gSSOL_EDE(ioread8(&pd->reg.spi->ssol)))
-		iomod8(sSSOL_SS(-1), sSSOL_SS((deselect) ? (-1) : (spi->chip_select)), &pd->reg.spi->ssol);
+		iomod8(sSSOL_SS(-1), sSSOL_SS((deselect) ? (-1) : cs), &pd->reg.spi->ssol);
 	else
-		iomod8(sSSOL_SS(-1), sSSOL_SS((deselect) ? (-1) : ~(1 << spi->chip_select)), &pd->reg.spi->ssol);
+		iomod8(sSSOL_SS(-1), sSSOL_SS((deselect) ? (-1) : ~(1 << cs)), &pd->reg.spi->ssol);
 }
 
 /**
@@ -417,9 +434,9 @@ static void ax99100_pci_spi_set_cs(struct spi_device *spi, bool deselect)
  *
  * Return:  Always 1 to signal that the transfer is still in progress
  */
-static int ax99100_pci_spi_transfer_one(struct spi_master *sm, struct spi_device *spi, struct spi_transfer *transfer)
+static int ax99100_pci_spi_transfer_one(struct SPI_CONTROLLER_STRUCT *sm, struct spi_device *spi, struct spi_transfer *transfer)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 
 	ax99100_pci_spi_set_frequency(spi, transfer->speed_hz);
 
@@ -465,8 +482,8 @@ static int ax99100_pci_spi_transfer_one(struct spi_master *sm, struct spi_device
  */
 static irqreturn_t ax99100_pci_spi_isr(int irq, void *dev_id)
 {
-	struct spi_master *sm = dev_id;
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct SPI_CONTROLLER_STRUCT *sm = dev_id;
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	uint8_t status;
 
 	status = ioread8(&pd->reg.spi->mis);
@@ -518,9 +535,9 @@ module_param_named(max_speed_hz2, spi_slave_devices[2].max_speed_hz, uint, 0644)
 /**
  * ax99100_pci_spi_new_devices: Add optional SPI slave devices defined by module parameters.
  */
-static void ax99100_pci_spi_new_devices(struct spi_master *sm)
+static void ax99100_pci_spi_new_devices(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	int i;
 
 	for (i = 0; i < NUM_CHIPSELECT; i++) {
@@ -546,9 +563,9 @@ static void ax99100_pci_spi_new_devices(struct spi_master *sm)
 /**
  * ax99100_pci_spi_unregister_devices: Unregister optional SPI slave devices defined by module parameters.
  */
-static void ax99100_pci_spi_unregister_devices(struct spi_master *sm)
+static void ax99100_pci_spi_unregister_devices(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	int i;
 
 	for (i = 0; i < NUM_CHIPSELECT; i++) {
@@ -564,9 +581,9 @@ static void ax99100_pci_spi_unregister_devices(struct spi_master *sm)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static void ax99100_pci_spi_chip_init(struct spi_master *sm)
+static void ax99100_pci_spi_chip_init(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 
 	/* Reset chip function */
 	iowrite32(0x1, &pd->reg.common->swrst);
@@ -584,9 +601,9 @@ static void ax99100_pci_spi_chip_init(struct spi_master *sm)
  *
  * @sm:  Pointer to the spi_master structure which provides information about the controller.
  */
-static void ax99100_pci_spi_chip_deinit(struct spi_master *sm)
+static void ax99100_pci_spi_chip_deinit(struct SPI_CONTROLLER_STRUCT *sm)
 {
-	struct priv_data *pd = spi_master_get_devdata(sm);
+	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 
 	/* Reset chip function */
 	iowrite32(0x1, &pd->reg.common->swrst);
@@ -605,14 +622,14 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 {
 	struct device *dev = &pci->dev;
 	struct priv_data *pd;
-	struct spi_master *sm;
+	struct SPI_CONTROLLER_STRUCT *sm;
 	int err;
 
 	sm = spi_alloc_master(dev, sizeof(*pd));
 	if (!sm)
 		return -ENOMEM;
 
-	pd = spi_master_get_devdata(sm);
+	pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	pd->spi_master = sm;
 
 	pci_set_drvdata(pci, pd);
@@ -687,7 +704,7 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 
 	ax99100_pci_spi_chip_init(sm);
 
-	err = devm_spi_register_master(dev, sm);
+	err = devm_spi_register_controller(dev, sm);
 	if (err) {
 		dev_err(dev, "Register SPI master failed!\n");
 		goto err7;
@@ -716,7 +733,7 @@ err2:
 err1:
 	pci_disable_device(pci);
 err0:
-	spi_master_put(sm);
+	SPI_FUNC(put, sm);
 
 	return err;
 }
@@ -729,7 +746,7 @@ err0:
 static void ax99100_pci_spi_remove(struct pci_dev *pci)
 {
 	struct priv_data *pd = pci_get_drvdata(pci);
-	struct spi_master *sm = pd->spi_master;
+	struct SPI_CONTROLLER_STRUCT *sm = pd->spi_master;
 
 	ax99100_pci_spi_unregister_devices(sm);
 	ax99100_pci_spi_chip_deinit(sm);
