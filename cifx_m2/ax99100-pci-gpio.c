@@ -118,8 +118,8 @@ struct priv_data {
 /* -------------------------------------------------------------------------- */
 /* ------ Help functions ---------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
-
-void ax99100_pci_gpio_reg_dump(struct priv_data *pd)
+#if 0
+static void ax99100_pci_gpio_reg_dump(struct priv_data *pd)
 {
 	dev_info(&pd->pci->dev, "Register dump ...\n");
 	dev_info(&pd->pci->dev, "=================\n");
@@ -132,6 +132,7 @@ void ax99100_pci_gpio_reg_dump(struct priv_data *pd)
 	dev_info(&pd->pci->dev, "EDE 0x%08x\n", ioread32(&pd->reg.gpio->ede));
 	dev_info(&pd->pci->dev, "CTR 0x%08x\n", ioread32(&pd->reg.gpio->ctr));
 }
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* ------ IRQ Chip API functions -------------------------------------------- */
