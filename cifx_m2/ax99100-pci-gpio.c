@@ -104,6 +104,9 @@ struct priv_data {
 	struct pci_dev *pci;
 
 	struct gpio_chip gpio_chip;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
+	struct irq_chip  irq_chip;
+#endif
 	spinlock_t lock;
 	struct {
 		struct regdef_common __iomem *common;
@@ -331,7 +334,7 @@ static void ax99100_pci_gpio_isr(struct irq_desc *desc)
 {
 	struct priv_data *pd = gpiochip_get_data(irq_desc_get_handler_data(desc));
 	struct irq_chip *ic = irq_desc_get_chip(desc);
-#if KERNEL_VERSION(4, 15, 0) >  LINUX_VERSION_CODE
+#if  KERNEL_VERSION(4, 15, 0) >  LINUX_VERSION_CODE
 	struct irq_domain *irqdomain = pd->gpio_chip.irqdomain;
 #else
 	struct irq_domain *irqdomain = pd->gpio_chip.irq.domain;
@@ -442,12 +445,19 @@ static int ax99100_pci_gpio_irq_init_hw(struct gpio_chip *gc)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
+/* NOTE: Since kernel 5.19 it's recommended to do a NOT per-gpio_irq_chip      */
+/*       'irq_chip' initialization (5644b66a9c63c3cadc6ba85faf5a15604e6cf29a). */
+/*       -> see as well the 'IRQCHIP_IMMUTABLE' flag and const qualifier.      */
 static const struct irq_chip s_ic = {
+#else
+static struct irq_chip s_ic = {
+#endif
 	.name = KBUILD_MODNAME,
 	.irq_mask = ax99100_pci_gpio_irq_mask,
 	.irq_unmask = ax99100_pci_gpio_irq_unmask,
 	.irq_set_type = ax99100_pci_gpio_irq_set_type,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
 	.flags = IRQCHIP_IMMUTABLE,
 	GPIOCHIP_IRQ_RESOURCE_HELPERS,
 #endif
@@ -466,10 +476,12 @@ static int ax99100_pci_gpio_probe(struct pci_dev *pci, const struct pci_device_i
 	struct device *dev = &pci->dev;
 	struct priv_data *pd;
 	struct gpio_chip *gc;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct gpio_irq_chip *girq;
-#endif
 	int err;
+
+	if (pci->irq <= 0) {
+		dev_err(dev,"No irq provided - cannot initialize irq chip!\n");
+		return -EINVAL;
+	}
 
 	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
 	if (!pd)
@@ -477,17 +489,17 @@ static int ax99100_pci_gpio_probe(struct pci_dev *pci, const struct pci_device_i
 
 	pci_set_drvdata(pci, pd);
 	pd->pci = pci;
-	
+
 	/* Enable PCI device and request regions */
 	err = pci_enable_device(pci);
 	if (err) {
 		dev_err(dev, "Enable PCI device failed!\n");
-		goto err0;
+		goto pci_enable_err;
 	}
 	err = pci_request_regions(pci, KBUILD_MODNAME);
 	if (err) {
 		dev_info(dev, "Request PCI regions failed!\n");
-		goto err1;
+		goto pci_req_region_err;
 	}
 
 	/* Map required memory regions */
@@ -495,19 +507,19 @@ static int ax99100_pci_gpio_probe(struct pci_dev *pci, const struct pci_device_i
 	if (!pd->reg.common) {
 		dev_err(dev, "Map PCI memory bar1 failed (common)!\n");
 		err = -ENODEV;
-		goto err2;
+		goto pci_map_err;
 	}
 	pd->reg.global_irq = pci_iomap_range(pci, 1, 0x3a0, sizeof(*pd->reg.global_irq));
 	if (!pd->reg.global_irq) {
 		dev_err(dev, "Map PCI memory bar1 failed (global_irq)!\n");
 		err = -ENODEV;
-		goto err3;
+		goto pci_map_err;
 	}
 	pd->reg.gpio = pci_iomap_range(pci, 5, 0x3c0, sizeof(*pd->reg.gpio));
 	if (!pd->reg.gpio) {
 		dev_err(dev, "Map PCI memory bar5 failed (gpio)!\n");
 		err = -ENODEV;
-		goto err4;
+		goto pci_map_err;
 	}
 
 	/* Configure the GPIO chip structure */
@@ -526,66 +538,86 @@ static int ax99100_pci_gpio_probe(struct pci_dev *pci, const struct pci_device_i
 
 	spin_lock_init(&pd->lock);
 
+	/* configure GPIO and IRQ chip (cascaded/generic chained) */
+	/* NOTE: Since kernel 5.11 the gpiochip_irqchip API is entirely removed */
+	/*       (see f1f37abbe6fc2b1242f78157db76e48dbf9518ee).               */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-	err = gpiochip_add_data(gc, pd);
+	err = gpiochip_add_data( gc, pd);
 	if (err) {
-		dev_err(dev, "Register GPIO-Chip failed!\n");
-		goto err5;
+		dev_err(dev, "Register GPIO-Chip failed (err=%d)!\n", err);
+		goto gpio_register_err;
 	}
-#endif
-	if (pci->irq > 0) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-		err = gpiochip_irqchip_add(gc, (struct irq_chip*)&s_ic, 0, handle_simple_irq, IRQ_TYPE_NONE);
-		if (err < 0) {
-			dev_err(dev, "Register IRQ-Chip failed!\n");
-			goto err6;
+	memcpy( &pd->irq_chip, &s_ic, sizeof(s_ic));
+	err = gpiochip_irqchip_add(gc, &pd->irq_chip, 0, handle_simple_irq, IRQ_TYPE_NONE);
+	if (err < 0) {
+		dev_err(dev, "Register IRQ-Chip failed (err=%d)!\n", err);
+		goto gpio_chip_add_err;
+	}
+	gpiochip_set_chained_irqchip(gc, &pd->irq_chip, pci->irq, ax99100_pci_gpio_isr);
+	ax99100_pci_gpio_irq_init_hw(gc);
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0) */
+	{
+		struct gpio_irq_chip *girq;
+
+		gc->irq.num_parents = 1;
+		gc->irq.parents = devm_kcalloc(dev,
+		                               gc->irq.num_parents,
+		                               sizeof(*gc->irq.parents),
+		                               GFP_KERNEL);
+		if (!gc->irq.parents) {
+			dev_err(dev, "Error allocating memory for irqchip resource!\n");
+			err = -ENOMEM;
+			goto gpio_register_err;
 		}
-		gpiochip_set_chained_irqchip(gc, (struct irq_chip*)&s_ic, pci->irq, ax99100_pci_gpio_isr);
-		ax99100_pci_gpio_irq_init_hw(gc);
-#else
+
 		girq = &gc->irq;
-		gpio_irq_chip_set_chip( girq, &s_ic);
+		/* Setting up a irqchip pointer 'chip' will automatically create/ */
+		/* initialize the irqchip when calling devm_gpiochip_add_data().  */
+		/* NOTE: Since 5.19 it's recommended to use a const 'irq_chip'    */
+		/*       it possible already before (see note @s_ic declaration). */
+		girq->chip           = (struct irq_chip*)&s_ic;
+		/* initialize the irq handling */
 		girq->parent_handler = ax99100_pci_gpio_isr;
-		girq->num_parents = 1;
-		girq->parents = devm_kcalloc(dev, girq->num_parents,
-					     sizeof(*girq->parents),
-					     GFP_KERNEL);
-		if (!girq->parents)
-			return -ENOMEM;
+		girq->parents[0]     = pci->irq;
+		girq->default_type   = IRQ_TYPE_NONE;
+		/* Use 'simple' as netX uses level-based irq we will always be able */
+		/* to detect any pending irq if one occurs during the processing.   */
+		girq->handler        = handle_simple_irq;
+		girq->init_hw        = ax99100_pci_gpio_irq_init_hw;
 
-		girq->parents[0] = pci->irq;
-		girq->default_type = IRQ_TYPE_NONE;
-		girq->handler = handle_level_irq;
-		girq->init_hw = ax99100_pci_gpio_irq_init_hw;
-
-		err = devm_gpiochip_add_data(dev, gc, pd);
-		if (err < 0) {
-			dev_err(dev, "Register IRQ-Chip failed!\n");
-			goto err6;
+		/* initialize gpio & irq chip */
+		if ( (err = devm_gpiochip_add_data(dev, gc, pd)) < 0) {
+			dev_err(dev, "Register GPIO-Chip failed (err=%d)!\n", err);
+			goto gpio_register_err;
 		}
-#endif
 	}
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0) */
 
 	dev_info(dev, "gpiochip%d with %d GPIOs successfully probed!\n", gc->base, gc->ngpio);
-
 	return 0;
 
-err6:
-	gpiochip_remove(gc);
-	ax99100_pci_gpio_chip_deinit(pd);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-err5:
+gpio_chip_add_err:
+	gpiochip_remove(gc);
+gpio_register_err:
+#else
+gpio_register_err:
+	if (gc->irq.parents != NULL) {
+		kfree( gc->irq.parents);
+	}
 #endif
-	pci_iounmap(pci, pd->reg.gpio);
-err4:
-	pci_iounmap(pci, pd->reg.global_irq);
-err3:
-	pci_iounmap(pci, pd->reg.common);
-err2:
+	ax99100_pci_gpio_chip_deinit(pd);
+pci_map_err:
+	if (pd->reg.gpio != NULL)
+		pci_iounmap(pci, pd->reg.gpio);
+	if (pd->reg.global_irq != NULL)
+		pci_iounmap(pci, pd->reg.global_irq);
+	if (pd->reg.common != NULL)
+		pci_iounmap(pci, pd->reg.common);
 	pci_release_regions(pci);
-err1:
+pci_req_region_err:
 	pci_disable_device(pci);
-err0:
+pci_enable_err:
 	kfree(pd);
 	return err;
 }

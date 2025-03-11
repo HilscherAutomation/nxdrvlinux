@@ -751,15 +751,18 @@ static void ax99100_pci_spi_remove(struct pci_dev *pci)
 	ax99100_pci_spi_unregister_devices(sm);
 	ax99100_pci_spi_chip_deinit(sm);
 
+	devm_free_irq( &pci->dev, pci->irq, sm);
+
 	pci_iounmap(pci, pd->reg.spi);
 	pci_iounmap(pci, pd->reg.common);
 	pci_iounmap(pci, pd->reg.rxdma);
 	pci_iounmap(pci, pd->reg.txdma);
 	pci_clear_master(pci);
 	pci_release_regions(pci);
-	pci_disable_device(pci);
 
 	dev_info(&pci->dev, "%s successfully removed!\n", dev_name(&sm->dev));
+
+	pci_disable_device(pci);
 }
 
 /* ------------------------------------------------------------------------- */
