@@ -633,6 +633,9 @@ static void ax99100_pci_gpio_remove(struct pci_dev *pci)
 	struct priv_data *pd = pci_get_drvdata(pci);
 
 	if (pd) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
+		gpiochip_remove( &pd->gpio_chip);
+#endif
 		/* No need to call gpiochip_remove(), the gpio chip automatically will  */
 		/* be released when the device is unbound. See devm_gpiochip_add_data(). */
 		ax99100_pci_gpio_chip_deinit(pd);
