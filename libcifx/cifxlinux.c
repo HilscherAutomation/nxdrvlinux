@@ -1592,6 +1592,14 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 #endif
     /* Add the device to the toolkits handled device list */
     if(CIFX_NO_ERROR == ret) {
+      if(ptDevInstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
+        uint32_t ulVal = 0;
+        /* Make sure to disable IRQs before passing device to Toolkit, since */
+        /* the toolkit does not care about the irq right from the beginning. */
+        HWIF_READN( ptDevInstance, &ulVal, ptDevInstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
+        ulVal &= ~HOST_TO_LE32(MSK_IRQ_EN0_INT_REQ);
+        HWIF_WRITEN( ptDevInstance, ptDevInstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
+      }
       if ((ret = cifXTKitAddDevice(ptDevInstance))) {
         if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
         {

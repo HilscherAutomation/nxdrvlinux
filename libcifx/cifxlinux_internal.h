@@ -17,6 +17,11 @@
 #include <pthread.h>
 #include <stdio.h>
 #include "cifXToolkit.h"
+#include "NetX_RegDefs.h"
+#include "cifXEndianess.h"
+
+/* off set of global IRQ status/control in DPM */
+#define IRQ_CFG_REG_OFFSET 0xfff0
 
 #define FORMAT_STR(type,fmt) type "%s: " fmt
 #define ERR(fmt, ...)  do { \

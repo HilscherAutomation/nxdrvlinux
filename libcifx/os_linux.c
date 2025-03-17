@@ -48,9 +48,6 @@
 #include "cifxlinux_internal.h"
 #include "cifXEndianess.h"
 
-#define IRQ_CFG_REG_OFFSET          0xfff0
-#define IRQ_ENABLE_MASK             0x80000000
-
 #define IRQ_STACK_MIN_SIZE          0x1000 /* Stack size needed by IRQ Thread
                                               calling Toolkit's ISR/DSR Handler*/
 
@@ -478,7 +475,7 @@ static void *netx_irq_thread(void *ptr) {
 #endif
         if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
           HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
-          ulVal |= HOST_TO_LE32(IRQ_ENABLE_MASK);
+          ulVal |= HOST_TO_LE32(MSK_IRQ_EN0_INT_REQ);
           HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
         } else {
           if (irq_type == eCIFX_IRQ_TYPE_UIO) {
@@ -547,7 +544,7 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     info->irq_stop = 0;
     if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
       HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
-      ulVal |= HOST_TO_LE32(IRQ_ENABLE_MASK);
+      ulVal |= HOST_TO_LE32(MSK_IRQ_EN0_INT_REQ);
       HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
     }
   }
@@ -568,7 +565,7 @@ void OS_DisableInterrupts(void* pvOSDependent) {
 
   if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
     HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
-    ulVal &= HOST_TO_LE32(~IRQ_ENABLE_MASK);
+    ulVal &= HOST_TO_LE32(~MSK_IRQ_EN0_INT_REQ);
     HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
   }
 
