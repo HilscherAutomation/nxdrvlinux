@@ -686,9 +686,12 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
     {
       PCIFX_DEVICE_INTERNAL_T internaldev = (PCIFX_DEVICE_INTERNAL_T)ptDevInfo->ptDeviceInstance->pvOSDependent;
 
-      /* Check if we have a uio handle. If not, we cannot handle IRQs */
-      if(-1 == internaldev->userdevice->uio_fd)
-      {
+#ifndef VFIO_SUPPORT
+      /* we can handle irqs only with an valid irq file descriptor - except it's a VFIO devices */
+      if(-1 == internaldev->userdevice->uio_fd) {
+#else
+      if( (!IS_VFIO_DEVICE(internaldev)) && (internaldev->userdevice->uio_fd < 0) ) {
+#endif
         if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInfo->ptDeviceInstance,
@@ -704,7 +707,7 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
         /*       ret = ENOSYS => !to be backwards compatible! - verification not provided but device supports interrupt   */
         /*       EACCESS will be returned if DPM>64k (irq need to be controlled via mapped DPM)                           */
         /*       The check works only in case of an uio device (uio_num>=0).                                              */
-        if ( (internaldev->userdevice->uio_num >= 0) &&
+        if ( (IS_UIO_DEVICE(internaldev)) &&
              (write(internaldev->userdevice->uio_fd, (void*)&ulEnableInt, sizeof(uint32_t)) < 0) &&
              ((ret = errno) != ENOSYS) &&
              (ret != EACCES) )

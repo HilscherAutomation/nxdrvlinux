@@ -592,7 +592,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   ptSPIDev->dpmlen      = 0x10000; /*!< set to length of dpm (depends on the device) */
 
   /* Since device is not a uio device and no pci card invalidate all parameter */
-  ptSPIDev->uio_num     = -1;      /*!< set to '-1' since it is no 'uio-devices' */
+  ptSPIDev->uio_num     = UIO_NUM_SPI_DEVICE; /*!< mark it as a SPI device */
   ptSPIDev->uio_fd      = (lFd >= 0) ? lFd : -1; /*!< set to '-1' since it is no 'uio-devices' */
   ptSPIDev->pci_card    = 0;       /*!< set to 0 since it is no pci card */
   ptSPIDev->force_ram   = 0;       /*!< Force usage of RAM instead of flash. Card will always be reset and all

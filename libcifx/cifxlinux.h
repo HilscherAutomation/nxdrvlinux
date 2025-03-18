@@ -109,8 +109,13 @@ struct CIFX_DEVICE_T
   unsigned long   dpmaddr;    /*!< physical address to DPM, this parameter will be used for PCI cards to detect bus address */
   unsigned long   dpmlen;     /*!< Length of DPM in bytes  */
 
-  int             uio_num;    /*!< uio number, -1 for non-uio devices      */
-  int             uio_fd;     /*!< uio file handle, -1 for non-uio devices */
+/* NOTE: The structure is used as well for other devices - not to modify */
+/*       the structures size the device type is coded into the uio_num.  */
+#define UIO_NUM_SPI_DEVICE  -2
+#define UIO_NUM_VFIO_DEVICE -3
+  int             uio_num;    /*!< uio number, < 0 for non-uio devices      */
+
+  int             uio_fd;     /*!< uio file handle */
 
   int             pci_card;   /*!< !=0 if device is a pci card */
   int             force_ram;  /*!< Force usage of RAM instead of flash. Card will always be reset and all
