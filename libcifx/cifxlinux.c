@@ -51,7 +51,9 @@
 #ifdef VFIO_SUPPORT
   #include <sys/ioctl.h>
   #include <linux/vfio.h>
+#ifdef VFIO_CDEV
   #include <linux/iommufd.h>
+#endif
 #endif
 
 extern char*            g_szDriverBaseDir;
@@ -138,40 +140,64 @@ int check_if_locked( int fd) {
   return ret;
 }
 
+#include <libgen.h> /* basename */
+int get_link_base_name( char* path, char* link_path, int buf_len, char** result) {
+  int ret = -EINVAL;
+
+  if ( (path == NULL) || (link_path == NULL) )
+    return ret;
+
+  if ( ((ret = readlink( path, link_path, buf_len)) > 0) && (ret < buf_len) ) {
+    /* it's not terminated... */
+    link_path[ret] = '\0';
+    /* get directory name (link to iommu group) */
+    *result = basename( link_path);
+    ret = 0;
+  } else {
+    ret = -errno;
+  }
+  return ret;
+}
+
 #ifdef VFIO_SUPPORT
+#ifdef VFIO_CDEV
 static struct vfio_device_bind_iommufd vfio_bind = {
     .argsz = sizeof(vfio_bind),
     .flags = 0,
 };
+#endif
+struct vfio_group_status group_status =
+                                { .argsz = sizeof(group_status) };
+struct vfio_iommu_type1_info iommu_info = { .argsz = sizeof(iommu_info) };
+struct vfio_device_info device_info = { .argsz = sizeof(device_info) };
 
 /*****************************************************************************/
 /*! Helper function to open a vfio device
+*     \param device_path      path to pci device (sysfs)
 *     \param vfio_num         device number
 *     \param fCheckAccess     If != 0 the driver denies access if card is already
 *                             accesed
 *     \return 0 on success, < 0 on error                                     */
 /*****************************************************************************/
-static int cifx_vfio_open(int vfio_num, int fCheckAccess, void* pdev)
+#ifdef VFIO_CDEV
+static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAccess, void* pdev)
 {
   char dev_name[CIFX_MAX_FILE_NAME_LENGTH];
   struct vfio_fd* pfd;
   struct CIFX_DEVICE_T* device = (struct CIFX_DEVICE_T*)pdev;
   int ret;
 
-  if (device == NULL)
+  if ( (device == NULL) || (strlen(device_path) == 0) )
     return -EINVAL;
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL ) ||
-       ((pfd->device_path = calloc( 1, CIFX_MAX_FILE_NAME_LENGTH)) == NULL) )  {
-    ERR( "Error allocating memory - vfionum=%d!\n", vfio_num);
+       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+    ERR( "cifx_vfio_open: Error allocating memory for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
   }
 
-  if ( (ret = pci_get_hilscher_device_id_by_idx( vfio_num, (char*)pfd->device_path, CIFX_MAX_FILE_NAME_LENGTH, 1)) < 0) {
-    ERR( "Error retreiving PCI id for VIOD dev=%d! (err=%d)\n", vfio_num, ret);
-    goto alloc_err;
-  }
+  strncpy( pfd->device_path, device_path, strlen(device_path));
 
   pfd->vfio_num = vfio_num;
   snprintf( dev_name, CIFX_MAX_FILE_NAME_LENGTH, "/dev/vfio/devices/vfio%d", pfd->vfio_num);
@@ -202,6 +228,126 @@ static int cifx_vfio_open(int vfio_num, int fCheckAccess, void* pdev)
 
 block_err:
   close(pfd->vfio_fd);
+alloc_err:
+  if (pfd != NULL) {
+    if (pfd->device_path != NULL)
+      free(pfd->device_path);
+    free(pfd);
+  }
+  return ret;
+}
+#endif /* VFIO_CDEV */
+static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, struct CIFX_DEVICE_T* device)
+{
+  struct vfio_fd* pfd = NULL;
+  char* device_id = NULL;
+  char link_path[CIFX_MAX_FILE_NAME_LENGTH];
+  char group_path[CIFX_MAX_FILE_NAME_LENGTH];
+  char* group;
+  int ret;
+
+  /* for non-cdev devices vfio_num does not exis */
+  (void)vfio_num;
+
+  if (device == NULL)
+    return -EINVAL;
+
+  /* TODO: the kernel controls it or no chance per device? */
+  if ( (fCheckAccess) || (strlen(device_path) == 0) )
+    return -EINVAL;
+
+  if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL) ||
+       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+    ERR( "Error allocating memory - for device '%s'!\n", device_path);
+    ret = -ENOMEM;
+    goto alloc_err;
+  }
+
+  pfd->container -1;
+  pfd->group = -1;
+  pfd->vfio_fd = -1;
+
+  strncpy( pfd->device_path, device_path, strlen(device_path));
+  snprintf( group_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/iommu_group", pfd->device_path);
+  if ((ret = get_link_base_name( group_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &group)) != 0)
+    goto open_err;
+
+  snprintf( group_path, CIFX_MAX_FILE_NAME_LENGTH, "/dev/vfio/%s", group);
+  /* get device pci id */
+  device_id = basename(pfd->device_path);
+
+  /* Create a new container */
+  if ((pfd->container = open("/dev/vfio/vfio", O_RDWR)) < 0) {
+    ret = errno;
+    ERR( "Error opening container (ret=%d)!\n", ret);
+    goto open_err;
+  }
+
+  if (ioctl(pfd->container, VFIO_GET_API_VERSION) != VFIO_API_VERSION) {
+    ret = -EINVAL;
+    ERR( "Error - invalid VFIO API version!\n");
+    goto open_err;
+  }
+
+  if (!ioctl(pfd->container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU) < 0) {
+    ret = -EINVAL;
+    ERR( "Error - expecting \"VFIO_TYPE1_IOMMU\" support!\n");
+    goto open_err;
+  }
+  /* get group within container */
+  if ((pfd->group = open( group_path, O_RDWR)) < 0) {
+    ret = errno;
+    ERR( "Error - opening IOMMU group (ret=%d)!\n", ret);
+    goto open_err;
+  } else {
+    /* Test the group is viable and available */
+    if (ioctl(pfd->group, VFIO_GROUP_GET_STATUS, &group_status) < 0) {
+      ret = errno;
+      ERR( "Error - VFIO_GROUP_GET_STATUS (ret=%d)!\n", ret);
+      goto open_err;
+    } else {
+      if (!(group_status.flags & VFIO_GROUP_FLAGS_VIABLE)) {
+        ret = errno;
+        ERR( "Error - VFIO_GROUP_FLAGS_VIABLE (ret=%d)!\n", ret);
+        goto open_err;
+      } else {
+        /* Add the group to the container */
+        if (ioctl(pfd->group, VFIO_GROUP_SET_CONTAINER, &pfd->container) < 0) {
+          ret = errno;
+          ERR( "Error - VFIO_GROUP_SET_CONTAINER (ret=%d)!\n", ret);
+          goto open_err;
+        } else {
+          /* Enable the IOMMU model we want */
+          if (ioctl(pfd->container, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU) < 0) {
+            ret = errno;
+            ERR( "Error - VFIO_SET_IOMMU (ret=%d)!\n", ret);
+            goto open_err;
+          } else {
+            /* Get a file descriptor for the device */
+            if ((pfd->vfio_fd = ioctl(pfd->group, VFIO_GROUP_GET_DEVICE_FD, device_id)) <0) {
+              ret = errno;
+              ERR( "Error - VFIO_GROUP_GET_DEVICE_FD (ret=%d)!\n", ret);
+              goto open_err;
+            } else {
+              if ((fCheckAccess != 0) && (ret = check_if_locked( pfd->vfio_fd)) != 0)
+                goto open_err;
+
+              device->userparam = (void*)pfd;
+              device->uio_num = UIO_NUM_VFIO_DEVICE;
+              return 0;
+            }
+          }
+        }
+      }
+    }
+  }
+open_err:
+  if (pfd->vfio_fd >= 0)
+    close(pfd->vfio_fd);
+  if (pfd->group >= 0)
+    close(pfd->group);
+  if (pfd->container >= 0)
+    close(pfd->container);
 alloc_err:
   if (pfd != NULL) {
     if (pfd->device_path != NULL)
@@ -245,7 +391,7 @@ int cifx_uio_open(int uio_num, int fCheckAccess)
 *                             accesed
 *     \return 0 on success, < 0 on error                                     */
 /*****************************************************************************/
-static int cifx_open(int dev_type, int dev_num, int fCheckAccess, struct CIFX_DEVICE_T* device)
+static int cifx_open( char* path, int dev_type, int dev_num, int fCheckAccess, struct CIFX_DEVICE_T* device)
 {
   if (device == NULL)
     return -EINVAL;
@@ -257,11 +403,17 @@ static int cifx_open(int dev_type, int dev_num, int fCheckAccess, struct CIFX_DE
     } else {
       return device->uio_fd;
     }
-#ifdef VFIO_SUPPORT
-  } else if (dev_type == eCIFX_DEVICE_TYPE_VFIO) {
-    return cifx_vfio_open( dev_num, fCheckAccess, device);
-#endif
   }
+#ifdef VFIO_SUPPORT
+  if (dev_type == eCIFX_DEVICE_TYPE_VFIO) {
+#ifdef VFIO_CDEV
+    /* in case a vfio device number provided it's the cdev interface */
+    if (dev_num >= 0)
+      return cifx_vfio_open_cdev( path, dev_num, fCheckAccess, device);
+#endif
+    return cifx_vfio_open( path, dev_num, fCheckAccess, device);
+  }
+#endif
   return -EINVAL;
 }
 
@@ -285,10 +437,16 @@ static void cifx_close( struct CIFX_DEVICE_T* device) {
         if (pfd != NULL) {
           if (pfd->vfio_fd >= 0)
             close(pfd->vfio_fd);
-          if (pfd->iommu_fd >= 0)
-            close(pfd->iommu_fd);
           if (pfd->device_path != NULL)
             free(pfd->device_path);
+#ifdef VFIO_CDEV
+          if (pfd->iommu_fd >= 0)
+            close(pfd->iommu_fd);
+#endif
+          if (pfd->group >= 0)
+            close(pfd->group);
+          if (pfd->container >= 0)
+            close(pfd->container);
 
           free(pfd);
         }
@@ -827,6 +985,10 @@ static int cifx_uio_map_ext_mem(int uio_fd, int uio_num,
 
 #ifdef CIFX_TOOLKIT_DMA
 #ifdef VFIO_SUPPORT
+
+struct vfio_iommu_type1_dma_map dma_map = { .argsz = sizeof(dma_map) };
+
+#ifdef VFIO_CDEV
 static struct iommu_ioas_alloc alloc_data  = {
         .size = sizeof(alloc_data),
         .flags = 0,
@@ -842,6 +1004,7 @@ static struct iommu_ioas_map map = {
                  IOMMU_IOAS_MAP_FIXED_IOVA,
         .__reserved = 0,
 };
+#endif
 
 /*****************************************************************************/
 /*! Map the DMA memory of a vfio device
@@ -865,27 +1028,42 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
   membase = mmap(0, memlen, PROT_READ | PROT_WRITE,
                             MAP_SHARED | MAP_ANONYMOUS | MAP_LOCKED|MAP_POPULATE, 0, 0);
 
-  if (ioctl( pfd->iommu_fd, IOMMU_IOAS_ALLOC, &alloc_data) < 0) {
-    ERR( "Error IOMMU_IOAS_ALLOC (ret=%d)\n", errno);
-    goto err_ioctl;
-  } else {
-    attach_data.pt_id = alloc_data.out_ioas_id;
-
-    if (ioctl( pfd->vfio_fd, VFIO_DEVICE_ATTACH_IOMMUFD_PT, &attach_data) < 0) {
-      ERR( "Error VFIO_DEVICE_ATTACH_IOMMUFD_PT (ret=%d)\n", errno);
+#ifdef VFIO_CDEV
+  if (pfd->vfio_num >= 0) {
+    if (ioctl( pfd->iommu_fd, IOMMU_IOAS_ALLOC, &alloc_data) < 0) {
+      ERR( "Error IOMMU_IOAS_ALLOC (ret=%d)\n", errno);
       goto err_ioctl;
     } else {
-      map.user_va = (uint64_t)membase;
-      map.iova = memaddr; /*  starting at 0x0 from device view */
-      map.length = memlen;
-      map.ioas_id = alloc_data.out_ioas_id;
+      attach_data.pt_id = alloc_data.out_ioas_id;
 
-      if (ioctl( pfd->iommu_fd, IOMMU_IOAS_MAP, &map) < 0) {
-        ERR( "IOMMU_IOAS_MAP (ret=%d)\n", errno);
+      if (ioctl( pfd->vfio_fd, VFIO_DEVICE_ATTACH_IOMMUFD_PT, &attach_data) < 0) {
+        ERR( "Error VFIO_DEVICE_ATTACH_IOMMUFD_PT (ret=%d)\n", errno);
         goto err_ioctl;
+      } else {
+        map.user_va = (uint64_t)membase;
+        map.iova = memaddr; /*  starting at 0x0 from device view */
+        map.length = memlen;
+        map.ioas_id = alloc_data.out_ioas_id;
+
+        if (ioctl( pfd->iommu_fd, IOMMU_IOAS_MAP, &map) < 0) {
+          ERR( "IOMMU_IOAS_MAP (ret=%d)\n", errno);
+          goto err_ioctl;
+        }
       }
     }
+  } else
+#endif
+  {
+    dma_map.vaddr = membase;
+    dma_map.size = memlen;
+    dma_map.iova = 0; /* starting at 0x0 from device view */
+    dma_map.flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE;
+    if (ioctl(pfd->container, VFIO_IOMMU_MAP_DMA, &dma_map) < 0) {
+      ERR( "VFIO_IOMMU_MAP_DMA (ret=%d)\n", errno);
+      goto err_ioctl;
+    }
   }
+
   if ((DMACounter = memlen/(CIFX_DEFAULT_DMA_BUFFER_SIZE))) {
     while(DMACounter) {
       device->dma_buffer[device->dma_buffer_cnt].ulSize            = CIFX_DEFAULT_DMA_BUFFER_SIZE;
@@ -1998,35 +2176,58 @@ int scan_dir_for_dev_file_idx(char* path, char* match, int* num_dev) {
 }
 
 /*****************************************************************************/
-/*! Scans directory 'path' (to pci device) to find a reference to the driver
+/*! Scans directory 'pci_path' (to pci device) to find a reference to the driver
 *   (uio or vfio)
-*   \param path       pci device path (sysfs)
+*   \param pci_path   pci device path (sysfs)
 *   \param dev_type   the returned device type (uio or vfio)
 *   \param dev_num    the device index e.g. uio0 -> 0
 *   \returns 0 on success < 0 on error                                       */
 /*****************************************************************************/
-int pci_get_device_type_and_num(char* path, CIFX_DEVICE_TYPE_E * dev_type, int* dev_num) {
+int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, int* dev_num) {
   int ret = -EINVAL;
   char dev_type_path[CIFX_MAX_FILE_NAME_LENGTH];
+  char link_path[CIFX_MAX_FILE_NAME_LENGTH];
+  char* driver;
 
-  *dev_type = eCIFX_DEVICE_TYPE_UIO;
-  snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/uio/", path);
-  if ( scan_dir_for_dev_file_idx(dev_type_path, "uio%u", dev_num) != 0) {
-
-    snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", path);
-    if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
-      DBG("Identified device '%s' as vfio based", dev_type_path);
-      *dev_type = eCIFX_DEVICE_TYPE_VFIO;
-      ret = 0;
-    }
-  } else {
+  snprintf( dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/driver", pci_path);
+  /* on success result provides the assigend driver */
+  if (get_link_base_name( dev_type_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &driver) == 0) {
+    /* netx=uio_netx driver */
+    if (strcmp(driver, "netx") == 0) {
 #ifndef CIFX_NO_PCIACCESS_LIB
-    DBG("Identified device '%s' as uio_netx based", dev_type_path);
-    *dev_type = eCIFX_DEVICE_TYPE_UIO;
-    ret = 0;
+      snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/uio/", pci_path);
+      if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "uio%u", dev_num)) == 0) {
+        DBG("Identified device '%s' as uio_netx based", dev_type_path);
+        *dev_type = eCIFX_DEVICE_TYPE_UIO;
+        return 0;
+      } else {
+        ERR("Error extracting uio device number of '%s'", dev_type_path);
+      }
 #else
-    ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!", path);
+      ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!", pci_path);
 #endif
+      return ret;
+    }
+#ifdef VFIO_SUPPORT
+    if (strcmp(driver, "vfio-pci") == 0) {
+#ifdef VFIO_CDEV
+      snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", pci_path);
+      if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
+        DBG("Identified device '%s' as vfio based (cdev)", dev_type_path);
+        *dev_type = eCIFX_DEVICE_TYPE_VFIO;
+        ret = 0;
+        return 0;
+      }
+#endif
+      /* assume its a non-cdev interface */
+      DBG("Identified device '%s' as vfio based (legacy)", dev_type_path);
+      *dev_type = eCIFX_DEVICE_TYPE_VFIO;
+      *dev_num = -1; /* mark it as legacy interface */
+      return 0;
+    }
+#endif
+  } else {
+    /* assigned driver not supported */
   }
   return ret;
 }
@@ -2219,7 +2420,7 @@ static struct CIFX_DEVICE_T* cifx_find_pci_device(int iNum, int fCheckAccess) {
 
         DBG("Found cifx %d: PCI device ('%s')", iNum, pci_dev_path);
 
-        if ((ret = cifx_open( dev_type, num_dev, fCheckAccess, device)) < 0) {
+        if ((ret = cifx_open( pci_dev_path, dev_type, num_dev, fCheckAccess, device)) < 0) {
           ERR( "cifx_open() failed (ret=%d)\n", ret);
           goto open_err;
         } else if ((ret = cifx_map_mem( device, eMEM_DPM, (void*)&device->dpm, &device->dpmaddr, &device->dpmlen, 0)) < 0) {

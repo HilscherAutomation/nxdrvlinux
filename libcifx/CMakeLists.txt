@@ -41,6 +41,12 @@ else(VIRTETH STREQUAL "ON")
   unset(VIRTETH_MAX_ACTIVE_SENDS CACHE)
 endif(VIRTETH STREQUAL "ON")
 
+if(VFIO STREQUAL "ON")
+  set(VFIO_FORCE_LEGACY FALSE CACHE BOOL "Force library supporting only the legacy vfio interface and not cdev interface (CONFIG_VFIO_DEVICE_CDEV) (default: OFF)")
+else(VFIO STREQUAL "ON")
+  unset(VFIO_FORCE_LEGACY CACHE)
+endif(VFIO STREQUAL "ON")
+
 set(src_dir ${CMAKE_CURRENT_LIST_DIR})
 set(tk_dir  ${src_dir}/Toolkit)
 
@@ -64,6 +70,7 @@ target_compile_definitions( cifx
         $<$<BOOL:${HWIF}>:CIFX_DRV_HWIF>
         $<$<OR:$<BOOL:${PLUGIN}>,$<BOOL:${SPM_PLUGIN}>>:CIFX_DRV_HWIF CIFX_PLUGIN_SUPPORT>
         $<$<BOOL:${VFIO}>:VFIO_SUPPORT>
+        $<$<NOT:$<BOOL:${VFIO_FORCE_LEGACY}>>:VFIO_CDEV>
 )
 
 file(GLOB SOURCES "${src_dir}/*.c" "${tk_dir}/Source/*.c")

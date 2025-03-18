@@ -123,7 +123,11 @@ struct vfio_fd {
   char* device_path;
   struct vfio_irq_res irq;
   /* iommu related */
+  int container;
+  int group;
+#ifdef VFIO_CDEV
   int iommu_fd;
+#endif
 };
 #endif /* VFIO_SUPPORT */
 
