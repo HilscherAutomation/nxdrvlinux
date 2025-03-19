@@ -1,15 +1,10 @@
+// SPDX-License-Identifier: MIT
 /**************************************************************************************
  *
- * Copyright (c) 2024, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
+ * Copyright (c) 2025, Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
  *
  * Description: This plugin library can be used to initialize and use a spidev as a "common"
  *              cifX device. The access is based on the cifX toolkit's 'HW-access' functions.
- *
- * Changes:
- *
- *   Version   Date        Author   Description
- *   ----------------------------------------------------------------------------------
- *   1        02.01.24    SD        changed licensing terms
  *
  **************************************************************************************/
 
@@ -24,6 +19,18 @@
 #include <errno.h>
 #include <pthread.h>
 #include "cifxlinux.h"
+
+/* uncomment next line to trace all function calls */
+//#define FUNCTION_TRACE
+#ifdef FUNCTION_TRACE
+  #ifndef DEBUG
+    #define DEBUG
+  #endif
+  #define SDPM_FUNC_TRACE(x) DBG(x)
+#else
+  #define SDPM_FUNC_TRACE(x) //no function trace
+#endif
+
 #include "cifxlinux_internal.h"
 
 #define CHECK_STATE /* enable error message in case of dpm status changes to != 0x11 (printed to stderr) */
@@ -151,7 +158,7 @@ static int SPITransferMessage(struct SPI_PARAM_T* ptSPIParam, uint8_t *pbData, u
   int ret = 0;
   struct spi_ioc_transfer tSPITransfer = {0};
 
-  DBG("++SPITransferMessage\n");
+  SDPM_FUNC_TRACE("++SPITransferMessage\n");
 
   tSPITransfer.tx_buf    = (uint64_t)pbData;
   tSPITransfer.rx_buf    = (uint64_t)pbData;
@@ -168,7 +175,7 @@ static int SPITransferMessage(struct SPI_PARAM_T* ptSPIParam, uint8_t *pbData, u
   }
 #endif
 
-  DBG("--SPITransferMessage\n");
+  SDPM_FUNC_TRACE("--SPITransferMessage\n");
 
   return ret;
 }
@@ -186,7 +193,7 @@ static void SPIReadChunk( struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   struct SPI_RD_MSG_T* ptSPIRDMsg = NULL;
   int ret = 0;
 
-  DBG("++SPIReadChunk\n");
+  SDPM_FUNC_TRACE("++SPIReadChunk\n");
 
   /* Check buffer size */
   if(*(uint16_t*)ptSPIParam->pabRXBuffer < ulLen) {
@@ -214,7 +221,7 @@ static void SPIReadChunk( struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   /* return read data */
   memcpy(pbData, ptSPIRDMsg->abData, ulLen);
 
-  DBG("--SPIReadChunk\n");
+  SDPM_FUNC_TRACE("--SPIReadChunk\n");
 }
 
 /******************************************************************************/
@@ -230,7 +237,7 @@ static void SPIWriteChunk(struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   struct SPI_WR_MSG_T* ptSPIWRMsg = NULL;
   int ret = 0;
 
-  DBG("++SPIWriteChunk\n");
+  SDPM_FUNC_TRACE("++SPIWriteChunk\n");
 
   /* Check buffer size */
   if(*(uint16_t*)ptSPIParam->pabTXBuffer < ulLen) {
@@ -255,7 +262,7 @@ static void SPIWriteChunk(struct SPI_PARAM_T* ptSPIParam, uint32_t ulDpmAddr, ui
   }
 #endif
 
-  DBG("--SPIWriteChunk\n");
+  SDPM_FUNC_TRACE("--SPIWriteChunk\n");
 }
 
 /******************************************************************************/
@@ -269,7 +276,7 @@ static void* SPIHWIFRead(struct CIFX_DEVICE_T* ptDevice, void* pvDpmAddr, void* 
 {
   struct SPI_PARAM_T* ptSPIParam = (struct SPI_PARAM_T*)ptDevice->userparam;
 
-  DBG("++SPIHWIFRead\n");
+  SDPM_FUNC_TRACE("++SPIHWIFRead\n");
 
   /* check if interface is correctly configured */
   if ((NULL != ptSPIParam) && (ptSPIParam->eState == eInitialized)) {
@@ -279,7 +286,7 @@ static void* SPIHWIFRead(struct CIFX_DEVICE_T* ptDevice, void* pvDpmAddr, void* 
     SPIReadChunk(ptSPIParam, (uint32_t)(uintptr_t)pvDpmAddr, (uint8_t*)pvDst, ulLen);
     LeaveLock(ptSPIParam->pvSerDPMLock);
   }
-  DBG("--SPIHWIFRead\n");
+  SDPM_FUNC_TRACE("--SPIHWIFRead\n");
   return pvDst;
 }
 
@@ -312,7 +319,7 @@ static void* SPIHWIFWrite(struct CIFX_DEVICE_T* ptDevice, void* pvDpmAddr, void*
 {
   struct SPI_PARAM_T* ptSPIParam = (struct SPI_PARAM_T*)ptDevice->userparam;
 
-  DBG("++SPIHWIFWrite\n");
+  SDPM_FUNC_TRACE("++SPIHWIFWrite\n");
 
   /* check if interface is correctly configured */
   if ((NULL != ptSPIParam) && (ptSPIParam->eState == eInitialized)) {
@@ -322,7 +329,7 @@ static void* SPIHWIFWrite(struct CIFX_DEVICE_T* ptDevice, void* pvDpmAddr, void*
     SPIWriteChunk(ptSPIParam, (uint32_t)(uintptr_t)pvDpmAddr, (uint8_t*)pvSrc, ulLen);
     LeaveLock(ptSPIParam->pvSerDPMLock);
   }
-  DBG("--SPIHWIFWrite\n");
+  SDPM_FUNC_TRACE("--SPIHWIFWrite\n");
   return pvDpmAddr;
 }
 
@@ -353,7 +360,7 @@ static void SPIHWIFDeInit(struct CIFX_DEVICE_T* ptDevice)
 {
   struct SPI_PARAM_T* ptSPIParam = (struct SPI_PARAM_T*)ptDevice->userparam;
 
-  DBG("++SPIHWIFDeInit\n");
+  SDPM_FUNC_TRACE("++SPIHWIFDeInit\n");
   if(ptSPIParam->pvSerDPMLock) {
     DeleteLock(ptSPIParam->pvSerDPMLock);
     ptSPIParam->pvSerDPMLock = NULL;
@@ -361,7 +368,7 @@ static void SPIHWIFDeInit(struct CIFX_DEVICE_T* ptDevice)
   close(ptSPIParam->iSPIFD);
 
   ptSPIParam->eState = eNotInitialized;
-  DBG("--SPIHWIFDeInit\n");
+  SDPM_FUNC_TRACE("--SPIHWIFDeInit\n");
 }
 
 int32_t DoDummyRead( struct SPI_PARAM_T* ptSPIParam)
@@ -424,11 +431,11 @@ static int32_t SPIHWIFInit(struct CIFX_DEVICE_T* ptDevice)
   int32_t lRet = 0;
   struct SPI_PARAM_T* ptSPIParam = (struct SPI_PARAM_T*)ptDevice->userparam;
 
-  DBG("++SPIHWIFInit\n");
+  SDPM_FUNC_TRACE("++SPIHWIFInit\n");
 
   if (NULL == ptSPIParam) {
     ERR( "SPIHWIFInit: Invalid initialization parameter for SPI device '%s'\n", ptSPIParam->szName);
-    DBG("--SPIHWIFInit\n");
+    SDPM_FUNC_TRACE("--SPIHWIFInit\n");
     return CIFX_INVALID_PARAMETER;
   }
 
@@ -437,7 +444,7 @@ static int32_t SPIHWIFInit(struct CIFX_DEVICE_T* ptDevice)
   if (0 > (ptSPIParam->iSPIFD = open(ptSPIParam->szName, O_RDWR))) {
     ptSPIParam->iError = errno;
     ERR( "SPIHWIFInit: Failed to open SPI device '%s' - '%s'.\n", ptSPIParam->szName, strerror(errno));
-    DBG("--SPIHWIFInit\n");
+    SDPM_FUNC_TRACE("--SPIHWIFInit\n");
     return CIFX_FILE_OPEN_FAILED;
 
   } else if (0 > (lRet = ioctl(ptSPIParam->iSPIFD, SPI_IOC_WR_MODE, &ptSPIParam->bMode))) {
@@ -474,7 +481,7 @@ static int32_t SPIHWIFInit(struct CIFX_DEVICE_T* ptDevice)
   if(0 > lRet)
     SPIHWIFDeInit(ptDevice);
 
-  DBG("--SPIHWIFInit\n");
+  SDPM_FUNC_TRACE("--SPIHWIFInit\n");
 
   if(0 > lRet) {
     return CIFX_FUNCTION_FAILED;
@@ -522,7 +529,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   uint8_t szSPIDevice[261];
   int32_t lFd;
 
-  DBG("++SDPMInit\n");
+  SDPM_FUNC_TRACE("++SDPMInit\n");
 
   DBG("Running SPI plugin on \"%s\" (mode=%d,bits=%d,freq=%u,chunk=%d,cs-change=%d)!\n", pszSPIDevice, bMode, bBits, ulFrequency, ulChunkSize, bCSChange);
 
@@ -637,7 +644,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
   }
   *(uint16_t*)ptSPIParam->pabRXBuffer = DEFAULT_BUFFER_SIZE; /* store buffer length */
 
-  DBG("--SDPMInit\n");
+  SDPM_FUNC_TRACE("--SDPMInit\n");
   return ptSPIDev;
 
 error_out:
@@ -648,7 +655,7 @@ error_out:
   free(ptSPIParam);
   free(ptSPIDev);
   close(lFd);
-  DBG("--SDPMInit\n");
+  SDPM_FUNC_TRACE("--SDPMInit\n");
   return NULL;
 }
 

@@ -17,21 +17,27 @@ fi
 case "$1" in
   "build")
   if [ -e "${buildfolder}/uio_netx.c" ]; then
-    echo "To enable DMA support type 'y' else 'n':"
-    read dma_enable
-    if [ "$dma_enable" != "y" ]; then
-      echo "Compile kernel module uio_netx.ko (DMA disabled)"
-      cd "${buildfolder}" && make clean; make KDIR=$kernel_dir DMA_DISABLE=1
+    build_param=""
+    if [ "${USE_VFIO_DRIVER}" != "0"  ]; then
+      echo "Compile kernel module uio_netx.ko (PCI support disabled)"
+      build_param="${build_param} DISABLE_PCI_SUPPORT=1"
+      # DMA support is not supported in case PCI is disabled
+      build_param="${build_param} DMA_DISABLE=1"
     else
-      echo "Compile kernel modules uio.ko/uio_netx.ko  (DMA enabled)"
-      cd "${buildfolder}" && make clean; make KDIR=$kernel_dir
+      echo "Compile kernel module uio_netx.ko (PCI support enabled)"
+      if [ "${CIFX_DMA_ENABLE}" == "0" ]; then
+        echo "Compile kernel module uio_netx.ko (DMA support disabled)"
+      else
+        echo "Compile kernel module uio_netx.ko (DMA support enabled)"
+      fi
     fi
+    cd "${buildfolder}" && make clean; make KDIR=$kernel_dir $build_param
   else
     echo "Searching in $buildfolder! uio_netx.c not found!"
   fi
   cd "${cur_dir}"
   ;;
-  
+
   "install")
   if 
   [ -e "${buildfolder}/uio_netx.ko" ]; then

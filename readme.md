@@ -17,32 +17,32 @@ This repository provides the following components:
 ![](doc/drv_overview.png)
 
 The Linux cifX driver provides support of multiple devices of the [cifX product portfolio](https://www.hilscher.com/products/pc-cards-for-industrial-ethernet-fieldbus).
-The driver consists of a user space and a kernel space component. Depending on your hardware both or only the user space component will be required.
+The driver consists of a user space and a kernel space component. The follwing table gives an overview which components are required depending on the hardware.
 
-| hardware                       | libcifx           | uio_netx      | ax99100
-| ------------------------------ |:-----------------:|:-------------:|:-------------:|
-| PCI based host interface       | (x)               | (x)           | (-)
-| SPI based host interface       | (x)+(SPM_PLUGIN)  | (-)           | (-)
-| ISA or other memory mapped     | (x)               | (optional)    | (-)
-| cifX M.2 device                | (x)+(SPM_PLUGIN)  | (-)           | (x)
+| hardware                       | kernel driver                          | user space driver (compile option (1)) |
+| ------------------------------ |:--------------------------------------:|:--------------------------------------:|
+| PCI based host interface       | uio_netx or vfio-pci (2)               | libcifx (VFIO if vfio-pci)             |
+| SPI based host interface       | spidev                                 | libcifx (SPM_PLUGIN)                   |
+| ISA or other memory mapped     | optional: uio_netx                     | libcifx                                |
+| cifX M.2 device                | ax99100                                | libcifx (SPM_PLUGIN)                   |
 
 Note that this documentation currently provides only a short overview. It will be updated step by step. Transitionally refer to the [superseded driver's documentation](doc/OBSOLETE-cifX-Device-Driver-Linux-DRV-15-EN.pdf). Commands mentioned there
 may not work 1:1 since the driver's folder structure changed but it provides background information and still some valid hints.
 
-Note: When the PCI interface is not required remember to disable it. Only then the libcifx's dependency to libpciaccess-dev library will be removed (see "DISABLE_PCI", Manual driver installation).
-
 For SPI support use the driver's SPM plugin. It provides an easy integration for SPI devices. The plugin need to be enabled during build, since it's disabled by default.
-<pre>
 
+(1) [Compile options in detail](#Compile-options-libcifx-userspace-library)<br>
+(2) [The difference between uio_netx and vfio-pci](#PCI-host-interface)
 
-</pre>
+<br>
+
 # Requirements
 
  - CMake (min 2.8.12)
- - Linux kernel header (only required when building the kernel module uio_netx)
- - libpciaccess-dev (only required for PCI devices)
  - libpthread, librt
- - libnl-3/libnl-cli-3 (only required when VIRTETH is enabled)
+ - optional: Linux kernel header (only required when building the kernel module uio_netx)
+ - optional: libpciaccess-dev (only required when uio based PCI devices are accessed, more info [PCI host interface](#PCI-host-interface))
+ - optional: libnl-3/libnl-cli-3 (only required when VIRTETH is enabled)
 
 ```
 sudo apt-get install cmake
@@ -56,27 +56,47 @@ sudo apt-get install libpciaccess-dev
 ```
 sudo apt-get install libnl-3-dev libnl-cli-3-dev
 ```
-<pre>
 
+<br>
 
-</pre>
 # Simple driver installation in one step
 
 You can run the driver installation by simply executing the script 'build_and_install_driver'.
 
-Enter the directory containing the script 'build_and_install_driver' execute it and follow the instructions (root during installation requested)
+Enter the directory containing the script 'build_and_install_driver' execute it and follow the instructions (root during installation requested).
+
+<b>NOTE: During installation depending on your configuration the script will automatically switch the driver assignment of ALL found Hilscher PCI devices (uio_netx/vfio-pci).
+To prevent this run the [manual driver installation](#Manual-driver-installation) and the manual assignment.</b>
+
 ```
 ./build_install_driver
 ```
 
-In case a more advanced setup is required or any installation trouble run the setup step by step.
-<pre>
+In case a more advanced setup is required or any installation trouble run the [setup step by step](#Manual-driver-installation).
 
+<br>
 
-</pre>
-# Manual driver installation
+# <a id="Manual-driver-installation"></a>Manual driver installation
 
 ## Build of the user space library libcifx
+
+### <a id="Compile-options-libcifx-userspace-library"></a>Compile options libcifx userspace library
+
+| parameter                      | description   |
+| ------------------------------ |:-------------:|
+| DEBUG                          | Build with debug messages enabled.
+| DISABLE_LIB_PCIACCESS          | Disables link to libciaccess. Note that only VFIO PCI devices can than be accessed in this case.
+| DMA                            | Enables DMA support.
+| HWIF                           | Enables support for custom hardware interface.
+| NO_MINSLEEP                    | Disables minimum sleep time. If “on” the driver may “wait active” (no call to pthread_yield()).
+| SPM_PLUGIN                     | Enables support for SPI devices (spidev framework).
+| TIME                           | Enables toolkit function, setting the device time during device start-up.
+| VIRTETH                        | Enables support for the netX based virtual Ethernet interface. Note: This feature requires dedicated hardware and firmware.
+| SHARED                         | Switch between shared and static library.
+| VFIO                           | Enable support for VFIO devices (DMA support if IOMMU is enabled with translation).
+| VFIO_FORCE_LEGACY              | Enable in case iommufd (cdev interface) is not supported by the target kernel (<6.2.).
+
+### Build and install the library
 
 1. create a build folder and enter it
 ```
@@ -88,79 +108,139 @@ Run the preparation with your required options e.g. enable debug messages:
 cmake ../ -DDEBUG=ON
 ```
 
-All possible options are listed here:
-
-| parameter                      | description   |
-| ------------------------------ |:-------------:|
-| DEBUG                          | Build with debug messages enabled.
-| DISABLE_PCI                    | Disable PCI support. This will remove all links to libpciaccess.
-| DMA                            | Enables DMA support.
-| HWIF                           | Enables support for custom hardware interface.
-| NO_MINSLEEP                    | Disables minimum sleep time. If “on” the driver may “wait active” (no call to pthread_yield()).
-| SPM_PLUGIN                     | Enables support for SPI devices (spidev framework).
-| TIME                           | Enables toolkit function, setting the device time during device start-up.
-| VIRTETH                        | Enables support for the netX based virtual Ethernet interface. Note: This feature requires dedicated hardware and firmware.
-| SHARED                         | Switch between shared and static library.
-
 3. build and install the driver
 ```
 make; sudo make install
 ```
-<pre>
 
-</pre>
-## Build of the kernel space driver uio_netx
+<br>
+
+# <a id="System-and-hardware-setup"></a>System and hardware setup
+
+## <a id="System-configuration"></a>System configuration
+
+### <a id="PCI-host-interface"></a>PCI host interface
+A PCI device can be accessed via the kernel module uio_netx or vfio-pci. Both drivers provide interrupt handling and mapping the device's memory to userspace which can then be accessed by the user space library libcifx. In contrast to the uio_netx module the vfio-pci provides IOMMU support.
+
+This means if DMA is to be used and IOMMU is enabled (mode="translated") vfio-pci is required. Setting the IOMMU mode to "passthrough" allows further use of the uio_netx driver. The userspace driver can handle both at the same time for information refer to [uio_netx & vfio-pci parallel](#Running-uio_netx-and-vfio-pci-in-parallel).</b>
+
+The following table gives an overview of performance impact and DMA support according to the system's abiltiy and configuration.
+
+| hardware IOMMU (BIOS)   | IOMMU mode            | kernel module     | DMA  | access protection | max. performance in case of virtualization     |
+|------------------------:|:---------------------:|:-----------------:|:----:|:-----------------:|:-----------------------------------------------|
+| enabled                 | disabled              | uio / vfio-pci    | yes  | no                | -
+| enabled                 | translated            | uio               | no   | -                 | -
+| enabled                 | translated            | vfio-pci          | yes  | yes               | no
+| enabled                 | passthrough           | uio               | yes  | yes               | yes
+| enabled                 | passthrough           | vfio-pci          | yes  | yes               | yes
+
+The IOMMU mode can be switched by kernel [commandline parameter](https://docs.kernel.org/admin-guide/kernel-parameters.html) ('iommu', 'intel_iommu', ...).
+
+On kernel >=5.11 the IOMMU mode can be changed per IOMMU group during runtime via "/sys/kernel/iommu_groups/{group}/type" ([more info here](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-kernel-iommu_groups)).
+
+For kernel version <6.2. iommufd (cdev interface) is not supported. In this case set the libcifx compile option 'VFIO_FORCE_LEGACY'.
+
+<br>
+
+#### <a id="VFIO-Driver"></a>VFIO Driver / IOMMU support
+The vfio-pci driver is a generic driver for PCI devices. To motivate the driver to take control over a specific PCI device, the device need to be bind to the driver.
+For background information about VFIO framework refer to the [kernel's VFIO API documentation](https://docs.kernel.org/driver-api/vfio.html).
+
+<br>
+
+<b>NOTE: Depending on your hardware it might be necessary to assign more than only the device you are interrested in. This depends on the device's IOMMU group created by the system. All devices within one IOMMU group need to be controlled by the vfio-pci driver.
+For more information about the relation of devices and groups and how to access unprivileged refer to [kernel's VFIO API documentation](https://docs.kernel.org/driver-api/vfio.html).</b>
+
+<br>
+
+If case the module is not already loaded you can load it and pass an array of ids
+```
+sudo modprobe vfio-pci:[pci-id]
+```
+If the module is already loaded you can (de-)register devices PCI device id, e.g.:
+
+```
+echo 15cf 0000 | sudo tee /sys/bus/pci/drivers/vfio-pci/new_id
+echo 15cf 0000 | sudo tee /sys/bus/pci/drivers/vfio-pci/remove_id
+```
+
+If the binding was successful and the libcifx is compiled with 'VFIO' option, the device will be automatically detected by the user space driver libcifx.
+
+<br>To bind/unbind a particular device run
+```
+echo 0000:04:00.0 |sudo tee /sys/bus/pci/drivers/vfio-pci/bind
+echo 0000:04:00.0 |sudo tee /sys/bus/pci/drivers/vfio-pci/unbind
+```
+
+<br>
+
+#### <a id="UIO-Driver"></a>UIO Driver (no IOMMU support)
+The uio_netx kernel module provides access to PCI, ISA or other memory mapped devices. In case vfio-pci is used as well it is recommended to disable PCI support via DISABLE_PCI_SUPPORT (see [Running uio_netx and vfio-pci in parallel](#Running-uio_netx-and-vfio-pci-in-parallel)).
+
+To be able to access uio_netx based PCI devices as an unprivileged user use the provided [udev rule](templates/udev/80-udev-netx.rules).
+
+##### Compile options uio_netx
+
+| parameter                      | description                                                                                         |
+|:------------------------------:|:---------------------------------------------------------------------------------------------------:|
+| DISABLE_PCI_SUPPORT            | Disables PCI support (should be used if PCI devices need to be accessed via vfio-pci kernel module) |
+| DISABLE_DMA                    | Disables DMA (need to be set if DISABLE_PCI_SUPPORT)                                                |
+
+##### Build / install the uio_netx module
 
 1. Enter the module's source folder uio_netx and run make.
+
 ```
+# default DMA enabled and take control over all found Hilscher PCI devices
 make
+# or for exmaple DMA support disabled
+make DISABLE_DMA=1
 ```
+
 2. Then install the module according to your system's setup and update the module dependencies e.g:
+
 ```
+# installs the module
+make modules install
+# or
 sudo cp uio_netx.ko /lib/modules/$(uname -r)/kernel/drivers/uio/
 sudo depmod
 ```
-<pre>
 
+3. (un-)load the module
 
-</pre>
-# System and hardware setup
+After successfully loading the module the device will be automatically detected by the user space driver libcifx.
 
-## System configuration
-Depending on your system's setup only privileged users may be allowed to access the hardware.
-
-### PCI host interface
-
-To be able to access the a PCI card as an unprivileged user use the provided udev rule (templates/udev/80-udev-netx.rules).
-Make sure to load the kernel module before running the test application. Otherwise no hardware will be created an therefore the access fail.
-In case your kernel provides already the mainline uio_netx module. Make sure to unload this before to run latest version of it.
-To load the kernel module run the following line.
 ```
+# loads the module
 sudo modprobe uio_netx
-```
-
-To unload the kernel module run the following line.
-```
+# unloads the module
 sudo modprobe -r uio_netx
 ```
 
-<pre>
+<br>
 
-</pre>
+#### <a id="Running-uio_netx-and-vfio-pci-in-parallel"></a>Running uio_netx and vfio-pci in parallel
+<b>NOTE: In generell it is not recommended to run both in parallel. Except the uio_netx need to be active to provide access to other devices, like ISA or other memory mapped devices. In this case the uio_netx and vfio-pci need to be used in parallel.
+
+The device assignment noted under [VFIO Driver](#VFIO-Driver) will only work if the device is not already under uio_netx control. The same applies to the uio_netx module. The device access will only work if not already under vfio-pci control.
+
+To avoid these device access conflicts between the drivers it is recommended to disable PCI support ('DISABLE_PCI_SUPPORT') of the uio_netx driver.
+
+<br>
+
 ### SPI host interface
-
 To be able to access a SPI device make sure to allow read/write access to the SPI interface (e.g. /dev/spidev0.0).
 The SPI plugin default configuration is stored under "/opt/cifx/plugins/netx-spm/config0". Make sure to update the configuration as required.
 
-| parameter      |               |
+| parameter      | description   |
 | -------------- |:-------------:|
 | Device         | Name of the SPI device to open (e.g. /dev/spidev0.0 -> Device=spidev0.0)
 | Speed          | Maximum speed to configure the driver (e.g. 25Mhz -> Speed=25000000)
 | Mode           | SPI mode 0 to 3
 
-<pre>
+<br>
 
-</pre>
 ## Hardware configuration
 Depending on the hardware we need to prepare the host system to be able to access the hardware. Flash based devices may not require any system setup to run a simple demo application.
 In contrast to that a RAM based device like the common cifX PCIe hardware, the driver need to download at least a second stage loader to run a simple test application. 
@@ -182,10 +262,8 @@ The script should have now created the base directory "/opt/cifx/" with the subf
 
 When running now an example application a small set of tests will work. For an advanced test copy the correct firmware and it's configuration into the 'channel0' folder within the configuration directory.
 
-<pre>
+<br>
 
-
-</pre>
 # Build of the provided example applications
 1. create a build folder and enter it
 ```
@@ -194,10 +272,12 @@ mkdir demo_build; cd demo_build
 2. Prepare the build environment via cmake call and pass the path to the examples lists (CMakelists.txt within examples folder) file.
 Run the preparation with your required options e.g.:
 ```
-cmake ../examples/ -DDEBUG=ON
+cmake ../examples/
 ```
 3. Build the examples. And run a demo application. Note that you may need root rights. This depends on your system setup. For more information see "System and hardware setup".
 ```
 make
-./cifxapi
+./cifx_api
+#or
+./cifx_tcpserver
 ```

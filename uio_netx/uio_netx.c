@@ -35,11 +35,18 @@
 
 #define UIO_NETX_VERSION "2.2.0"
 
+#if defined(DISABLE_PCI_SUPPORT) && defined(DMA_SUPPORT)
+	#error "Invalid configuration detected DISABLE_PCI_SUPPORT && DMA_SUPPORT!"
+#endif
+
 int           addr_cnt = 0;
 unsigned long custom_dpm_len[MAX_USER_CARDS] = {0};
 int           len_cnt = 0;
 int           custom_irq[MAX_USER_CARDS] = {0};
 int           irq_cnt = 0;
+#ifndef DISABLE_PCI_SUPPORT
+	int ignore_pci_devices = 0;
+#endif
 
 #ifdef CONFIG_64BIT
 	phys_addr_t custom_dpm_addr[MAX_USER_CARDS] = {0};
@@ -53,6 +60,10 @@ module_param_array(custom_dpm_len, ulong, &len_cnt, S_IRUGO);
 MODULE_PARM_DESC(custom_dpm_len, "Length of DPM (array)");
 module_param_array(custom_irq, int, &irq_cnt, S_IRUGO);
 MODULE_PARM_DESC(custom_irq, "IRQ number (array)");
+#ifndef DISABLE_PCI_SUPPORT
+	module_param(ignore_pci_devices, int, S_IRUGO);
+	MODULE_PARM_DESC(ignore_pci_devices, "Ignore PCI devices");
+#endif
 
 #ifdef DMA_SUPPORT
 #define DMA_BUFFER_COUNT 1
@@ -219,6 +230,7 @@ static irqreturn_t netx_handler(int irq, struct uio_info *dev_info)
 	}
 }
 
+#ifndef DISABLE_PCI_SUPPORT
 static int netx_pxa_set_plx_timing(struct uio_info *info)
 {
 	struct uio_netx_priv *priv = (struct uio_netx_priv *) info->priv;
@@ -271,6 +283,7 @@ static int netx_pxa_get_dpm_mode(struct uio_info *info)
 		return -EINVAL;
 	return 0;
 }
+#endif /* DISABLE_PCI_SUPPORT */
 
 #ifdef DMA_SUPPORT
 static int create_dma_buffer(struct device *dev, struct uio_info *info, struct uio_mem *dma_mem)
@@ -348,6 +361,7 @@ err_dma:
         #define __devinit
 #endif
 
+#ifndef DISABLE_PCI_SUPPORT
 static int __devinit netx_pci_probe(struct pci_dev *dev,
 					const struct pci_device_id *id)
 {
@@ -609,8 +623,11 @@ static struct pci_device_id netx_pci_ids[] = {
 	{ 0, }
 };
 
-/* publish PCI ids, to provide automatic load for known PCI cards */
-MODULE_DEVICE_TABLE(pci, netx_pci_ids);
+/* prevent auto load - in case PCI devices will accessed via vfio driver */
+#ifndef DISABLE_PCI_AUTO_LOAD
+	/* publish PCI ids, to provide automatic load for known PCI cards */
+	MODULE_DEVICE_TABLE(pci, netx_pci_ids);
+#endif
 
 static struct pci_driver netx_pci_driver = {
 	.name = "netx",
@@ -618,6 +635,7 @@ static struct pci_driver netx_pci_driver = {
 	.probe = netx_pci_probe,
 	.remove = netx_pci_remove,
 };
+#endif /* DISABLE_PCI_SUPPORT */
 
 static int misc_counter = 0;
 static int create_misc_device(struct netx_custom_dev* custom)
@@ -928,6 +946,7 @@ static struct platform_driver uio_netx_platform_driver = {
 
 static int __init netx_init_module(void)
 {
+	int ret = 0;
 	INIT_LIST_HEAD(&custom_list);
 	mutex_init( &custom_list_lock);
 
@@ -960,13 +979,24 @@ static int __init netx_init_module(void)
 	/* register driver for device tree */
 	platform_driver_register(&uio_netx_platform_driver);
 #endif
-	/* and pci */
-	return pci_register_driver(&netx_pci_driver);
+
+#ifndef DISABLE_PCI_SUPPORT
+	if (ignore_pci_devices == 0)
+		ret = pci_register_driver(&netx_pci_driver);
+	else
+		printk("uio_netx - PCI cards are ignored!\n");
+#endif
+
+	return ret;
 }
 
 static void __exit netx_exit_module(void)
 {
-	pci_unregister_driver(&netx_pci_driver);
+#ifndef DISABLE_PCI_SUPPORT
+	if (ignore_pci_devices == 0)
+		pci_unregister_driver(&netx_pci_driver);
+#endif
+
 #ifdef CONFIG_OF
 	platform_driver_unregister(&uio_netx_platform_driver);
 #endif

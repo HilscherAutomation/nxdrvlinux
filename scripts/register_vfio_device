@@ -1,0 +1,99 @@
+#!/bin/bash
+
+PCI_VENDOR_ID_HILSCHER="0x15CF"
+
+PCI_DEVICE_ID_HILSCHER_NETX="0x0000"
+PCI_DEVICE_ID_HILSCHER_NETPLC="0x0010"
+PCI_DEVICE_ID_HILSCHER_NETJACK="0x0020"
+PCI_DEVICE_ID_HILSCHER_NETX4000="0x4000"
+
+device_ids="${PCI_VENDOR_ID_HILSCHER}:${PCI_DEVICE_ID_HILSCHER_NETX} ${PCI_VENDOR_ID_HILSCHER}:${PCI_DEVICE_ID_HILSCHER_NETPLC} ${PCI_VENDOR_ID_HILSCHER}:${PCI_DEVICE_ID_HILSCHER_NETJACK} ${PCI_VENDOR_ID_HILSCHER}:${PCI_DEVICE_ID_HILSCHER_NETX4000}"
+
+deregister_and_unbind() {
+    device_ids=$1
+    for device in ${device_ids}; do
+        # remove previously registered pci device ids
+        echo ${device%:*} ${device#*:} | sudo tee /sys/bus/pci/drivers/vfio-pci/remove_id > /dev/null 2>&1
+
+        # unbind the devices which are were detected
+        while IFS= read -r line; do
+            bus_id=$(echo $line |cut -d " " -f 1)
+            if [ -n "${bus_id}" ]; then
+                if lspci -s "${bus_id}" -k | grep -qo vfio-pci; then
+                    echo "unbinding device with bus id ${bus_id}"
+                    echo ${bus_id} | sudo tee /sys/bus/pci/drivers/vfio-pci/unbind
+                fi
+            fi
+        done <<< $(echo $(lspci -d ${device} -D))
+    done
+}
+
+usage() {
+cat <<EOF 1>&2
+Usage: $0 [OPTION] ..."
+
+  -l {vendor:device_id}  List of device to (de-)register at the vfio-pci driver.
+  -f                     The script will abort if the uio_netx module is compiled with PCI support. Set '-f' to register device anyway."
+                         Note that this may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' recommended.
+  -d                     Deregister and unbind devices given via '-l'.
+
+Example:
+
+$0 -d "0x15cf:0x0000 0x15cf:0x0010"
+
+EOF
+    exit 1
+}
+
+force_register="0"
+deregister="0"
+while getopts "l:fd" o; do
+    case "${o}" in
+        l)  device_ids="${OPTARG}"
+            ;;
+        f)  force_register="1"
+            ;;
+        d)  deregister="1"
+            ;;
+        *)  usage
+            ;;
+    esac
+done
+
+# before registering a new device we need to deregister it to have a clean state
+if [ -e "/sys/bus/pci/drivers/vfio-pci/" ]; then
+    echo "Deregistering given PCI devices..."
+    deregister_and_unbind "$device_ids"
+fi
+
+# in case it should just be deregistered - nothing more todo
+if [ "${deregister}" != "0" ]; then
+    exit 0
+fi
+
+# check if uio_netx is compiled with PCI support
+if modinfo uio_netx | grep -q "ignore_pci_devices"; then
+    echo -e "\nuio_netx kernel module compiled with PCI support! This may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' (recommended) or run with '-f'."
+    if [ "${force_register}" == "0" ]; then
+        exit 1
+    fi
+fi
+
+# for further steps make sure the module is loaded
+if [ ! -e "/sys/bus/pci/drivers/vfio-pci/" ] && ! lsmod | grep -q vfio_pci; then
+    echo -e "\nLoading vfio-pci..."
+    sudo modprobe vfio-pci
+fi
+
+echo -e "\nRegistering ${device_ids} device(s) to vfio-pci driver..."
+
+for device in ${device_ids}; do
+    echo ${device%:*} ${device#*:} | sudo tee /sys/bus/pci/drivers/vfio-pci/new_id
+    if [ $? != "0" ]; then
+        echo -e "\nFailed to add device ${device%:*} ${device#*:} to vfio-pci control!"
+    else
+      echo -e "\nSucessfully registered device ${device%:*} ${device#*:}!"
+    fi
+done
+
+exit 0
