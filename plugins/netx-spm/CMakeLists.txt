@@ -40,4 +40,6 @@ endif(NOT PLUGINPATH)
 
 # install resources
 install(TARGETS netx-spm DESTINATION ${PLUGINPATH})
-install(FILES ${CMAKE_CURRENT_LIST_DIR}/config0 DESTINATION ${PLUGINPATH}/netx-spm/)
+if(NOT EXISTS ${PLUGINPATH}/netx-spm/config0)
+    install(FILES ${CMAKE_CURRENT_LIST_DIR}/config0 DESTINATION ${PLUGINPATH}/netx-spm/)
+endif(NOT EXISTS ${PLUGINPATH}/netx-spm/config0)
