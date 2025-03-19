@@ -877,5 +877,6 @@ int USER_GetEthernet(PCIFX_DEVICE_INFORMATION ptDevInfo)
 /*****************************************************************************/
 int USER_GetCachedIOBufferMode(PCIFX_DEVICE_INFORMATION ptDevInfo)
 {
+  (void)ptDevInfo;
   return eCACHED_MODE_OFF;
 }

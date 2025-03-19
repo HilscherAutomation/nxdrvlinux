@@ -273,7 +273,7 @@ static int netx_pxa_get_dpm_mode(struct uio_info *info)
 }
 
 #ifdef DMA_SUPPORT
-int create_dma_buffer(struct device *dev, struct uio_info *info, struct uio_mem *dma_mem)
+static int create_dma_buffer(struct device *dev, struct uio_info *info, struct uio_mem *dma_mem)
 {
 	void __iomem *addr;
 	dma_addr_t busaddr;
@@ -300,7 +300,7 @@ int create_dma_buffer(struct device *dev, struct uio_info *info, struct uio_mem 
 	return 0;
 }
 
-int release_dma_mem(struct device *dev, struct uio_info *info)
+static int release_dma_mem(struct device *dev, struct uio_info *info)
 {
 	struct uio_netx_priv *priv = info->priv;
 
@@ -657,7 +657,7 @@ static int create_misc_device(struct netx_custom_dev* custom)
 	return 0;
 }
 
-void delete_misc_device(struct miscdevice* misc)
+static void delete_misc_device(struct miscdevice* misc)
 {
 	if (misc) {
 		misc_deregister( misc);
@@ -666,7 +666,7 @@ void delete_misc_device(struct miscdevice* misc)
 	}
 }
 
-void free_netx_custom_dev(struct netx_custom_dev* custom)
+static void free_netx_custom_dev(struct netx_custom_dev* custom)
 {
 	if (custom) {
 		if (custom->misc) {
@@ -682,7 +682,7 @@ void free_netx_custom_dev(struct netx_custom_dev* custom)
 	}
 }
 
-struct netx_custom_dev* alloc_netx_custom_dev(struct device* dev){
+static struct netx_custom_dev* alloc_netx_custom_dev(struct device* dev){
 	struct netx_custom_dev* custom = kzalloc(sizeof(struct netx_custom_dev), GFP_KERNEL);
 
 	if (custom == NULL) {
@@ -781,7 +781,7 @@ static int map_custom_card( struct netx_custom_dev* custom, int no_of_maps)
 	return 0;
 }
 
-void unmap_custom_cards(struct device* dev)
+static void unmap_custom_cards(struct device* dev)
 {
 	struct list_head *pos;
 	struct list_head *next;

@@ -123,8 +123,11 @@ target_sources( cifx
         ${NETXTAP_SOURCES}
 )
 
-# removes warning about snprintf buffer truncation
-set_target_properties(cifx PROPERTIES COMPILE_FLAGS -Wformat-truncation=0)
+# -Wformat-truncation=0 removes warning about snprintf buffer truncation
+# -Wpedantic emits warnings:
+# - Toolkit Header Hil_ApplicationCmd.h used in netx_tap.c "invalid use of structure with flexible array member"
+# - use of dlsym(): "ISO C forbids assignment between function pointer and ‘void *'"
+set_target_properties(cifx PROPERTIES COMPILE_FLAGS "-Wformat-truncation=0 -Wall -Wextra")
 
 # configure pkgconfig file
 set(prefix       ${CMAKE_INSTALL_PREFIX})

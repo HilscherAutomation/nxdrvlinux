@@ -173,7 +173,6 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
   int32_t         search_error = CIFX_NO_ERROR;
   uint32_t        channel_no   = 0;
   uint32_t        eth_no       = 0;
-  int             err          = 0;
 
   if (NULL == config)
     goto exit;
@@ -464,7 +463,7 @@ int32_t cifxeth_search_eth_channel( char*  szDeviceName,
   } else
   {
     /* Read channel information block */
-    SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK tChannelInfoBlock = {{{0}}};
+    SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK tChannelInfoBlock = {0};
 
     ptdevice  = (PCHANNELINSTANCE)hSysdevice;
     ptDevInst = (PDEVICEINSTANCE)ptdevice->pvDeviceInstance;
@@ -864,7 +863,7 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
 /*****************************************************************************/
 /*! writes packet statistics to the cifx log file
  *   \param internal_dev Pointer to internal device
-/*****************************************************************************/
+ *****************************************************************************/
 void cifxeth_dump_statistics( NETX_ETH_DEV_T* internal_dev) {
   USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG,
             "Ethernet-IF Debug: packet statistic send/sent/recv = %d/%d/%d\n",
@@ -1083,8 +1082,8 @@ static int32_t cifxeth_register_app( NETX_ETH_DEV_T* internal_dev, int fRegister
 {
   uint32_t               lRet      = CIFX_NO_ERROR;
   CIFXHANDLE             hChannel  = internal_dev->cifx_channel;
-  HIL_REGISTER_APP_REQ_T tSendPkt  = {{0}};
-  CIFX_PACKET            tRecvPkt  = {{0}};
+  HIL_REGISTER_APP_REQ_T tSendPkt  = {0};
+  CIFX_PACKET            tRecvPkt  = {0};
 
   tSendPkt.tHead.ulDest = HIL_PACKET_DEST_DEFAULT_CHANNEL; /* Destination of packet, process queue */
   tSendPkt.tHead.ulSrc  = 0;                               /* Source of packet, process queue      */
@@ -1273,7 +1272,7 @@ int32_t APIENTRY xSysdeviceReset( CIFXHANDLE hSysdevice, uint32_t ulTimeout)
   PCHANNELINSTANCE   ptdevice     = (PCHANNELINSTANCE)hSysdevice;
   PDEVICEINSTANCE    ptDevInst    = (PDEVICEINSTANCE)ptdevice->pvDeviceInstance;
   NETX_ETH_DEV_T*    internal_dev = find_device( ptDevInst->szName);
-  NETX_ETH_DEV_CFG_T config       = {{0}};
+  NETX_ETH_DEV_CFG_T config       = {0};
   int                ethdevice    = 0;
 
   if (NULL != internal_dev)
@@ -1305,7 +1304,7 @@ int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, ui
   PCHANNELINSTANCE   ptdevice     = (PCHANNELINSTANCE)hSysdevice;
   PDEVICEINSTANCE    ptDevInst    = (PDEVICEINSTANCE)ptdevice->pvDeviceInstance;
   NETX_ETH_DEV_T*    internal_dev = find_device( ptDevInst->szName);
-  NETX_ETH_DEV_CFG_T config       = {{0}};
+  NETX_ETH_DEV_CFG_T config       = {0};
   int                ethdevice    = 0;
 
   switch(ulMode)
@@ -1345,11 +1344,10 @@ extern int32_t APIENTRY xSysdeviceBootstartTK(CIFXHANDLE hSysdevice, uint32_t ul
 /*****************************************************************************/
 int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 {
-  int32_t            ret          = CIFX_NO_ERROR;
   PCHANNELINSTANCE   ptdevice     = (PCHANNELINSTANCE)hSysdevice;
   PDEVICEINSTANCE    ptDevInst    = (PDEVICEINSTANCE)ptdevice->pvDeviceInstance;
   NETX_ETH_DEV_T*    internal_dev = find_device( ptDevInst->szName);
-  NETX_ETH_DEV_CFG_T config       = {{0}};
+  NETX_ETH_DEV_CFG_T config       = {0};
 
   if (NULL != internal_dev)
   {
@@ -1380,7 +1378,7 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
   PCHANNELINSTANCE   ptdevice     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE    ptDevInst    = (PDEVICEINSTANCE)ptdevice->pvDeviceInstance;
   NETX_ETH_DEV_T*    internal_dev = find_device( ptDevInst->szName);
-  NETX_ETH_DEV_CFG_T config       = {{0}};
+  NETX_ETH_DEV_CFG_T config       = {0};
   int                ethdevice    = 0;
 
   switch(ulResetMode)

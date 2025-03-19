@@ -75,8 +75,6 @@ typedef enum CIFX_DEVICE_TYPE_Etag
   eCIFX_DEVICE_TYPE_UNKNOWN,
 } CIFX_DEVICE_TYPE_E;
 
-static char* s_cifx_device_type_str[] = { "uio","spi","vfio","unknown"};
-
 extern void* g_eth_list_lock;
 
 typedef struct CIFX_DEVICE_INTERNAL_Ttag
