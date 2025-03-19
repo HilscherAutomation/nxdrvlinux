@@ -894,7 +894,6 @@ static int cifx_uio_map_mem(int uio_fd, int uio_num,
 /*****************************************************************************/
 /*! Map the memory of a cifx device
 *     \param device   pointer to device structure
-*     \param fd       fd returned by cifx_open
 *     \param bar      number of mapping
 *     \param dpmbase  Pointer to returned virtual base address of memory area
 *     \param dpmaddr  Pointer to returned physical address of memory area
@@ -912,13 +911,17 @@ static int cifx_map_mem( struct CIFX_DEVICE_T* device,
     return -EINVAL;
 
   if (device->uio_num >= 0) {
-    return cifx_uio_map_mem( device->uio_fd,
-                device->uio_num,
-                bar_num,
-                membase,
-                memaddr,
-                memlen,
-                flags);
+    int map_no = 0;
+    /* find correct mapping number */
+    if (CIFX_NO_ERROR == find_memtype( device->uio_num, bar_num, &map_no)) {
+      return cifx_uio_map_mem( device->uio_fd,
+                  device->uio_num,
+                  map_no,
+                  membase,
+                  memaddr,
+                  memlen,
+                  flags);
+    }
 #ifdef VFIO_SUPPORT
   } else if (device->uio_num == UIO_NUM_VFIO_DEVICE) {
     return cifx_vfio_map_mem( device,
@@ -959,28 +962,6 @@ static void cifx_unmap( struct CIFX_DEVICE_T* device) {
       device->extmem = NULL;
     }
   }
-}
-
-/*****************************************************************************/
-/*! Map the extended memory of a uio_netx device
-*     \param fd   fd returned by uio_open
-*     \param dpmbase  Pointer to returned virtual base address of memory area
-*     \param dpmaddr  Pointer to returned physical address of memory area
-*     \param dpmlen   Pointer to returned length of memory area
-*     \return == 0 if mapping succeeded                                      */
-/*****************************************************************************/
-static int cifx_uio_map_ext_mem(int uio_fd, int uio_num,
-                     void** dpmbase,
-                     unsigned long* dpmaddr,
-                     unsigned long* dpmlen)
-{
-  int bar = 0;
-
-  if (CIFX_NO_ERROR == find_memtype( uio_num, eMEM_EXTMEM, &bar))
-  {
-    return cifx_uio_map_mem( uio_fd, uio_num, bar, dpmbase, dpmaddr, dpmlen, 0);
-  }
-  return -EINVAL;
 }
 
 #ifdef CIFX_TOOLKIT_DMA
@@ -2291,7 +2272,7 @@ static int cifx_get_pci_device_count(void) {
 /*! Returns number of custom uio devices (non-pci e.g. ISA or other memory mapped)
 *     \return Number found uio devices                                       */
 /*****************************************************************************/
-static int cifx_uio_get_non_pci_device_count(void) {
+static int cifx_uio_get_custom_device_count(void) {
   struct dirent**       namelist;
   int                   num_uios;
   int                   ret = 0;
@@ -2329,10 +2310,10 @@ static int cifx_uio_get_non_pci_device_count(void) {
 /*****************************************************************************/
 int cifXGetDeviceCount(void)
 {
-  int uio_count = cifx_uio_get_non_pci_device_count();
+  int uio_count = cifx_uio_get_custom_device_count();
   int pci_count = cifx_get_pci_device_count();
 
-  DBG("Found %d uio (non-pci) and %d pci devices.", uio_count, pci_count);
+  DBG("Found %d uio_netx (custom) and %d pci devices.", uio_count, pci_count);
 
   return uio_count + pci_count;
 }
@@ -2364,9 +2345,95 @@ static int check_if_compatible_pci_card( char* pci_path) {
   return -EINVAL;
 }
 
-static struct CIFX_DEVICE_T* cifx_find_non_pci_device( int iNum, int fCheckAccess) {
-  //TODO:
-  //device->pci_card = 0;
+/*****************************************************************************/
+/*! Scan for cifX custom devices
+*     \param iNum             Number of card to detect (0..num_of_cards)
+*     \param fCheckAccess     If !=0, function denies access if device is
+*                             already used by another application
+*     \return NULL if no device with this number was found                   */
+/*****************************************************************************/
+static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess) {
+  struct dirent**       namelist;
+  int                   custom_uios;
+  int                   num_uios = 0;
+  int                   founddevice = 0;
+  struct CIFX_DEVICE_T* device = NULL;
+
+  if ((device = malloc(sizeof(*device))) == NULL) {
+    ERR( "Error allocating memory for uio_netx custom device %d", iNum);
+    return NULL;
+  }
+  memset(device, 0, sizeof(*device));
+  device->uio_fd = -1;
+
+  num_uios = scandir("/sys/class/uio", &namelist, 0, alphasort);
+  if(num_uios > 0)
+  {
+    int netx_uios = 0;
+    int currentuio;
+    int founddevice = 0;
+
+    for(currentuio = 0; currentuio < num_uios; ++currentuio)
+    {
+      int uio_num = 0;
+
+      if(founddevice)
+      {
+        /* we already found the device, so skip it.
+           we need to handle all data from name list, so we need to
+           cycle through whole list */
+      } else if(0 == sscanf(namelist[currentuio]->d_name,
+                           "uio%u",
+                           &uio_num))
+      {
+        /* Error extracting uio number */
+
+      } else if( !cifx_uio_validate_name( uio_num, CIFX_UIO_CUSTOM_CARD_NAME) )
+      {
+        /* device is not a custom netX device */
+
+      } else if(custom_uios++ != iNum)
+      {
+        /* not the device we are looking for, so skip it */
+
+      } else
+      {
+        int ret = 0;
+
+        DBG("Found cifx %d: uio_netx custom device", iNum);
+
+        if ((ret = cifx_open( NULL, eCIFX_DEVICE_TYPE_UIO, uio_num, fCheckAccess, device)) < 0) {
+          ERR( "cifx_open() failed (ret=%d)\n", ret);
+          goto open_err;
+        } else if ((ret = cifx_map_mem( device, eMEM_DPM, (void*)&device->dpm, &device->dpmaddr, &device->dpmlen, 0)) < 0) {
+          ERR( "cifx_map_mem() failed (ret=%d)\n", ret);
+          goto map_err;
+        } else {
+          device->pci_card = 0;
+
+          /* try to map extended memory */
+          if (cifx_map_mem( device, eMEM_EXTMEM, (void*)&device->extmem, &device->extmemaddr, &device->extmemlen, 0) == 0) {
+            DBG("Extended memory found (0x%X - 0x%lX)\n", (unsigned int)device->extmemaddr, device->extmemlen);
+          }
+#ifdef CIFX_TOOLKIT_DMA
+          cifx_map_dma_buffer( device);
+#endif
+          founddevice = 1;
+        }
+      }
+      free(namelist[currentuio]);
+    }
+    free(namelist);
+  }
+  if (founddevice != 0)
+    return device;
+
+map_err:
+  cifx_close(device);
+open_err:
+  if (device != NULL)
+    free(device);
+
   return NULL;
 }
 
@@ -2467,7 +2534,7 @@ struct CIFX_DEVICE_T* cifXFindDevice(int iNum, int fCheckAccess) {
 
   s_netx_device_counter = 0;
 
-  if (NULL == (device = cifx_find_non_pci_device( iNum, fCheckAccess))) {
+  if (NULL == (device = cifx_find_custom_device( iNum, fCheckAccess))) {
 
     return cifx_find_pci_device( iNum, fCheckAccess);
   }
