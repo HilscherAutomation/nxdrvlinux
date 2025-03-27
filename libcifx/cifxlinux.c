@@ -1026,7 +1026,7 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
         ERR( "Error VFIO_DEVICE_ATTACH_IOMMUFD_PT (ret=%d)\n", errno);
         goto err_ioctl;
       } else {
-        map.user_va = (uint64_t)membase;
+        map.user_va = (uintptr_t)membase;
         map.iova = memaddr; /*  starting at 0x0 from device view */
         map.length = memlen;
         map.ioas_id = alloc_data.out_ioas_id;
@@ -1040,7 +1040,7 @@ static void cifx_vfio_map_dma_buffer( struct CIFX_DEVICE_T* device)
   } else
 #endif
   {
-    dma_map.vaddr = (long long unsigned int)membase;
+    dma_map.vaddr = (uintptr_t)membase;
     dma_map.size = memlen;
     dma_map.iova = 0; /* starting at 0x0 from device view */
     dma_map.flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE;
