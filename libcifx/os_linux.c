@@ -7,6 +7,11 @@
  *
  **************************************************************************************/
 
+#if defined(__i386__)
+  /* required on 32-bit platforms to read/write PCI config space */
+  #define _FILE_OFFSET_BITS 64
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -226,7 +231,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
       return NULL;
 #ifdef VFIO_SUPPORT
   if (IS_VFIO_DEVICE(info)) {
-    void *pci_buf = malloc(256);
+    void *pci_buf = malloc(PCI_CONFIG_BUF_SIZE);
 
     if(!pci_buf) {
       ERR( "Error allocating memory!\n");
@@ -244,7 +249,7 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
     int                     pci_ret;
     void                    *pci_buf;
 
-    pci_buf = malloc(256);
+    pci_buf = malloc(PCI_CONFIG_BUF_SIZE);
     if(!pci_buf)
     {
       perror("pci_buf malloc failed");
@@ -285,7 +290,7 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
 #ifdef VFIO_SUPPORT
 
   if (IS_VFIO_DEVICE(info)) {
-    if (pwrite( GET_VFIO_PARAM(info)->vfio_fd, pvPCIConfig, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) != 256) {
+    if (pwrite( GET_VFIO_PARAM(info)->vfio_fd, pvPCIConfig, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) != PCI_CONFIG_BUF_SIZE) {
       ERR( "Error writing PCI configuration space (ret=%d)!\n", errno);
     }
     free(pvPCIConfig);
