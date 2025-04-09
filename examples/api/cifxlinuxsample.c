@@ -930,6 +930,9 @@ void help() {
   printf(" \tName of the device to run the tests on (default=%s).\n", CIFX_DEV);
   printf(" -t {trace level}\n");
   printf(" \tlibcifx trace level (default=0x%X).\n", DEFAULT_TRACE_LEVEL);
+  printf(" -l\n");
+  printf(" \tEnables device locking/protection. Access by another process will be blocked.\n");
+  printf(" \tNote that both processes (the owning and the requesting) need to enable device locking.\n");
   printf(" -d\n");
   printf(" \tEnables debug prints of demo application (default=off).\n");
 }
@@ -944,22 +947,15 @@ int main(int argc, char* argv[])
   int card_no = -1;
   int32_t ret;
   struct CIFX_DEVICE_T* device = NULL;
-  struct CIFX_LINUX_INIT init =
-  {
-    .init_options        = CIFX_DRIVER_INIT_AUTOSCAN,
-    .iCardNumber         = 0,
-    .fEnableCardLocking  = 0,
-    .base_dir            = NULL,
-    .poll_interval       = 0,
-    .poll_StackSize      = 0,   /* set to 0 to use default */
-    .trace_level         = DEFAULT_TRACE_LEVEL,
-    .user_card_cnt       = 0,
-    .user_cards          = NULL,
-    .poll_priority       = 0,
-  };
+  struct CIFX_LINUX_INIT init;
+
+  memset( &init, 0, sizeof(init));
+
+  init.init_options = CIFX_DRIVER_INIT_AUTOSCAN;
+  init.trace_level  = DEFAULT_TRACE_LEVEL;
 
   strncpy(s_card, CIFX_DEV, strlen(CIFX_DEV)+1);
-  while((opt = getopt(argc, argv, "n:c:t:d")) != -1) {
+  while((opt = getopt(argc, argv, "n:c:t:ld")) != -1) {
     switch(opt)
     {
       case 'n':
@@ -970,6 +966,9 @@ int main(int argc, char* argv[])
         break;
       case 't':
         init.trace_level = atoi(optarg);
+        break;
+      case 'l':
+        init.fEnableCardLocking = 1;
         break;
       case 'd':
         s_debug = 1;
@@ -998,7 +997,7 @@ int main(int argc, char* argv[])
   /* First of all initialize toolkit */
   if ((ret = cifXDriverInit(&init)) != CIFX_NO_ERROR) {
     printf("Error while initializing the driver (ret=%d)\n", ret);
-    return -1;
+    goto free_device;
   }
 
   /* Display version of cifXRTXDrv and cifXToolkit */
@@ -1020,14 +1019,15 @@ int main(int argc, char* argv[])
   TEST_FUNC(TestEventHandling(), ret);
 
   /* Demonstrate host/bus state functions */
-  TEST_FUNC(StateDemo (), ret);
+  TEST_FUNC(StateDemo(), ret);
 
   cifXDriverDeinit();
-
-  return 0;
 
 err:
   cifXDriverDeinit();
+free_device:
+  if (device != NULL)
+    cifXDeleteDevice( device);
 
-  return -1;
+  return ret;
 }
