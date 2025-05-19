@@ -38,7 +38,8 @@ target_include_directories(cifx_tcpserver
 )
 
 target_link_libraries (cifx_tcpserver ${LIBRARY_REQ_LIBRARIES})
-target_compile_options(cifx_tcpserver PRIVATE -Wformat-overflow=0)
+# Wextra not enabled due to Marshaller (shared component)
+target_compile_options(cifx_tcpserver PRIVATE -Wformat-overflow=0 -Wall)
 
 target_compile_definitions(cifx_tcpserver
     PUBLIC

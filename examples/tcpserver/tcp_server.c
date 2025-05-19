@@ -80,7 +80,7 @@ int32_t EnumBoardDemo(void)
       printf("    SerialNumber : %lu\r\n",(long unsigned int)tBoardInfo.tSystemInfo.ulSerialNumber);
 
       unsigned long       ulChannel    = 0;
-      CHANNEL_INFORMATION tChannelInfo = {{0}};
+      CHANNEL_INFORMATION tChannelInfo = {0};
 
       /* iterate over all channels on the current board */
       while(CIFX_NO_ERROR == xDriverEnumChannels(hDriver, ulBoard, ulChannel, sizeof(tChannelInfo), &tChannelInfo))
@@ -286,6 +286,7 @@ void TrafficTimer(void* dwUser)
 /*****************************************************************************/
 void MarshallerTimer(int iSignal)
 {
+  (void)iSignal;
   HilMarshallerTimer(g_pvMarshaller);
 }
 
@@ -386,6 +387,8 @@ void MarshallerRequest(void* pvMarshaller, void* pvUser)
 /*****************************************************************************/
 void DeInitServer(int iSignal)
 {
+  (void)iSignal;
+
   DeinitMarshaller();
   cifXDriverDeinit();
 
@@ -470,6 +473,8 @@ static int32_t HandleFileStorage(BOARD_INFORMATION* ptBoardInfo,
   char    abFileName[FILENAME_MAX];
   FILE*   iFd;
 
+  (void)pvUser;
+
   GetChannelDir(abFileName, FILENAME_MAX, ulChannel, ptBoardInfo);
   strcat(abFileName, pszFileName);
 
@@ -506,7 +511,7 @@ static int32_t HandleFileStorage(BOARD_INFORMATION* ptBoardInfo,
 /*****************************************************************************/
 uint32_t InitMarshaller(void)
 {
-  HIL_MARSHALLER_PARAMS_T           tParams        = {{0}};
+  HIL_MARSHALLER_PARAMS_T           tParams        = {0};
   HIL_MARSHALLER_CONNECTOR_PARAMS_T tTCPConnector  = {0};
 
   tTCPConnector.pfnConnectorInit = TCPConnectorInit;

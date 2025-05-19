@@ -174,8 +174,8 @@ static uint32_t GetDownloadModeFromFileName( uint32_t usFileNameLength, char* ps
 static int32_t GetTxnMode(CIFXHANDLE hDevice, uint8_t* pbTxnMode, PDRVFNC_T ptDrvFnc)
 {
   int32_t                         lRet             = CIFX_NO_ERROR;
-  RCX_READ_SYS_STATUS_BLOCK_REQ_T tSystemStatusReq = {{0}};
-  RCX_READ_SYS_STATUS_BLOCK_CNF_T tSystemStatusCnf = {{0}};
+  RCX_READ_SYS_STATUS_BLOCK_REQ_T tSystemStatusReq = {0};
+  RCX_READ_SYS_STATUS_BLOCK_CNF_T tSystemStatusCnf = {0};
 
   tSystemStatusReq.tHead.ulSrc    = 0;
   tSystemStatusReq.tHead.ulDest   = RCX_PACKET_DEST_SYSTEM;
@@ -205,8 +205,8 @@ static int32_t GetTxnMode(CIFXHANDLE hDevice, uint8_t* pbTxnMode, PDRVFNC_T ptDr
 /*****************************************************************************/
 static int32_t GetDeviceInfo(CIFXHANDLE hDevice, BOARD_INFORMATION* ptBoardInfo, PDRVFNC_T ptDrvFnc)
 {
-  RCX_READ_SYS_INFO_BLOCK_REQ_T tSysInfoReq = {{0}};
-  RCX_READ_SYS_INFO_BLOCK_CNF_T tSysInfoCnf = {{0}};
+  RCX_READ_SYS_INFO_BLOCK_REQ_T tSysInfoReq = {0};
+  RCX_READ_SYS_INFO_BLOCK_CNF_T tSysInfoCnf = {0};
   int32_t                       lRet        = CIFX_NO_ERROR;
 
   tSysInfoReq.tHead.ulSrc    = 0;

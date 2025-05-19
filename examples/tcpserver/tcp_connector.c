@@ -76,7 +76,7 @@ static void TCPConnectorDeinit(void* pvUser)
       close(ptTcpData->hListen);
 
     /* Unregister from Marshaller */
-    if(ptTcpData->ulConnectorIdx != (unsigned long int)~0)
+    if(ptTcpData->ulConnectorIdx != (uint32_t)~0)
     {
       HilMarshallerUnregisterConnector(ptTcpData->pvMarshaller, ptTcpData->ulConnectorIdx);
     }
@@ -118,16 +118,16 @@ void* ClientThread(void* pvParam)
       if(FD_ISSET(ptTcpData->hClient, &tRead))
       {
         /* We have data to read */
-        unsigned long  ulDataLen;
+        int            iDataLen;
         unsigned char* pbData;
         int            iRecv;
 
-        ioctl(ptTcpData->hClient,FIONREAD,&ulDataLen);
+        ioctl(ptTcpData->hClient,FIONREAD,&iDataLen);
 
-        pbData    = (unsigned char*)malloc(ulDataLen);
+        pbData    = (unsigned char*)malloc(iDataLen);
 
         /* If EINTR is returned try receiving the packets again. */
-        while(-1 == (iRecv = recv(ptTcpData->hClient, (char*)pbData, ulDataLen, 0)) && EINTR == errno);
+        while(-1 == (iRecv = recv(ptTcpData->hClient, (char*)pbData, iDataLen, 0)) && EINTR == errno);
 
         if( (SOCKET_ERROR == iRecv) ||
             (0            == iRecv) )
