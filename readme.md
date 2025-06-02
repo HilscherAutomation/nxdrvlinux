@@ -278,6 +278,15 @@ cmake ../examples/
 ```
 make
 ./cifx_api
-#or
+```
+or
+```
 ./cifx_tcpserver
 ```
+
+## Marshaller/cifX TCP server information
+
+The cifX TCP server can be used to configure and analyse the configuration of a cifX device using SYCON.NET from a Windows PC.
+Basically this is not a speciality of this driver, but to have an easier start see the following link on how to connect to a cifX device via the TCP server
+
+[How to connect a CIFX Card in a Linux System to Sycon.net via TCP Server](https://hilscher.atlassian.net/wiki/x/t8tRBw)
