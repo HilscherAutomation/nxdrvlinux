@@ -120,9 +120,9 @@ make; sudo make install
 ## <a id="System-configuration"></a>System configuration
 
 ### <a id="PCI-host-interface"></a>PCI host interface
-A PCI device can be accessed via the kernel module uio_netx or vfio-pci. Both drivers provide interrupt handling and mapping the device's memory to userspace which can then be accessed by the user space library libcifx. In contrast to the uio_netx module the vfio-pci provides IOMMU support.
+A PCI device can be accessed via the kernel module uio_netx or vfio-pci. Both drivers provide interrupt handling and mapping the device's memory to userspace which can then be accessed by the user space library libcifx. In contrast to the uio_netx module the vfio-pci provides IOMMU translation.
 
-This means if DMA is to be used and IOMMU is enabled (mode="translated") vfio-pci is required. Setting the IOMMU mode to "passthrough" allows further use of the uio_netx driver. The userspace driver can handle both at the same time for information refer to [uio_netx & vfio-pci parallel](#Running-uio_netx-and-vfio-pci-in-parallel).</b>
+This means if DMA is to be used and IOMMU is enabled and mode="translated" vfio-pci is required. Setting the IOMMU mode to "passthrough" allows further use of the uio_netx driver. The userspace driver can handle both at the same time for information refer to [uio_netx & vfio-pci parallel](#Running-uio_netx-and-vfio-pci-in-parallel).</b>
 
 The following table gives an overview of performance impact and DMA support according to the system's abiltiy and configuration.
 
@@ -142,7 +142,7 @@ For kernel version <6.2. iommufd (cdev interface) is not supported. In this case
 
 <br>
 
-#### <a id="VFIO-Driver"></a>VFIO Driver / IOMMU support
+#### <a id="VFIO-Driver"></a>VFIO Driver
 The vfio-pci driver is a generic driver for PCI devices. To motivate the driver to take control over a specific PCI device, the device need to be bind to the driver.
 For background information about VFIO framework refer to the [kernel's VFIO API documentation](https://docs.kernel.org/driver-api/vfio.html).
 
@@ -174,7 +174,7 @@ echo 0000:04:00.0 |sudo tee /sys/bus/pci/drivers/vfio-pci/unbind
 
 <br>
 
-#### <a id="UIO-Driver"></a>UIO Driver (no IOMMU support)
+#### <a id="UIO-Driver"></a>UIO Driver
 The uio_netx kernel module provides access to PCI, ISA or other memory mapped devices. In case vfio-pci is used as well it is recommended to disable PCI support via DISABLE_PCI_SUPPORT (see [Running uio_netx and vfio-pci in parallel](#Running-uio_netx-and-vfio-pci-in-parallel)).
 
 To be able to access uio_netx based PCI devices as an unprivileged user use the provided [udev rule](templates/udev/80-udev-netx.rules).
