@@ -1,7 +1,5 @@
 
-cmake_minimum_required(VERSION 2.8.12)
-# required to set project version
-cmake_policy(SET CMP0048 NEW)
+cmake_minimum_required(VERSION 3.13)
 
 set(LIB_MAJOR 1)
 set(LIB_MINOR 0)

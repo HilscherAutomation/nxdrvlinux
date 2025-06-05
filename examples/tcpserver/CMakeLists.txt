@@ -1,7 +1,6 @@
 
-cmake_minimum_required (VERSION 2.8.12)
-project(cifxtcpserver)
-set(PROJECT_VERSION, 1.0.0)
+cmake_minimum_required (VERSION 3.13)
+project(cifxtcpserver VERSION 1.0.0)
 
 option(PERMANENT "Enable permanent connection (marshaller server feature - see \"HIL_MARSHALLER_PERMANENT_CONNECTION\")" ON)
 
