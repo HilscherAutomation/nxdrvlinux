@@ -2276,8 +2276,8 @@ static int pci_get_hilscher_device_id_by_idx( int index, char* device_id, uint32
 }
 
 /*****************************************************************************/
-/*! Returns number of vfio devices
-*     \return Number found uio devices                                       */
+/*! Returns number of hilscher pci devices
+*     \return Number of found devices                                        */
 /*****************************************************************************/
 static int cifx_get_pci_device_count(void) {
   int idx = 0;
@@ -2288,7 +2288,7 @@ static int cifx_get_pci_device_count(void) {
 
 /*****************************************************************************/
 /*! Returns number of custom uio devices (non-pci e.g. ISA or other memory mapped)
-*     \return Number found uio devices                                       */
+*     \return Number of found devices                                        */
 /*****************************************************************************/
 static int cifx_uio_get_custom_device_count(void) {
   struct dirent**       namelist;
@@ -2323,17 +2323,17 @@ static int cifx_uio_get_custom_device_count(void) {
 }
 
 /*****************************************************************************/
-/*! Retrieve the number of automatically detectable cifX Devices.
-*     \return Number found netX/cifX uio(&vfio) devices                      */
+/*! Returns the number of automatically detectable cifX devices.
+*     \return Number of found netX/cifX (uio&vfio) devices                   */
 /*****************************************************************************/
 int cifXGetDeviceCount(void)
 {
-  int uio_count = cifx_uio_get_custom_device_count();
+  int custom_count = cifx_uio_get_custom_device_count();
   int pci_count = cifx_get_pci_device_count();
 
-  DBG("Found %d uio_netx (custom) and %d pci devices.\n", uio_count, pci_count);
+  DBG("Found %d custom (uio_netx) and %d pci devices.\n", custom_count, pci_count);
 
-  return uio_count + pci_count;
+  return custom_count + pci_count;
 }
 
 /*****************************************************************************/
