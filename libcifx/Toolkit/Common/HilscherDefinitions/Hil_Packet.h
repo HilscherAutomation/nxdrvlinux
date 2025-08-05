@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_Packet.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20250814-00/includes/Hil_Packet.h $: *//*!
 
   \file Hil_Packet.h
 
@@ -14,11 +14,14 @@
 
 #include <stdint.h>
 #include "Hil_Compiler.h"
+#include "Hil_Config.h"
 
   /************************ General Packet Definitions *************************/
 
   /** total packet size definition */
-  #define HIL_MAX_PACKET_SIZE             (1596)
+
+  #define HIL_MAX_PACKET_SIZE             HIL_MAX_PACKET_SIZE_DEFAULT
+
   #define HIL_PACKET_HEADER_SIZE          40              /*!< Maximum size of the HIL packet header in bytes */
   #define HIL_MAX_DATA_SIZE               (HIL_MAX_PACKET_SIZE - HIL_PACKET_HEADER_SIZE) /*!< Maximum RCX packet data size */
 

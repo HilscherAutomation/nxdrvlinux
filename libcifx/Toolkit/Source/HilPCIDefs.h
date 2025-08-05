@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: HilPCIDefs.h 13179 2019-09-02 11:35:36Z LuisContreras $:
+  $Id: HilPCIDefs.h 15171 2025-08-05 08:18:45Z AMinor $:
 
   Description:
     cifX PCI definitions file
@@ -12,6 +12,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
   Changes:
     Date        Description
     -----------------------------------------------------------------------------------
+    2025-05-26  Removed ID's of older chips
     2019-09-01  Updated CIFX M2 IDs
     2019-08-07  Removed packing macros (if needed, see cifXUser.h)
     2019-08-06  CIFX M2 added
@@ -22,14 +23,12 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 **************************************************************************************/
 
-/* prevent multiple inclusion */
 #ifndef __CIFX_PCI_DEFS_H
 #define __CIFX_PCI_DEFS_H
 
 /*****************************************************************************/
 /*! CIFX PCI information                                                     */
 /*****************************************************************************/
-/* Default Hilscher PCI Information (netX chip only) */
 #define HILSCHER_PCI_VENDOR_ID              0x15CF
 #define HILSCHER_PCI_SUBSYSTEM_VENDOR_ID    0x15CF
 
@@ -49,6 +48,10 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #define CIFX4000_PCI_DEVICE_ID              0x4000
 #define CIFX4000_PCI_SUBVENDOR_ID           0x0000
 #define CIFX4000_PCI_SUBYSTEM_ID_FLASH      0x0000
+
+/* PCI Information for CIFX900 cards */
+#define CIFX900_PCI_DEVICE_ID               0x0900
+#define CIFX900_PCI_SUBYSTEM_ID             0x0000
 
 /* PCI Information for NETPLC100C-FB and NETPLC100C-RE cards */
 #define NETPLC100C_PCI_DEVICE_ID            0x0010

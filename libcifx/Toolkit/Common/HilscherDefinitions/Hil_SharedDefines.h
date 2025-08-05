@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_SharedDefines.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20250814-00/includes/Hil_SharedDefines.h $: *//*!
 
   \file Hil_SharedDefines.h
 
@@ -50,6 +50,11 @@
 #define HIL_DEV_CHIP_TYPE_NETX90       0x09   /*!< netX90 Chip */
 #define HIL_DEV_CHIP_TYPE_NETIOL       0x0A   /*!< netIOL Chip */
 #define HIL_DEV_CHIP_TYPE_NETXXXL_MPW  0x0B   /*!< netXXXL MPW Chip */
+/* netX9x2 family by intention shares the same value */
+#define HIL_DEV_CHIP_TYPE_NETX902_MPW  0x11   /*!< netX902 MPW Chip */
+#define HIL_DEV_CHIP_TYPE_NETX912_MPW  HIL_DEV_CHIP_TYPE_NETX902_MPW /*!< netX912 MPW Chip uses the same chip type as netX902 MPW*/
+#define HIL_DEV_CHIP_TYPE_NETX902      0x12                          /*!< netX902 Chip */
+#define HIL_DEV_CHIP_TYPE_NETX912      HIL_DEV_CHIP_TYPE_NETX902     /*!< netX912 Chip uses the same chip type as netX902*/
 /*! \} */
 
 
@@ -78,10 +83,11 @@
 #define HIL_HW_ASSEMBLY_CCLINK                    0x0070  /*!< CC-Link Fieldbus interface   */
 #define HIL_HW_ASSEMBLY_CCLINK_IE_FIELD_1GB       0x0071  /*!< CC-Link IE Field interface   */
 
-#define HIL_HW_ASSEMBLY_ETHERNET                  0x0080  /*!< Ethernet with internal PHY   */
-#define HIL_HW_ASSEMBLY_ETHERNET_X_PHY            0x0081  /*!< Ethernet with external PHY   */
-#define HIL_HW_ASSEMBLY_ETHERNET_FIBRE_OPTIC      0x0082  /*!< Fiber optic Ethernet         */
-#define HIL_HW_ASSEMBLY_ETHERNET_TAP              0x0083  /*!< Passive Ethernet TAP         */
+#define HIL_HW_ASSEMBLY_ETHERNET                  0x0080  /*!< Ethernet with internal PHY       */
+#define HIL_HW_ASSEMBLY_ETHERNET_X_PHY            0x0081  /*!< Ethernet with external PHY       */
+#define HIL_HW_ASSEMBLY_ETHERNET_FIBRE_OPTIC      0x0082  /*!< Fiber optic Ethernet             */
+#define HIL_HW_ASSEMBLY_ETHERNET_TAP              0x0083  /*!< Passive Ethernet TAP             */
+#define HIL_HW_ASSEMBLY_ETHERNET_X_10SPE_PHY      0x0084  /*!< Ethernet with external 10SPE PHY */
 
 #define HIL_HW_ASSEMBLY_SPI                       0x0090  /*!< SPI                */
 #define HIL_HW_ASSEMBLY_IO_LINK                   0x00A0  /*!< IO-LINK interface  */
@@ -216,11 +222,13 @@
 #define HIL_HW_DEV_CLASS_NETFIELD_COM                       0x0046
 #define HIL_HW_DEV_CLASS_NETFIELD_APP_FOR_NETFIELD_COM      HIL_HW_DEV_CLASS_NETFIELD_COM
 #define HIL_HW_DEV_CLASS_COMX_52                            0x0047
-#define HIL_HW_DEV_CLASS_NETFIELD_DEV_IOLM_W                0x0048
+#define HIL_HW_DEV_CLASS_NETFIELD_DEV_IOLM_W                0x0048 /* Hilscher netFIELD Wireless SMI V1.1 */
 /*                                                          0x0049 device class is worn out */
 /*                                                          0x004A device class is worn out */
 /*                                                          0x004B device class is worn out */
 #define HIL_HW_DEV_CLASS_NETJACK_52                         0x004C
+#define HIL_HW_DEV_CLASS_NETFIELD_DEV_IOLM_W_SMI_1_1_3      0x004D /* Hilscher netFIELD Wireless SMI V1.1.3 */
+#define HIL_HW_DEV_CLASS_NETSWITCH_90_RE_SPE                0x004E /* Hilscher NS 90-RE-SPE devices */
 
 /* NOTE: The device class will be assigned by TD department. */
 

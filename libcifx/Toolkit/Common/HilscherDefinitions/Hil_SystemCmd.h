@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_SystemCmd.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20250814-00/includes/Hil_SystemCmd.h $: *//*!
 
   \file Hil_SystemCmd.h
 
@@ -11,6 +11,7 @@
 #ifndef HIL_SYSTEMCMD_H_
 #define HIL_SYSTEMCMD_H_
 
+#include <Hil_HostInterface.h>
 #include "Hil_Types.h"
 #include "Hil_Packet.h"
 #include "Hil_DualPortMemory.h"
@@ -47,9 +48,11 @@
 #define HIL_QUE_GET_LOAD_REQ                          0x00001E30
 #define HIL_QUE_GET_LOAD_CNF                          0x00001E31
 
-/* DPM data access functions */
+/* DPM & HIF data access functions */
 #define HIL_SYSTEM_INFORMATION_BLOCK_REQ              0x00001E32
 #define HIL_SYSTEM_INFORMATION_BLOCK_CNF              0x00001E33
+
+/* DPM data access functions */
 #define HIL_CHANNEL_INFORMATION_BLOCK_REQ             0x00001E34
 #define HIL_CHANNEL_INFORMATION_BLOCK_CNF             0x00001E35
 #define HIL_SYSTEM_CONTROL_BLOCK_REQ                  0x00001E36
@@ -152,6 +155,14 @@
 #define HIL_TSK_STOP_IDX_REQ                          0x00001E7A
 #define HIL_TSK_STOP_IDX_CNF                          0x00001E7B
 
+/* HIF data access functions */
+#define HIL_PROCESS_DATA_INFORMATION_REQ              0x00001E9A
+#define HIL_PROCESS_DATA_INFORMATION_CNF              0x00001E9B
+#define HIL_SYSTEM_STATUS_REQ                         0x00001E9C
+#define HIL_SYSTEM_STATUS_CNF                         0x00001E9D
+#define HIL_COMMUNICATION_STATUS_REQ                  0x00001E9E
+#define HIL_COMMUNICATION_STATUS_CNF                  0x00001E9F
+
 /* log queues */
 #define HIL_QUE_LOG_SET_REQ                           0x00001EA0
 #define HIL_QUE_LOG_SET_CNF                           0x00001EA1
@@ -233,6 +244,9 @@
 #define HIL_TIME_COMMAND_REQ                          0x00001ED8
 #define HIL_TIME_COMMAND_CNF                          0x00001ED9
 
+#define HIL_TIME64_COMMAND_REQ                        0x00001EDA
+#define HIL_TIME64_COMMAND_CNF                        0x00001EDB
+
 
 /* Backup / Restore commands */
 #define HIL_BACKUP_REQ                                0x00001F50
@@ -281,6 +295,46 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_TIME_CMD_CNF_Ttag
   HIL_PACKET_HEADER_T   tHead;  /*!< packet header  */
   HIL_TIME_CMD_DATA_T   tData;  /*!< packet data    */
 } HIL_TIME_CMD_CNF_T;
+
+
+/******************************************************************************
+ * Packet: HIL_TIME64_COMMAND_REQ/HIL_TIME64_COMMAND_CNF
+ *
+ */
+
+/* Time command codes */
+#define HIL_TIME64_CMD_GETSTATE                 0x00000001
+#define HIL_TIME64_CMD_GETTIME                  0x00000002
+#define HIL_TIME64_CMD_SETTIME                  0x00000003
+
+/* Time RTC information */
+#define HIL_TIME64_INFO_RTC_MSK                 0x00000007
+#define HIL_TIME64_INFO_RTC_TYPE_MSK            0x00000003
+#define HIL_TIME64_INFO_RTC_RTC_STATE_MSK       0x00000004
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_TIME64_CMD_DATA_Ttag
+{
+  uint32_t  ulTimeCmd;
+  uint32_t  ulReserved;
+  uint64_t  ullData;
+} HIL_TIME64_CMD_DATA_T;
+
+/***** request packet *****/
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_TIME64_CMD_REQ_Ttag
+{
+  HIL_PACKET_HEADER_T     tHead;  /*!< packet header  */
+  HIL_TIME64_CMD_DATA_T   tData;  /*!< packet data    */
+} HIL_TIME64_CMD_REQ_T;
+
+
+/***** confirmation packet *****/
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_TIME64_CMD_CNF_Ttag
+{
+  HIL_PACKET_HEADER_T     tHead;  /*!< packet header  */
+  HIL_TIME64_CMD_DATA_T   tData;  /*!< packet data    */
+} HIL_TIME64_CMD_CNF_T;
 
 
 /******************************************************************************
@@ -1991,66 +2045,6 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_SECURITY_EEPROM_WRITE_CNF_
   HIL_PACKET_HEADER_T                     tHead;                  /* packet header */
 } HIL_SECURITY_EEPROM_WRITE_CNF_T;
 
-
-/******************************************************************************
- * Packet: HIL_GET_LIB_VERSION_INFO_REQ/HIL_GET_LIB_VERSION_INFO_CNF
- *
- *          This packet allows retrieving the version information of libraries integrated
- *          into the firmware
- */
-
-/***** request packet *****/
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_LIB_VERSION_INFO_REQ_DATA_Ttag
-{
-  uint32_t                              ulVersionIndex;         /* version table index */
-} HIL_GET_LIB_VERSION_INFO_REQ_DATA_T;
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_LIB_VERSION_INFO_REQ_Ttag
-{
-  HIL_PACKET_HEADER_T                     tHead;                  /* packet header */
-  HIL_GET_LIB_VERSION_INFO_REQ_DATA_T     tData;                  /* packet data */
-} HIL_GET_LIB_VERSION_INFO_REQ_T;
-
-
-/***** confirmation packet *****/
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_LIB_VERSION_Ttag
-{
-  unsigned short                        usMajor;
-  unsigned short                        usMinor;
-  unsigned short                        usBuild;
-  unsigned short                        usRevision;
-} HIL_LIB_VERSION_T;
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_LIB_NAME_Ttag
-{
-  unsigned char                         bNameLength;
-  unsigned char                         abName[63];
-} HIL_LIB_NAME_T;
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_LIB_DATE_Ttag
-{
-  unsigned short                        usYear;
-  unsigned char                         bMonth;
-  unsigned char                         bDay;
-} HIL_LIB_DATE_T;
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_LIB_VERSION_INFO_CNF_DATA_Ttag
-{
-  HIL_LIB_VERSION_T                       tLibVersion;            /* !< library version */
-  HIL_LIB_NAME_T                          tLibName;               /* !< library name    */
-  HIL_LIB_DATE_T                          tLibDate;               /* !< library date    */
-  uint32_t                              ulType;                 /* type of library */
-} HIL_GET_LIB_VERSION_INFO_CNF_DATA_T;
-
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_LIB_VERSION_INFO_CNF_Ttag
-{
-  HIL_PACKET_HEADER_T                     tHead;                  /* packet header */
-  HIL_GET_LIB_VERSION_INFO_CNF_DATA_T     tData;                  /* packet data */
-} HIL_GET_LIB_VERSION_INFO_CNF_T;
-
-
 /******************************************************************************
  * Packet: HIL_HW_LICENSE_INFO_REQ/HIL_HW_LICENSE_INFO_CNF
  *
@@ -2311,7 +2305,76 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_READ_COMM_CNTRL_BLOCK_CNF_
 } HIL_READ_COMM_CNTRL_BLOCK_CNF_T;
 
 
+/******************************************************************************
+ * HIL_PROCESS_DATA_INFORMATION_REQ/HIL_PROCESS_DATA_INFORMATION_CNF
+ ******************************************************************************/
 
+/***** request packet *****/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_PROCESS_DATA_INFORMATION_REQ_Ttag
+{
+  HIL_PACKET_HEADER_T                         tHead;
+} HIL_PROCESS_DATA_INFORMATION_REQ_T;
+
+/***** confirmation packet *****/
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_PROCESS_DATA_INFORMATION_CNF_Ttag
+{
+  HIL_PACKET_HEADER_T              tHead;
+  HIL_HIF_PROCESS_DATA_BLOCK_T     tData;
+} HIL_PROCESS_DATA_INFORMATION_CNF_T;
+
+/******************************************************************************
+ * HIL_SYSTEM_STATUS_REQ/HIL_SYSTEM_STATUS_CNF
+ ******************************************************************************/
+
+/***** request packet *****/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_SYSTEM_STATUS_REQ_Ttag
+{
+  HIL_PACKET_HEADER_T                         tHead;
+} HIL_SYSTEM_STATUS_REQ_T;
+
+/***** confirmation packet *****/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_SYSTEM_STATUS_CNF_DATA_Ttag
+{
+  uint32_t  ulSystemFlags;                                       /*!< Actual system flags */
+  uint32_t  ulSystemStatus;                                      /*!< Actual system state */
+  uint32_t  ulSystemError;                                       /*!< Actual system error */
+  uint32_t  ulBootError;                                         /*!< Bootup error (only set by 2nd Stage Bootloader) */
+  uint32_t  ulTimeSinceStart;                                    /*!< time since start in seconds */
+  uint16_t  usCpuLoad;                                           /*!< cpu load in 0,01% units (10000 => 100%) */
+  uint16_t  usReserved;                                          /*!< Reserved */
+  uint32_t  ulHWFeatures;                                        /*!< Hardware Features   */
+} HIL_SYSTEM_STATUS_CNF_DATA_T;
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_SYSTEM_STATUS_CNF_Ttag
+{
+  HIL_PACKET_HEADER_T                         tHead;
+  HIL_SYSTEM_STATUS_CNF_DATA_T                tData;
+} HIL_SYSTEM_STATUS_CNF_T;
+
+/******************************************************************************
+ * HIL_COMMUNICATION_STATUS_REQ/HIL_COMMUNICATION_STATUS_CNF
+ ******************************************************************************/
+
+/***** request packet *****/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_COMMUNICATION_STATUS_REQ_Ttag
+{
+  HIL_PACKET_HEADER_T                         tHead;
+} HIL_COMMUNICATION_STATUS_REQ_T;
+
+/***** confirmation packet *****/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_COMMUNICATION_STATUS_CNF_DATA_Ttag
+{
+  uint32_t  ulCommunicationFlags;                               /*!< Actual communication flags */
+  uint32_t  ulCommunicationState;                               /*!< Actual communication state */
+  uint32_t  ulCommunicationError;                               /*!< Actual communication error */
+} HIL_COMMUNICATION_STATUS_CNF_DATA_T;
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_COMMUNICATION_STATUS_CNF_Ttag
+{
+  HIL_PACKET_HEADER_T                         tHead;
+  HIL_COMMUNICATION_STATUS_CNF_DATA_T         tData;
+} HIL_COMMUNICATION_STATUS_CNF_T;
 
 
 /******************************************************************************

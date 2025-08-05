@@ -12,6 +12,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
   Changes:
     Date        Description
     -----------------------------------------------------------------------------------
+    2025-08-05  Added defines for new HIF layout
     2022-06-14  Added CIFX_IO_AREA_MASK definition
     2019-03-26  Added timeout definition for firmware update
     2018-11-19  - Update definitions and structures concerning xSysdeviceResetEx()
@@ -151,9 +152,11 @@ typedef void* CIFXHANDLE;
 #define CIFX_TO_FIRMWARE_UPDATE               30000UL
 
 /* Maximum channel number */
-#define CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION 8
-#define CIFX_MAX_NUMBER_OF_CHANNELS           6
-#define CIFX_NO_CHANNEL                       0xFFFFFFFF
+#define CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION     8
+#define CIFX_MAX_NUMBER_OF_CHANNELS               6
+#define CIFX_MAX_NUMBER_OF_HIF_CHANNEL_DEFINITION 3
+#define CIFX_MAX_NUMBER_OF_HIF_CHANNELS           1
+#define CIFX_NO_CHANNEL                           0xFFFFFFFF
 
 /* Maximum file name length */
 #define CIFX_MAX_FILE_NAME_LENGTH             260
@@ -249,6 +252,10 @@ typedef struct CIFX_NOTIFY_COM_STATE_Ttag
 #define CIFX_NOTIFY_PD1_OUT                   6
 #define CIFX_NOTIFY_SYNC                      7
 #define CIFX_NOTIFY_COM_STATE                 8
+#define CIFX_NOTIFY_PD2_IN                    9
+#define CIFX_NOTIFY_PD3_IN                    10
+#define CIFX_NOTIFY_PD2_OUT                   11
+#define CIFX_NOTIFY_PD3_OUT                   12
 
 /* Extended memory commands */
 #define CIFX_GET_EXTENDED_MEMORY_INFO         1
@@ -329,7 +336,11 @@ typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_SYSTEM_INFO_BLOCKtag
 #define CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE  16
 typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_CHANNEL_INFO_BLOCKtag
 {
+#ifdef HIF_SUPPORT
+  uint8_t  abInfoBlock[CIFX_MAX_NUMBER_OF_HIF_CHANNEL_DEFINITION][CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE];
+#else
   uint8_t  abInfoBlock[CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION][CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE];
+#endif
 } __CIFx_PACKED_POST SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK;
 
 /* System Channel: System Control Block */
@@ -446,9 +457,13 @@ typedef __CIFx_PACKED_PRE struct PLC_MEMORY_INFORMATIONtag
 /***************************************************************************/
 /* Driver dependent information */
 
-#define CIFX_MAX_PACKET_SIZE               1596                  /*!< Maximum size of the RCX packet in bytes */
-#define CIFX_PACKET_HEADER_SIZE            40                    /*!< Maximum size of the RCX packet header in bytes */
-#define CIFX_MAX_DATA_SIZE   (CIFX_MAX_PACKET_SIZE - CIFX_PACKET_HEADER_SIZE) /*!< Maximum RCX packet data size */
+#ifdef HIF_SUPPORT
+#define CIFX_MAX_PACKET_SIZE               2176                  /*!< Maximum size of the packet in bytes */
+#else
+#define CIFX_MAX_PACKET_SIZE               1596                  /*!< Maximum size of the packet in bytes */
+#endif
+#define CIFX_PACKET_HEADER_SIZE            40                    /*!< Maximum size of the packet header in bytes */
+#define CIFX_MAX_DATA_SIZE   (CIFX_MAX_PACKET_SIZE - CIFX_PACKET_HEADER_SIZE) /*!< Maximum packet data size */
 
 #define CIFX_MSK_PACKET_ANSWER             0x00000001            /*!< Packet answer bit */
 
@@ -492,6 +507,7 @@ typedef void(APIENTRY *PFN_NOTIFY_CALLBACK)  (uint32_t ulNotification, uint32_t 
 #define DOWNLOAD_MODE_MODULE      6
 
 
+#ifndef CIFX_TOOLKIT_FUNCTION_LIST
 /***************************************************************************
 * API Functions
 ***************************************************************************/
@@ -571,6 +587,7 @@ int32_t APIENTRY xChannelRegisterNotification  ( CIFXHANDLE  hChannel, uint32_t 
 int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE  hChannel, uint32_t ulNotification);
 int32_t APIENTRY xChannelSyncState             ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t ulTimeout, uint32_t* pulErrorCount);
 /***************************************************************************/
+#endif
 
 /***************************************************************************
 * API Functionpointer definitions

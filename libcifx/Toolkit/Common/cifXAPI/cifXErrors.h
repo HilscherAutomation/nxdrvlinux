@@ -760,6 +760,15 @@
 /*  */
 #define CIFX_DEV_SYNC_STATE_TIMEOUT      ((int32_t)0x800C0059L)
 
+/*  */
+/*  MessageId: CIFX_DEV_DPM_LAYOUT_UNKNOWN */
+/*  */
+/*  MessageText: */
+/*  */
+/*  Unknown or unsupported DPM/HIF layout */
+/*  */
+#define CIFX_DEV_DPM_LAYOUT_UNKNOWN      ((int32_t)0x800C005AL)
+
 /*******************************************************************************
 * CIFX API Transport Errors
 *******************************************************************************/

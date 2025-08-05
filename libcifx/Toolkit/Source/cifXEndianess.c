@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXEndianess.c 13253 2019-10-11 10:57:04Z LuisContreras $:
+  $Id: cifXEndianess.c 15171 2025-08-05 08:18:45Z AMinor $:
 
   Description:
     Little/Big Endian conversion
@@ -35,7 +35,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 int32_t cifXConvertEndianess(unsigned int uiOffset, void* pvBuffer, int iBufferLen,
                              const CIFX_ENDIANESS_ENTRY_T* atConv, int iConvLen)
 {
-/* Conversion needs only be done, it host and dpm endianess differ */
+/* Conversion needs only be done, if host and dpm endianess differ */
 #ifdef CIFX_TOOLKIT_BIGENDIAN
   /* We need to make sure, that we can handle odd offsets, so we are using
      a byte pointer here and build the appropriate data type byte by byte.
