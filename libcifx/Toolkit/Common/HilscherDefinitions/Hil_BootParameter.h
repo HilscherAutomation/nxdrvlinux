@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_BootParameter.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20250814-00/includes/Hil_BootParameter.h $: *//*!
 
   \file Hil_BootParameter.h
 
@@ -99,6 +99,10 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_BOOT_PARAM_HARDWARE_INFORM
 #define HIL_BOOT_PARAM_DPM_MODE_IDPM1       0x06  /*!< iDPM1 is configured */
 #define HIL_BOOT_PARAM_DPM_MODE_PCIE        0x07  /*!< iDPM via PCIe is configured */
 #define HIL_BOOT_PARAM_DPM_MODE_IDPM0SPM0   0x08  /*!< iDPM0 and SPM0 */
+#define HIL_BOOT_PARAM_DPM_MODE_DPM16       0x09  /*!< DPM with 16kB is configured */
+#define HIL_BOOT_PARAM_DPM_MODE_DPM32       0x0A  /*!< DPM with 32kB is configured */
+#define HIL_BOOT_PARAM_DPM_MODE_DPM64       0x0B  /*!< DPM with 64kB is configured */
+
 
 typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_BOOT_PARAM_DPM_INFORMATION_Ttag
 {

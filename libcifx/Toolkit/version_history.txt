@@ -1,6 +1,11 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.1.0
+-----------------
+  - Calculate download timeout value instead of using a constant one
+  - Add support for new HIF layout (for netX900 based devices)
+
   V2.8.0.1
 -----------------
   - Added missng ulOption parameter in SerialDPM example functions (Read_NXxx / Write_NXxx)

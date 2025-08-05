@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctions.c 14699 2023-04-27 07:51:13Z RMayer $:
+  $Id: cifXFunctions.c 15171 2025-08-05 08:18:45Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -37,12 +37,15 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
+#include "cifXFunctionList.h"
+#include "USER_Dependent.h"
 
 #include "Hil_Results.h"
 #include "Hil_Packet.h"
+#include "Hil_ApplicationCmd.h"
 #include "Hil_SystemCmd.h"
 
-/* Commonly used function from cifXInit.c, not exposed to the user interface */
+/* Commonly used function, not exposed to the user interface */
 int32_t cifXStartModule      ( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber, char* pszModuleName,
                                uint32_t ulFileSize, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser);
 int32_t cifXReadFirmwareIdent( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannel,
@@ -153,6 +156,7 @@ static struct CIFX_ERROR_TO_DESCRtag
   {CIFX_DEV_DMA_STATE_OFF_TIMEOUT    ,"Set DMA OFF timeout"                              },
   {CIFX_DEV_SYNC_STATE_INVALID_MODE  ,"Device is in invalid mode for this operation"     },
   {CIFX_DEV_SYNC_STATE_TIMEOUT       ,"Waiting for synchronization event bits timed out" },
+  {CIFX_DEV_DPM_LAYOUT_UNKNOWN       ,"Unsupported DPM layout"                           },
 
   /*******************************************************************************/
 #else
@@ -262,11 +266,16 @@ static const CIFX_ENDIANESS_ENTRY_T s_atCommonStatusBlock[] =
                                               ulNumOfDiagSlaves, ulReserved  */
 };
 
-extern uint32_t           g_ulDeviceCount; /*!< Number of available device (Array size of g_pptDevices) */
+extern uint32_t                g_ulDeviceCount; /*!< Number of available device (Array size of g_pptDevices) */
 extern PDEVICEINSTANCE*        g_pptDevices;    /*!< Array containing all handled device instances           */
 extern TKIT_DRIVER_INFORMATION g_tDriverInfo;   /*!< Global driver information                               */
 
 #ifdef CIFX_TOOLKIT_PARAMETER_CHECK
+#define CHECK_POINTER(param) if ((void*)NULL == param) return CIFX_INVALID_POINTER;
+#define CHECK_DRIVERHANDLE(handle) if (&g_tDriverInfo != handle) return CIFX_INVALID_HANDLE;
+#define CHECK_SYSDEVICEHANDLE(handle) if (CIFX_NO_ERROR != CheckSysdeviceHandle(handle)) return CIFX_INVALID_HANDLE;
+#define CHECK_CHANNELHANDLE(handle) if (CIFX_NO_ERROR != CheckChannelHandle(handle)) return CIFX_INVALID_HANDLE;
+
 /*****************************************************************************/
 /*! Checks if the given sysdevice handle is valid
 *   \param hChannel      Sysdevice handle
@@ -364,6 +373,11 @@ static int32_t CheckChannelHandle(CIFXHANDLE hChannel)
 
   return lRet;
 }
+#else
+#define CHECK_POINTER(param)
+#define CHECK_DRIVERHANDLE(handle) UNREFERENCED_PARAMETER(handle)
+#define CHECK_SYSDEVICEHANDLE(handle)
+#define CHECK_CHANNELHANDLE(handle)
 #endif
 
 /*****************************************************************************/
@@ -373,7 +387,7 @@ static int32_t CheckChannelHandle(CIFXHANDLE hChannel)
 *   \param phSysdevice  Returned handle to the System device area
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, CIFXHANDLE* phSysdevice)
+CIFX_STATIC int32_t APIENTRY xSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, CIFXHANDLE* phSysdevice)
 {
   int32_t  lRet = CIFX_INVALID_BOARD;
   uint32_t ulIdx;
@@ -405,7 +419,7 @@ int32_t APIENTRY xSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, CIFXHANDLE* p
 *   \param hSysdevice  Handle to the System device to close
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceClose(CIFXHANDLE hSysdevice)
+CIFX_STATIC int32_t APIENTRY xSysdeviceClose(CIFXHANDLE hSysdevice)
 {
   PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
 
@@ -424,11 +438,16 @@ int32_t APIENTRY xSysdeviceClose(CIFXHANDLE hSysdevice)
 *                          at once
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
+CIFX_STATIC int32_t APIENTRY xSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
 {
-  PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
 
-  return DEV_GetMBXState(ptSysDevice, pulRecvPktCount, pulSendPktCount);
+  CHECK_SYSDEVICEHANDLE(hSysdevice);
+  CHECK_POINTER(pulRecvPktCount);
+  CHECK_POINTER(pulSendPktCount);
+
+  return CIFX_MAKE_DEV_FUN(DEV_GetMBXState)(ptSysDevice, pulRecvPktCount, pulSendPktCount);
 }
 
 /*****************************************************************************/
@@ -439,15 +458,19 @@ int32_t APIENTRY xSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32_t* pulRecvP
 *                          by device (in ms)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
 {
-  int32_t          lRet        = CIFX_NO_ERROR;
-  PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+
+  CHECK_SYSDEVICEHANDLE(hSysdevice);
+  CHECK_POINTER(ptSendPkt);
 
   if( !OS_WaitMutex( ptSysDevice->tSendMbx.pvSendMBXMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
 
-  lRet = DEV_PutPacket(ptSysDevice, ptSendPkt, ulTimeout);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_PutPacket)(ptSysDevice, ptSendPkt, ulTimeout);
 
   OS_ReleaseMutex( ptSysDevice->tSendMbx.pvSendMBXMutex);
 
@@ -463,15 +486,19 @@ int32_t APIENTRY xSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKET* ptSendP
 *                          by device (in ms)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
 {
-  int32_t          lRet        = CIFX_NO_ERROR;
-  PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+
+  CHECK_SYSDEVICEHANDLE(hSysdevice);
+  CHECK_POINTER(ptRecvPkt);
 
   if( !OS_WaitMutex( ptSysDevice->tRecvMbx.pvRecvMBXMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
 
-  lRet = DEV_GetPacket(ptSysDevice, ptRecvPkt, ulSize, ulTimeout);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_GetPacket)(ptSysDevice, ptRecvPkt, ulSize, ulTimeout);
 
   OS_ReleaseMutex( ptSysDevice->tRecvMbx.pvRecvMBXMutex);
 
@@ -493,17 +520,18 @@ int32_t APIENTRY xSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t ulSize, CIF
 *   \param pvUser             User parameter passed to callback
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
-                                     uint32_t              ulChannel,
-                                     uint32_t              ulMode,
-                                     char*                 pszFileName,
-                                     uint8_t*              pabFileData,
-                                     uint32_t              ulFileSize,
-                                     PFN_PROGRESS_CALLBACK pfnCallback,
-                                     PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
-                                     void*                 pvUser)
+CIFX_STATIC int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
+                                                 uint32_t              ulChannel,
+                                                 uint32_t              ulMode,
+                                                 char*                 pszFileName,
+                                                 uint8_t*              pabFileData,
+                                                 uint32_t              ulFileSize,
+                                                 PFN_PROGRESS_CALLBACK pfnCallback,
+                                                 PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
+                                                 void*                 pvUser)
 {
   PCHANNELINSTANCE ptSysDevice    = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance  = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
   uint32_t         ulTransferType = 0;
   int32_t          lRet           = CIFX_NO_ERROR;
 
@@ -514,18 +542,21 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
   switch(ulMode)
   {
   case DOWNLOAD_MODE_FIRMWARE:
-    if( CIFX_NO_ERROR != (lRet = DEV_GetFWTransferTypeFromFileName( ((PDEVICEINSTANCE)(ptSysDevice->pvDeviceInstance))->eChipType,
-                                                                     pszFileName, &ulTransferType)))
+    lRet = CIFX_MAKE_DEV_FUN(DEV_GetFWTransferTypeFromFileName)(
+        ((PDEVICEINSTANCE)(ptSysDevice->pvDeviceInstance))->eChipType,
+        pszFileName, &ulTransferType);
+    if( CIFX_NO_ERROR != lRet)
       return lRet;
 
-    lRet = DEV_DownloadFile(ptSysDevice,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(
+                            ptSysDevice,
                             ulChannel,
                             ptSysDevice->tSendMbx.ulSendMailboxLength,
                             ulTransferType,
                             pszFileName,
                             ulFileSize,
                             pabFileData,
-                            DEV_TransferPacket,
+                            CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
                             pfnCallback,
                             pfnRecvPktCallback,
                             pvUser);
@@ -535,14 +566,15 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
   case DOWNLOAD_MODE_CONFIG:
   case DOWNLOAD_MODE_FILE:
       ulTransferType = HIL_FILE_XFER_FILE;
-      lRet = DEV_DownloadFile(ptSysDevice,
+      lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(
+                              ptSysDevice,
                               ulChannel,
                               ptSysDevice->tSendMbx.ulSendMailboxLength,
                               ulTransferType,
                               pszFileName,
                               ulFileSize,
                               pabFileData,
-                              DEV_TransferPacket,
+                              CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
                               pfnCallback,
                               pfnRecvPktCallback,
                               pvUser);
@@ -551,14 +583,15 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
   case DOWNLOAD_MODE_LICENSECODE:
       ulTransferType = HIL_FILE_XFER_LICENSE_CODE;
 
-      lRet = DEV_DownloadFile(ptSysDevice,
+      lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(
+                              ptSysDevice,
                               ulChannel,
                               ptSysDevice->tSendMbx.ulSendMailboxLength,
                               ulTransferType,
                               pszFileName,
                               ulFileSize,
                               pabFileData,
-                              DEV_TransferPacket,
+                              CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
                               pfnCallback,
                               pfnRecvPktCallback,
                               pvUser);
@@ -568,11 +601,10 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
   case DOWNLOAD_MODE_MODULE:
     {
       /* We downloading a NXO file */
-      PDEVICEINSTANCE   ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
       PCHANNELINSTANCE  ptChannelInst = NULL;
 
       /* Check if we have a NXO module file */
-      if ( !DEV_IsNXOFile( pszFileName))
+      if ( !CIFX_MAKE_DEV_FUN(DEV_IsNXOFile)( pszFileName))
       {
         lRet = CIFX_FILE_NAME_INVALID;
       } else if(ulChannel >= ptDevInstance->ulCommChannelCount)
@@ -588,21 +620,22 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
         if( !ptDevInstance->fModuleLoad)
         {
           lRet = CIFX_DRV_DOWNLOAD_MODULE_NO_BASEOS;
-        } else if( DEV_IsReady(ptChannelInst))
+        } else if( CIFX_MAKE_DEV_FUN(DEV_IsReady)(ptChannelInst))
         {
           /* Channel already READY */
           lRet = CIFX_DEV_MODULE_ALREADY_RUNNING;
         } else
         {
           uint8_t bLoadState = CIFXTKIT_DOWNLOAD_NONE;
-          if ( CIFX_NO_ERROR == (lRet = DEV_ProcessFWDownload( ptDevInstance,
+          if ( CIFX_NO_ERROR == (lRet = CIFX_MAKE_DEV_FUN(DEV_ProcessFWDownload)(
+                                                               ptDevInstance,
                                                                ulChannel,
                                                                NULL,
                                                                pszFileName,
                                                                ulFileSize,
                                                                pabFileData,
                                                                &bLoadState,
-                                                               DEV_TransferPacket,
+                                                               CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
                                                                pfnCallback,
                                                                pfnRecvPktCallback,
                                                                pvUser)))
@@ -635,6 +668,259 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
 }
 
 /*****************************************************************************/
+/*! Uploads a file via system channel
+*   \param hSysdevice         Handle to the System device
+*   \param ulChannel          Channel number to get directory from
+*   \param ulMode             Transfer Mode
+*   \param pszFileName        Filename to upload
+*   \param pabFileData        Pointer to buffer receiving upload
+*   \param pulFileSize        [in]Length of buffer, [out] Bytes copied to buffer
+*   \param pfnCallback        Callback pointer for progress
+*                             (NULL for no callback)
+*   \param pfnRecvPktCallback Callback pointer for unsolicited receive packets
+*                             (NULL for no callback)
+*   \param pvUser             User parameter on callback.
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xSysdeviceUpload(CIFXHANDLE            hSysdevice,
+                                              uint32_t              ulChannel,
+                                              uint32_t              ulMode,
+                                              char*                 pszFileName,
+                                              uint8_t*              pabFileData,
+                                              uint32_t*             pulFileSize,
+                                              PFN_PROGRESS_CALLBACK pfnCallback,
+                                              PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
+                                              void*                 pvUser)
+{
+  PCHANNELINSTANCE ptSysDevice    = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance  = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+  uint32_t         ulTransferType = 0;
+  int32_t          lRet           = CIFX_NO_ERROR;
+
+#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
+  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
+       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
+       return CIFX_INVALID_HANDLE;
+#endif
+
+  CHECK_POINTER(pszFileName);
+  CHECK_POINTER(pabFileData);
+  CHECK_POINTER(pulFileSize);
+
+  switch(ulMode)
+  {
+  case DOWNLOAD_MODE_FIRMWARE:
+    lRet = CIFX_MAKE_DEV_FUN(DEV_GetFWTransferTypeFromFileName)(
+        ((PDEVICEINSTANCE)(ptSysDevice->pvDeviceInstance))->eChipType,
+        pszFileName, &ulTransferType);
+    if( CIFX_NO_ERROR != lRet)
+      return lRet;
+    break;
+
+  case DOWNLOAD_MODE_CONFIG:
+  case DOWNLOAD_MODE_FILE:
+    ulTransferType = HIL_FILE_XFER_FILE;
+    break;
+
+  default:
+    return CIFX_INVALID_PARAMETER;
+  }
+
+  lRet = CIFX_MAKE_DEV_FUN(DEV_UploadFile)(
+                        ptSysDevice,
+                        ulChannel,
+                        ptSysDevice->tRecvMbx.ulRecvMailboxLength,
+                        ulTransferType,
+                        pszFileName,
+                        pulFileSize,
+                        pabFileData,
+                        CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
+                        pfnCallback,
+                        pfnRecvPktCallback,
+                        pvUser);
+
+  return lRet;
+}
+
+/*****************************************************************************/
+/*! Starts directory enumeration on the given channel
+*   \param hSysdevice       Handle to the system device
+*   \param ulChannel        Channel number to get directory from
+*   \param ptDirectoryInfo  Pointer to enumeration result.
+*                           (Will be initialized inside function)
+*   \param pfnRecvPktCallback Callback for unhandled packets
+*   \param pvUser             User data for callback function
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE hSysdevice, uint32_t ulChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
+                                                     PFN_RECV_PKT_CALLBACK  pfnRecvPktCallback, void* pvUser)
+{
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  union
+  {
+    CIFX_PACKET        tPacket;
+    HIL_DIR_LIST_REQ_T tDirListReq;
+
+  }                   uSendPacket;
+  HIL_DIR_LIST_CNF_T  tDirListCnf;
+
+  OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
+  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+
+#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
+  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
+       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
+       return CIFX_INVALID_HANDLE;
+#endif
+
+  CHECK_POINTER(ptDirectoryInfo);
+
+  if(OS_Strlen(ptDirectoryInfo->szFilename) > 0)
+  {
+    uint16_t usDirNameLength = (uint16_t)(OS_Strlen(ptDirectoryInfo->szFilename) + 1);
+
+    uSendPacket.tDirListReq.tData.usDirNameLength = HOST_TO_LE16(usDirNameLength);
+    (void)OS_Strncpy( (char*)((&uSendPacket.tDirListReq.tData) + 1),
+                       ptDirectoryInfo->szFilename,
+                       usDirNameLength);
+  }
+
+  uSendPacket.tDirListReq.tHead.ulDest      = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
+  uSendPacket.tDirListReq.tHead.ulSrc       = HOST_TO_LE32(((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->ulPhysicalAddress);
+  uSendPacket.tDirListReq.tHead.ulCmd       = HOST_TO_LE32(HIL_DIR_LIST_REQ);
+  uSendPacket.tDirListReq.tHead.ulLen       = HOST_TO_LE32( ((uint32_t)sizeof(uSendPacket.tDirListReq.tData) +
+                                                            uSendPacket.tDirListReq.tData.usDirNameLength) );
+  uSendPacket.tDirListReq.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
+
+
+  lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
+                            ptChannel,
+                            &uSendPacket.tPacket,
+                            (CIFX_PACKET*)&tDirListCnf,
+                            sizeof(tDirListCnf),
+                            CIFX_TO_SEND_PACKET,
+                            pfnRecvPktCallback,
+                            pvUser);
+
+  if( CIFX_NO_ERROR == lRet)
+  {
+    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(tDirListCnf.tHead.ulSta)) )
+    {
+      uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
+      if ((tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      {
+        /* this is the last packet */
+        lRet = CIFX_NO_MORE_ENTRIES;
+        /* invalidate handle */
+        *pbListEntry = 0;
+      } else
+      {
+        /* TODO: Store handle for directory list, which needs to be set by firmware */
+        *pbListEntry = 1;
+
+        (void)OS_Strncpy(ptDirectoryInfo->szFilename,
+                         (const char*)tDirListCnf.tData.szName,
+                         sizeof(ptDirectoryInfo->szFilename));
+
+        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+      }
+    }
+  }
+
+  return lRet;
+}
+
+/*****************************************************************************/
+/*! Enumerate next entry in directory on the given channel
+*   \param hSysdevice       Handle to the system device
+*   \param ulChannel        Channel number to get directory from
+*   \param ptDirectoryInfo  Pointer to enumeration result
+*   \param pfnRecvPktCallback Callback for unhandled packets
+*   \param pvUser             User data for callback function
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE hSysdevice, uint32_t ulChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
+                                                    PFN_RECV_PKT_CALLBACK  pfnRecvPktCallback, void* pvUser)
+{
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  union
+  {
+    CIFX_PACKET         tPacket;
+    HIL_DIR_LIST_REQ_T  tDirListReq;
+
+  }                   uSendPacket;
+  HIL_DIR_LIST_CNF_T  tDirListCnf;
+  uint16_t            usDirNameLen = 0;
+
+  OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
+  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+
+#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
+  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
+       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
+       return CIFX_INVALID_HANDLE;
+#endif
+
+  CHECK_POINTER(ptDirectoryInfo);
+
+  usDirNameLen = (uint16_t)(OS_Strlen(ptDirectoryInfo->szFilename) + 1);
+  uSendPacket.tDirListReq.tData.usDirNameLength = HOST_TO_LE16(usDirNameLen);
+  (void)OS_Strncpy( (char*)((&uSendPacket.tDirListReq.tData) + 1),
+                    ptDirectoryInfo->szFilename,
+                    usDirNameLen);
+
+  uSendPacket.tDirListReq.tHead.ulDest      = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
+  uSendPacket.tDirListReq.tHead.ulSrc       = HOST_TO_LE32(((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->ulPhysicalAddress);
+  uSendPacket.tDirListReq.tHead.ulCmd       = HOST_TO_LE32(HIL_DIR_LIST_REQ);
+  uSendPacket.tDirListReq.tHead.ulLen       = HOST_TO_LE32( ((uint32_t)sizeof(uSendPacket.tDirListReq.tData) + usDirNameLen) );
+  uSendPacket.tDirListReq.tHead.ulExt       = HOST_TO_LE32(HIL_PACKET_SEQ_MIDDLE);
+
+  uSendPacket.tDirListReq.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
+
+  lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
+                            ptChannel,
+                            &uSendPacket.tPacket,
+                            (CIFX_PACKET*)&tDirListCnf,
+                            sizeof(tDirListCnf),
+                            CIFX_TO_SEND_PACKET,
+                            pfnRecvPktCallback,
+                            pvUser);
+
+  if(CIFX_NO_ERROR == lRet)
+  {
+    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(tDirListCnf.tHead.ulSta))) )
+    {
+      if(( LE32_TO_HOST(tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      {
+        uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
+
+        /* invalidate handle */
+        *pbListEntry = 0;
+
+        /* this is the last packet */
+        lRet = CIFX_NO_MORE_ENTRIES;
+
+      } else
+      {
+        (void)OS_Strncpy(ptDirectoryInfo->szFilename,
+                         (const char*)tDirListCnf.tData.szName,
+                         sizeof(tDirListCnf.tData.szName));
+
+        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+      }
+    }
+  }
+
+  return lRet;
+}
+
+/*****************************************************************************/
 /*! Gets the information of a system device
 *   \param hSysdevice   Handle to the system device
 *   \param ulCmd        Information to fetch (see defines CIFX_INFO_CMD_SYSTEM_XXX)
@@ -642,7 +928,7 @@ int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
 *   \param pvInfo       Pointer to the structure for returned data
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t ulSize, void* pvInfo)
+CIFX_STATIC int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t ulSize, void* pvInfo)
 {
   int32_t                   lRet         = CIFX_NO_ERROR;
   PCHANNELINSTANCE          ptSysDevice  = (PCHANNELINSTANCE)hSysdevice;
@@ -681,8 +967,7 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
         lRet = CIFX_INVALID_BUFFERSIZE;
       } else
       {
-        uint32_t ulCopyLen = min( ulSize,
-                                  (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK));
+        uint32_t ulCopyLen = HIL_MIN(ulSize, (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK));
 
         HWIF_READN(ptSysDevice->pvDeviceInstance, pvInfo, &ptSysChannel->tSystemInfo, ulCopyLen);
 
@@ -702,8 +987,7 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
       {
         SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK* ptInfoBuffer = (SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK*) pvInfo; /* use the read buffer for data conversion */
 
-        uint32_t ulCopyLen = min( ulSize,
-                                  (uint32_t)sizeof(SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK));
+        uint32_t ulCopyLen = HIL_MIN(ulSize, (uint32_t)sizeof(SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK));
         int iChannel;
 
         HWIF_READN(ptSysDevice->pvDeviceInstance, pvInfo, &ptSysChannel->atChannelInfo[0], ulCopyLen);
@@ -775,8 +1059,7 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
         lRet = CIFX_INVALID_BUFFERSIZE;
       } else
       {
-        uint32_t ulCopyLen = min(ulSize,
-                                      (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_CONTROL_BLOCK));
+        uint32_t ulCopyLen = HIL_MIN(ulSize, (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_CONTROL_BLOCK));
         HWIF_READN(ptSysDevice->pvDeviceInstance, pvInfo, &ptSysChannel->tSystemControl, ulCopyLen);
 
         (void)cifXConvertEndianess(0,
@@ -793,8 +1076,7 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
         lRet = CIFX_INVALID_BUFFERSIZE;
       } else
       {
-        uint32_t ulCopyLen = min(ulSize,
-                                      (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_STATUS_BLOCK));
+        uint32_t ulCopyLen = HIL_MIN(ulSize, (uint32_t)sizeof(SYSTEM_CHANNEL_SYSTEM_STATUS_BLOCK));
 
         HWIF_READN(ptSysDevice->pvDeviceInstance, pvInfo, &ptSysChannel->tSystemState, ulCopyLen);
 
@@ -822,25 +1104,26 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
 *   \param ulMode     Reset mode with parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, uint32_t ulMode)
+CIFX_STATIC int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, uint32_t ulMode)
 {
-  PCHANNELINSTANCE ptSysDevice  = (PCHANNELINSTANCE) hSysdevice;
-  int32_t          lRet         = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE) hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+  int32_t          lRet          = CIFX_NO_ERROR;
 
   CHECK_SYSDEVICEHANDLE(hSysdevice);
 
   /* Evaluate which mode is selected, only write reset parameter if reset mode is supported */
   if(CIFX_RESETEX_SYSTEMSTART == (HIL_SYS_CONTROL_RESET_MODE_MASK & ulMode))
   {
-    lRet = DEV_DoSystemStart(ptSysDevice, ulTimeout, (HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode));
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)(ptSysDevice, ulTimeout, HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode);
   }
   else if(CIFX_RESETEX_BOOTSTART == (HIL_SYS_CONTROL_RESET_MODE_MASK & ulMode))
   {
-    lRet = DEV_DoSystemBootstart(ptSysDevice, ulTimeout, (HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode));
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemBootstart)(ptSysDevice, ulTimeout, HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode);
   }
   else if(CIFX_RESETEX_UPDATESTART == (HIL_SYS_CONTROL_RESET_MODE_MASK & ulMode))
   {
-    lRet = DEV_DoUpdateStart(ptSysDevice, ulTimeout, (HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode));
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DoUpdateStart)(ptSysDevice, ulTimeout, HIL_SYS_CONTROL_RESET_PARAM_FLAG_MASK & ulMode);
   }
   else
   {
@@ -862,14 +1145,15 @@ int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, ui
 *   \param ulTimeout  Timeout to wait for card to finish reset
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 {
   int32_t          lRet;
-  PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
 
   CHECK_SYSDEVICEHANDLE(hSysdevice);
 
-  lRet = DEV_DoSystemStart(ptSysDevice, ulTimeout, 0);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)(ptSysDevice, ulTimeout, 0);
 
   #ifdef CIFX_TOOLKIT_TIME
     if (CIFX_NO_ERROR == lRet)
@@ -885,14 +1169,15 @@ int32_t APIENTRY xSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 *   \param ulTimeout  Timeout to wait for card to finish reset
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 {
   int32_t          lRet;
-  PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
+  PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
 
   CHECK_SYSDEVICEHANDLE(hSysdevice);
 
-  lRet = DEV_DoSystemBootstart(ptSysDevice, ulTimeout, 0);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemBootstart)(ptSysDevice, ulTimeout, 0);
 
   return lRet;
 }
@@ -904,12 +1189,12 @@ int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 *   \param ptExtMemInfo Pointer to a user buffer to return the information
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
+CIFX_STATIC int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
 {
-  int32_t                   lRet         = CIFX_NO_ERROR;
-  PCHANNELINSTANCE          ptSysDevice  = (PCHANNELINSTANCE)hSysdevice;
-  PDEVICEINSTANCE           ptDevInst    = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
-  HIL_DPM_SYSTEM_CHANNEL_T* ptSysChannel = NULL;
+  int32_t                   lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE          ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE           ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+  HIL_DPM_SYSTEM_CHANNEL_T* ptSysChannel  = NULL;
 
   CHECK_SYSDEVICEHANDLE(hSysdevice);
   CHECK_POINTER(ptExtMemInfo);
@@ -925,8 +1210,8 @@ int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd,
       {
         void* pvMemoryPtr           = NULL;
 
-        if( (NULL == ptDevInst->pbExtendedMemory)    ||
-            (0    == ptDevInst->ulExtendedMemorySize))
+        if( (NULL == ptDevInstance->pbExtendedMemory)    ||
+            (0    == ptDevInstance->ulExtendedMemorySize))
 
         {
           lRet = CIFX_MEMORY_MAPPING_FAILED;
@@ -940,21 +1225,21 @@ int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd,
 
 
           /* Return global memory information */
-          if(NULL == (ptExtMemInfo->pvMemoryID = OS_MapUserPointer(ptDevInst->pbExtendedMemory,
-                                                                   ptDevInst->ulExtendedMemorySize,
+          if(NULL == (ptExtMemInfo->pvMemoryID = OS_MapUserPointer(ptDevInstance->pbExtendedMemory,
+                                                                   ptDevInstance->ulExtendedMemorySize,
                                                                    &pvMemoryPtr,
-                                                                   ptDevInst->pvOSDependent,
+                                                                   ptDevInstance->pvOSDependent,
                                                                    0)))
           {
             lRet = CIFX_MEMORY_MAPPING_FAILED;
           } else
           {
             ptExtMemInfo->pvMemoryPtr  = pvMemoryPtr;
-            ptExtMemInfo->ulMemorySize = ptDevInst->ulExtendedMemorySize;
-            ptExtMemInfo->ulMemoryType = LE32_TO_HOST(HWIF_READ32( ptDevInst, ptSysChannel->tSystemState.ulHWFeatures)) & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
+            ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize;
+            ptExtMemInfo->ulMemoryType = LE32_TO_HOST(HWIF_READ32( ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures)) & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
 
             if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-              ptExtMemInfo->ulMemorySize = ptDevInst->ulExtendedMemorySize  / 2;
+              ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
             else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
               ptExtMemInfo->ulMemorySize = 0;
           }
@@ -965,7 +1250,7 @@ int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd,
     case CIFX_FREE_EXTENDED_MEMORY_POINTER:
       {
         /* Clear user area */
-        if(!OS_UnmapUserPointer(ptExtMemInfo->pvMemoryID, ptDevInst->pvOSDependent))
+        if(!OS_UnmapUserPointer(ptExtMemInfo->pvMemoryID, ptDevInstance->pvOSDependent))
         {
           lRet = CIFX_INVALID_HANDLE;
         } else
@@ -982,11 +1267,11 @@ int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd,
       {
         ptExtMemInfo->pvMemoryID    = NULL;
         ptExtMemInfo->pvMemoryPtr   = NULL;
-        ptExtMemInfo->ulMemorySize  = ptDevInst->ulExtendedMemorySize;
-        ptExtMemInfo->ulMemoryType  = LE32_TO_HOST(HWIF_READ32( ptDevInst, ptSysChannel->tSystemState.ulHWFeatures)) & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
+        ptExtMemInfo->ulMemorySize  = ptDevInstance->ulExtendedMemorySize;
+        ptExtMemInfo->ulMemoryType  = LE32_TO_HOST(HWIF_READ32( ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures)) & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
 
         if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-          ptExtMemInfo->ulMemorySize = ptDevInst->ulExtendedMemorySize  / 2;
+          ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
         else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
           ptExtMemInfo->ulMemorySize = 0;
       }
@@ -1009,7 +1294,7 @@ int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd,
 *                     specific operations)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelOpen(CIFXHANDLE hDriver, char* szBoard, uint32_t ulChannel, CIFXHANDLE* phChannel)
+CIFX_STATIC int32_t APIENTRY xChannelOpen(CIFXHANDLE hDriver, char* szBoard, uint32_t ulChannel, CIFXHANDLE* phChannel)
 {
   int32_t  lRet = CIFX_INVALID_BOARD;
   uint32_t ulIdx;
@@ -1049,7 +1334,7 @@ int32_t APIENTRY xChannelOpen(CIFXHANDLE hDriver, char* szBoard, uint32_t ulChan
 *   \param hChannel Channel handle acquired by xChannelOpen
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelClose(CIFXHANDLE hChannel)
+CIFX_STATIC int32_t APIENTRY xChannelClose(CIFXHANDLE hChannel)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
@@ -1074,11 +1359,12 @@ int32_t APIENTRY xChannelClose(CIFXHANDLE hChannel)
 *   \param pvUser             User parameter passed to callback
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelDownload(CIFXHANDLE hChannel,    uint32_t   ulMode,
-                                  char*      pszFileName, uint8_t*  pabFileData, uint32_t ulFileSize,
-                                  PFN_PROGRESS_CALLBACK pfnCallback, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
+CIFX_STATIC int32_t APIENTRY xChannelDownload(CIFXHANDLE hChannel,    uint32_t   ulMode,
+                                              char*      pszFileName, uint8_t*  pabFileData, uint32_t ulFileSize,
+                                              PFN_PROGRESS_CALLBACK pfnCallback, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
 {
   PCHANNELINSTANCE ptChannel      = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance  = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   uint32_t         ulTransferType = 0;
   int32_t          lRet           = CIFX_NO_ERROR;
 
@@ -1089,8 +1375,10 @@ int32_t APIENTRY xChannelDownload(CIFXHANDLE hChannel,    uint32_t   ulMode,
   switch(ulMode)
   {
   case DOWNLOAD_MODE_FIRMWARE:
-    if( CIFX_NO_ERROR != (lRet = DEV_GetFWTransferTypeFromFileName( ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->eChipType,
-                                                                     pszFileName, &ulTransferType)))
+    lRet = CIFX_MAKE_DEV_FUN(DEV_GetFWTransferTypeFromFileName)(
+        ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->eChipType,
+        pszFileName, &ulTransferType);
+    if( CIFX_NO_ERROR != lRet)
       return lRet;
     break;
 
@@ -1107,14 +1395,14 @@ int32_t APIENTRY xChannelDownload(CIFXHANDLE hChannel,    uint32_t   ulMode,
     return CIFX_INVALID_PARAMETER;
   }
 
-  lRet = DEV_DownloadFile(ptChannel,
+  lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(ptChannel,
                           ptChannel->ulChannelNumber,
                           ptChannel->tSendMbx.ulSendMailboxLength,
                           ulTransferType,
                           pszFileName,
                           ulFileSize,
                           pabFileData,
-                          DEV_TransferPacket,
+                          CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
                           pfnCallback,
                           pfnRecvPktCallback,
                           pvUser);
@@ -1129,11 +1417,12 @@ int32_t APIENTRY xChannelDownload(CIFXHANDLE hChannel,    uint32_t   ulMode,
 *   \param pulSendPktCount  State of the Send Mailbox
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
+CIFX_STATIC int32_t APIENTRY xChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
 {
-  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
-  return DEV_GetMBXState(ptChannel, pulRecvPktCount, pulSendPktCount);
+  return CIFX_MAKE_DEV_FUN(DEV_GetMBXState)(ptChannel, pulRecvPktCount, pulSendPktCount);
 }
 
 /*****************************************************************************/
@@ -1143,16 +1432,17 @@ int32_t APIENTRY xChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* pulRecvPktCo
 *   \param ulTimeout  Time in ms to wait for card to accept the packet
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  ptSendPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  ptSendPkt, uint32_t ulTimeout)
 {
   int32_t          lRet      = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if another command is active */
   if ( 0 == OS_WaitMutex( ptChannel->tSendMbx.pvSendMBXMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
 
-  lRet = DEV_PutPacket(ptChannel, ptSendPkt, ulTimeout);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_PutPacket)(ptChannel, ptSendPkt, ulTimeout);
 
   /* Release command */
   OS_ReleaseMutex(ptChannel->tSendMbx.pvSendMBXMutex);
@@ -1168,16 +1458,17 @@ int32_t APIENTRY xChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  ptSendPkt,
 *   \param ulTimeout  Time in ms to wait for available message
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
 {
-  int32_t          lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if another command is active */
   if ( 0 == OS_WaitMutex( ptChannel->tRecvMbx.pvRecvMBXMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
 
-  lRet = DEV_GetPacket(ptChannel, ptRecvPkt, ulSize, ulTimeout);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_GetPacket)(ptChannel, ptRecvPkt, ulSize, ulTimeout);
 
   /* Release command */
   OS_ReleaseMutex(ptChannel->tRecvMbx.pvRecvMBXMutex);
@@ -1192,7 +1483,7 @@ int32_t APIENTRY xChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PA
 *   \param ptRecvPkt  Returned packet
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt)
+CIFX_STATIC int32_t APIENTRY xChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt)
 {
   int32_t           lRet        = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel   = (PCHANNELINSTANCE)hChannel;
@@ -1222,17 +1513,18 @@ int32_t APIENTRY xChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIF
 *   \param ulTimeout        Timeout in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pulState);
 
   /* Check if we are in interrupt mode */
   if(!((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
-    DEV_ReadHandshakeFlags(ptChannel, 0, 1);
+    CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptChannel, 0, 1);
 
   /* TODO: WAIT until card has recognized the LOCK command */
   UNREFERENCED_PARAMETER(ulTimeout);
@@ -1248,7 +1540,8 @@ int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32
         *pulState = CIFX_CONFIGURATION_LOCK;
       } else
       {
-        lRet = DEV_DoHostCOSChange(ptChannel,
+        lRet = CIFX_MAKE_DEV_FUN(DEV_DoHostCOSChange)(
+                                   ptChannel,
                                    HIL_APP_COS_LOCK_CONFIGURATION | HIL_APP_COS_LOCK_CONFIGURATION_ENABLE,
                                    0,
                                    HIL_APP_COS_LOCK_CONFIGURATION_ENABLE,
@@ -1273,7 +1566,8 @@ int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32
         *pulState = CIFX_CONFIGURATION_UNLOCK;
       } else
       {
-        lRet = DEV_DoHostCOSChange(ptChannel,
+        lRet = CIFX_MAKE_DEV_FUN(DEV_DoHostCOSChange)(
+                                   ptChannel,
                                    HIL_APP_COS_LOCK_CONFIGURATION_ENABLE,
                                    HIL_APP_COS_LOCK_CONFIGURATION,
                                    HIL_APP_COS_LOCK_CONFIGURATION_ENABLE,
@@ -1320,14 +1614,17 @@ int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32
 *   \param ulTimeout        Timeout in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelBusState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelBusState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
-  int32_t lRet = CIFX_INVALID_PARAMETER;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  int32_t lRet                   = CIFX_INVALID_PARAMETER;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pulState);
 
-  lRet = DEV_BusState( (PCHANNELINSTANCE)hChannel,
+  lRet = CIFX_MAKE_DEV_FUN(DEV_BusState)(
+                        (PCHANNELINSTANCE)hChannel,
                         ulCmd,
                         pulState,
                         ulTimeout);
@@ -1342,10 +1639,11 @@ int32_t APIENTRY xChannelBusState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t
 *   \param ulTimeout       Timeout to wait for reset complete in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
 {
   int32_t          lRet;
-  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
 
@@ -1354,7 +1652,7 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
   switch(ulResetMode)
   {
   case CIFX_SYSTEMSTART:
-    lRet = DEV_DoSystemStart(ptChannel, ulTimeout, 0);
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)(ptChannel, ulTimeout, 0);
     #ifdef CIFX_TOOLKIT_TIME
       if (CIFX_NO_ERROR == lRet)
         cifXInitTime((PDEVICEINSTANCE)ptChannel->pvDeviceInstance);
@@ -1362,7 +1660,7 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
     break;
 
   case CIFX_CHANNELINIT:
-    lRet = DEV_DoChannelInit(ptChannel, ulTimeout);
+    lRet = CIFX_MAKE_DEV_FUN(DEV_DoChannelInit)(ptChannel, ulTimeout);
     break;
 
   default:
@@ -1382,10 +1680,11 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
 *   \param pvData           Pointer to returned data
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulAreaNumber, uint32_t ulSize, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulAreaNumber, uint32_t ulSize, void* pvData)
 {
   int32_t                 lRet            = CIFX_NO_ERROR;
   PCHANNELINSTANCE        ptChannel       = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE         ptDevInstance   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   CHANNEL_IO_INFORMATION* ptIoInformation = (CHANNEL_IO_INFORMATION*)pvData;
 
   CHECK_CHANNELHANDLE(hChannel);
@@ -1394,7 +1693,7 @@ int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ul
   if(ulSize != sizeof(*ptIoInformation))
     return CIFX_INVALID_BUFFERSIZE;
 
-  if(!DEV_IsRunning(ptChannel))
+  if(!CIFX_MAKE_DEV_FUN(DEV_IsRunning)(ptChannel))
   {
     lRet = CIFX_DEV_NOT_RUNNING;
   }
@@ -1464,21 +1763,22 @@ int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ul
 *   \param ulTimeout    Timeout in ms to wait for finished I/O Handshake
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
 {
-  PCHANNELINSTANCE ptChannel   = (PCHANNELINSTANCE)hChannel;
-  int32_t          lRet        = CIFX_NO_ERROR;
-  PIOINSTANCE      ptIOArea    = NULL;
-  uint8_t          bIOBitState = HIL_FLAGS_NONE;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PIOINSTANCE      ptIOArea      = NULL;
+  uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 
-  if(!DEV_IsRunning(ptChannel))
+  if(!CIFX_MAKE_DEV_FUN(DEV_IsRunning)(ptChannel))
     return CIFX_DEV_NOT_RUNNING;
 
   if(ulAreaNumber >= ptChannel->ulIOInputAreas)
     return CIFX_INVALID_PARAMETER;
 
   ptIOArea    = ptChannel->pptIOInputAreas[ulAreaNumber];
-  bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 0);
+  bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 0);
 
 #ifdef CIFX_TOOLKIT_DMA
   /* Check for DMA transfer */
@@ -1488,9 +1788,8 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
     /* This is DMA IO data transfer */
     /*------------------------------*/
     /* This is DMACh n */
-    PDEVICEINSTANCE   ptDevInst   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-    uint32_t          ulDMChIdx   = ptChannel->ulChannelNumber * 2 + eDMA_INPUT_BUFFER_IDX;
-    PCIFX_DMABUFFER_T ptDmaInfo   = &ptDevInst->atDmaBuffers[ulDMChIdx];
+    uint32_t          ulDMChIdx     = ptChannel->ulChannelNumber * 2 + eDMA_INPUT_BUFFER_IDX;
+    PCIFX_DMABUFFER_T ptDmaInfo     = &ptDevInstance->atDmaBuffers[ulDMChIdx];
 
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
@@ -1511,7 +1810,7 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
     } else
     {
       /* Read data */
-      if(!DEV_WaitForBitState(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
+      if(!CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
       {
         lRet = CIFX_DEV_EXCHANGE_FAILED;
       } else
@@ -1525,13 +1824,13 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
         OS_EnterLock(ptChannel->pvLock);
 
         /* Read data done */
-        DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
+        CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
 
         /* Unlock flag access */
         OS_LeaveLock(ptChannel->pvLock);
 
         /* Check COMM Flag for return value */
-        (void)DEV_IsCommunicating(ptChannel, &lRet);
+        (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
       }
     }
 
@@ -1561,9 +1860,9 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
                   ulDataLen);
 
       /* Check COMM Flag for return value */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
-    } else if(!DEV_WaitForBitState(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
+    } else if(!CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
     {
       lRet = CIFX_DEV_EXCHANGE_FAILED;
     } else
@@ -1578,13 +1877,13 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
       OS_EnterLock(ptChannel->pvLock);
 
       /* Read data done */
-      DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
+      CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
 
       /* Unlock flag access */
       OS_LeaveLock(ptChannel->pvLock);
 
       /* Check COMM Flag for return value */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
     }
 
     /* Release command */
@@ -1604,20 +1903,21 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
 *   \param ulTimeout    Timeout in ms to wait for handshake completion
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
 {
-  PCHANNELINSTANCE ptChannel   = (PCHANNELINSTANCE)hChannel;
-  int32_t          lRet        = CIFX_NO_ERROR;
-  PIOINSTANCE      ptIOArea    = NULL;
-  uint8_t          bIOBitState = HIL_FLAGS_NONE;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PIOINSTANCE      ptIOArea      = NULL;
+  uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 
-  if(!DEV_IsRunning(ptChannel))
+  if(!CIFX_MAKE_DEV_FUN(DEV_IsRunning)(ptChannel))
     return CIFX_DEV_NOT_RUNNING;
   if(ulAreaNumber >= ptChannel->ulIOOutputAreas)
     return CIFX_INVALID_PARAMETER;
 
   ptIOArea    = ptChannel->pptIOOutputAreas[ulAreaNumber];
-  bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 1);
+  bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 1);
 
 #ifdef CIFX_TOOLKIT_DMA
   /* Check for DMA transfer */
@@ -1627,9 +1927,8 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
     /* This is DMA IO data transfer */
     /*------------------------------*/
     /* This is DMACh n+1 */
-    PDEVICEINSTANCE   ptDevInst   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-    uint32_t          ulDMChIdx   = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;
-    PCIFX_DMABUFFER_T ptDmaInfo   = &ptDevInst->atDmaBuffers[ulDMChIdx];
+    uint32_t          ulDMChIdx     = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;
+    PCIFX_DMABUFFER_T ptDmaInfo     = &ptDevInstance->atDmaBuffers[ulDMChIdx];
 
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
@@ -1650,7 +1949,7 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
 
     } else
     {
-      if(!DEV_WaitForBitState(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
+      if(!CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
       {
         lRet = CIFX_DEV_EXCHANGE_FAILED;
       } else
@@ -1664,13 +1963,13 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
         OS_EnterLock(ptChannel->pvLock);
 
         /* Read data done */
-        DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
+        CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
 
         /* Unlock flag access */
         OS_LeaveLock(ptChannel->pvLock);
 
         /* Check COMM Flag for return value */
-        (void)DEV_IsCommunicating(ptChannel, &lRet);
+        (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
       }
     }
 
@@ -1701,11 +2000,11 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
                     ulDataLen);
 
       /* Check COMM Flag for return value */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
     } else
     {
-      if(!DEV_WaitForBitState(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
+      if(!CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(ptChannel, ptIOArea->bHandshakeBit, bIOBitState, ulTimeout))
       {
         lRet = CIFX_DEV_EXCHANGE_FAILED;
       } else
@@ -1720,13 +2019,13 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
         OS_EnterLock(ptChannel->pvLock);
 
         /* Read data done */
-        DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
+        CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
 
         /* Unlock flag access */
         OS_LeaveLock(ptChannel->pvLock);
 
         /* Check COMM Flag for return value */
-        (void)DEV_IsCommunicating(ptChannel, &lRet);
+        (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
       }
     }
 
@@ -1746,7 +2045,7 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
 *   \param pvData       Data buffer
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
   int32_t          lRet      = CIFX_NO_ERROR;
@@ -1757,9 +2056,9 @@ int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNum
   if( ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
   {
     /* This is DMACh n */
-    PDEVICEINSTANCE   ptDevInst   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-    uint32_t          ulDMChIdx   = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;  /* We reading the Output buffer */
-    PCIFX_DMABUFFER_T ptDmaInfo   = &ptDevInst->atDmaBuffers[ulDMChIdx];
+    PDEVICEINSTANCE   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+    uint32_t          ulDMChIdx     = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;  /* We reading the Output buffer */
+    PCIFX_DMABUFFER_T ptDmaInfo     = &ptDevInstance->atDmaBuffers[ulDMChIdx];
 
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
@@ -1805,10 +2104,11 @@ int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNum
 *   \param pvData         Buffer to copy from/to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t           lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE  ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
@@ -1846,7 +2146,8 @@ int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint3
 
       if(CIFX_NO_ERROR == lRetTmp)
       {
-        lRet = DEV_ReadWriteBlock(ptChannel,
+        lRet = CIFX_MAKE_DEV_FUN(DEV_ReadWriteBlock)(
+                                  ptChannel,
                                   (void*)ptChannel->ptControlBlock,
                                   ulOffset,
                                   ptChannel->ulControlBlockSize,
@@ -1885,10 +2186,11 @@ int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint3
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
@@ -1904,7 +2206,8 @@ int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, 
     lRet = CIFX_FUNCTION_NOT_AVAILABLE;
   } else
   {
-    lRet = DEV_ReadWriteBlock(ptChannel,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_ReadWriteBlock)(
+                              ptChannel,
                               (void*)ptChannel->ptCommonStatusBlock,
                               ulOffset,
                               ptChannel->ulCommonStatusSize,
@@ -1941,10 +2244,11 @@ int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, 
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
@@ -1960,7 +2264,8 @@ int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd
     lRet = CIFX_FUNCTION_NOT_AVAILABLE;
   } else
   {
-    lRet = DEV_ReadWriteBlock(ptChannel,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_ReadWriteBlock)(
+                              ptChannel,
                               (void*)ptChannel->ptExtendedStatusBlock,
                               ulOffset,
                               ptChannel->ulExtendedStatusSize,
@@ -1983,10 +2288,11 @@ int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
@@ -2005,7 +2311,8 @@ int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, 
   {
     PUSERINSTANCE ptUserInstance = ptChannel->pptUserAreas[ulAreaNumber];
 
-    lRet = DEV_ReadWriteBlock(ptChannel,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_ReadWriteBlock)(
+                              ptChannel,
                               (void*)ptUserInstance->pbUserBlockStart,
                               ulOffset,
                               ptUserInstance->ulUserBlockLength,
@@ -2025,13 +2332,13 @@ int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, 
 *   \param pvMemoryInfo   Pointer to requested memory structure
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void* pvMemoryInfo)
+CIFX_STATIC int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void* pvMemoryInfo)
 {
   PLC_MEMORY_INFORMATION* ptMemory          = (PLC_MEMORY_INFORMATION*)pvMemoryInfo;
   PCHANNELINSTANCE        ptChannel         = (PCHANNELINSTANCE)hChannel;
   int                     fUseCaching       = 0;
   unsigned long           ulAreaDefinition  = 0;
-  PDEVICEINSTANCE         ptDevInst         = NULL;
+  PDEVICEINSTANCE         ptDevInstance     = NULL;
   int32_t           lRet      = CIFX_NO_ERROR;
 
   CHECK_CHANNELHANDLE(hChannel);
@@ -2041,13 +2348,13 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
   if(ptChannel->ulOpenCount == 0)
     return CIFX_DRV_CHANNEL_NOT_INITIALIZED;
 
+  /* No IO blocks defined */
   if( (0 == ptChannel->ulIOInputAreas) ||
       (0 == ptChannel->ulIOOutputAreas)  )
-    /* No IO blocks defined */
     return CIFX_FUNCTION_NOT_AVAILABLE;
 
-  ptDevInst         = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  fUseCaching       = ptDevInst->fCachedMemAccess;
+  ptDevInstance     = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  fUseCaching       = ptDevInstance->fCachedMemAccess;
   ulAreaDefinition  = ptMemory->ulAreaDefinition;
 
 #ifdef CIFX_CACHE_TEST
@@ -2082,13 +2389,13 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
     {
       if (ulAreaDefinition == CIFX_IO_INPUT_AREA)
       {
-        ulDMChIdx    = ptChannel->ulChannelNumber * 2 + eDMA_INPUT_BUFFER_IDX;
-        ptDmaInfo    = &ptDevInst->atDmaBuffers[ulDMChIdx];
+        ulDMChIdx       = ptChannel->ulChannelNumber * 2 + eDMA_INPUT_BUFFER_IDX;
+        ptDmaInfo       = &ptDevInstance->atDmaBuffers[ulDMChIdx];
         ptCachedMemInfo = &ptChannel->tCachedIOInputArea;
       } else
       {
-        ulDMChIdx    = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;
-        ptDmaInfo    = &ptDevInst->atDmaBuffers[ulDMChIdx];
+        ulDMChIdx       = ptChannel->ulChannelNumber * 2 + eDMA_OUTPUT_BUFFER_IDX;
+        ptDmaInfo       = &ptDevInstance->atDmaBuffers[ulDMChIdx];
         ptCachedMemInfo = &ptChannel->tCachedIOOutputArea;
       }
 
@@ -2110,7 +2417,7 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
           } else
           {
             /* Return global memory information */
-            if (NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(pvDPM, ulDPMSize, &pvMappedDPM, ptDevInst->pvOSDependent, (unsigned char)fUseCaching)))
+            if (NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(pvDPM, ulDPMSize, &pvMappedDPM, ptDevInstance->pvOSDependent, (unsigned char)fUseCaching)))
             {
               lRet = CIFX_MEMORY_MAPPING_FAILED;
             } else
@@ -2132,7 +2439,7 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
 
         case CIFX_MEM_PTR_CLOSE:
         {
-          if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInst->pvOSDependent))
+          if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInstance->pvOSDependent))
           {
             lRet = CIFX_INVALID_HANDLE;
           } else
@@ -2206,7 +2513,7 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
           }else
           {
           /* Return global memory information */
-            if (NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(pvDPM, ulDPMSize, &pvMappedDPM, ptDevInst->pvOSDependent, (unsigned char)fUseCaching)))
+            if (NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(pvDPM, ulDPMSize, &pvMappedDPM, ptDevInstance->pvOSDependent, (unsigned char)fUseCaching)))
           {
             lRet = CIFX_MEMORY_MAPPING_FAILED;
           } else
@@ -2229,7 +2536,7 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
 
         case CIFX_MEM_PTR_CLOSE:
         {
-          if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInst->pvOSDependent))
+          if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInstance->pvOSDependent))
           {
             lRet = CIFX_INVALID_HANDLE;
           } else
@@ -2266,10 +2573,11 @@ int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void*
 *   \param pulReadState   Returned state of the area (!=0 means area is ready)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulReadState)
+CIFX_STATIC int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulReadState)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -2287,19 +2595,19 @@ int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumb
     } else
     {
       /* Check if the device is communication. If only the COM flag is missing, we return the current bit state */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
       if( (lRet != CIFX_DEV_NOT_READY) &&
           (lRet != CIFX_DEV_NOT_RUNNING) )
       {
         /* Read back the send data area */
         PIOINSTANCE ptIOInst    = ptChannel->pptIOInputAreas[ulAreaNumber];
-        uint8_t     bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOInst, 0);
+        uint8_t     bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOInst, 0);
 
         *pulReadState = 0;
 
         if( (HIL_FLAGS_NONE == bIOBitState)  ||
-            (DEV_GetHandshakeBitState(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit)) == bIOBitState) )
+            (CIFX_MAKE_DEV_FUN(DEV_GetHandshakeBitState)(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit)) == bIOBitState) )
         {
           *pulReadState = 1;
 
@@ -2324,10 +2632,11 @@ int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumb
 *   \param pulWriteState  Returned state of the area (!=0 means area is ready)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulWriteState)
+CIFX_STATIC int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulWriteState)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -2345,19 +2654,19 @@ int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNum
     } else
     {
       /* Check if the device is communication. If only the COM flag is missing, we return the current bit state */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
       if( (lRet != CIFX_DEV_NOT_READY) &&
           (lRet != CIFX_DEV_NOT_RUNNING) )
       {
         /* Read back the send data area */
         PIOINSTANCE ptIOInst    = ptChannel->pptIOOutputAreas[ulAreaNumber];
-        uint8_t     bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOInst, 1);
+        uint8_t     bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOInst, 1);
 
         *pulWriteState = 0;
 
         if( (HIL_FLAGS_NONE == bIOBitState)  ||
-            (DEV_GetHandshakeBitState(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit)) == bIOBitState) )
+            (CIFX_MAKE_DEV_FUN(DEV_GetHandshakeBitState)(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit)) == bIOBitState) )
         {
           *pulWriteState = 1;
         }
@@ -2375,10 +2684,11 @@ int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNum
 *   \param ulAreaNumber   Areanumber
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
+CIFX_STATIC int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -2396,7 +2706,7 @@ int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNu
     } else
     {
       /* Check if the device is communication. If only the COM flag is missing, we toggle the bits */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
       if( (lRet != CIFX_DEV_NOT_READY) &&
           (lRet != CIFX_DEV_NOT_RUNNING) )
@@ -2412,7 +2722,7 @@ int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNu
         /* Lock flag access */
         OS_EnterLock(ptChannel->pvLock);
 
-        DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit));
+        CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit));
 
         /* Unlock flag access */
         OS_LeaveLock(ptChannel->pvLock);
@@ -2429,10 +2739,11 @@ int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNu
 *   \param ulAreaNumber   Areanumber
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
+CIFX_STATIC int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
+  int32_t          lRet          = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -2450,7 +2761,7 @@ int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNum
     } else
     {
       /* Check if the device is communication. If only the COM flag is missing, we toggle the bits */
-      (void)DEV_IsCommunicating(ptChannel, &lRet);
+      (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
 
       if( (lRet != CIFX_DEV_NOT_READY) &&
           (lRet != CIFX_DEV_NOT_RUNNING) )
@@ -2460,7 +2771,7 @@ int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNum
         /* Lock flag access */
         OS_EnterLock(ptChannel->pvLock);
 
-        DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit));
+        CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, (uint32_t)(1UL << ptIOInst->bHandshakeBit));
 
         /* Unlock flag access */
         OS_LeaveLock(ptChannel->pvLock);
@@ -2471,287 +2782,6 @@ int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNum
   return lRet;
 }
 
-#ifndef CIFX_TOOLKIT_USE_CUSTOM_DRV_FUNCS
-/*****************************************************************************/
-/*! Open a connection to the driver
-*   \param phDriver     Returned handle to the driver
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverOpen(CIFXHANDLE* phDriver)
-{
-  if(!g_tDriverInfo.fInitialized)
-    return CIFX_DRV_DRIVER_NOT_LOADED;
-
-  CHECK_POINTER(phDriver);
-
-  *phDriver = &g_tDriverInfo;
-
-  ++g_tDriverInfo.ulOpenCount;
-
-  return CIFX_NO_ERROR;
-}
-
-/*****************************************************************************/
-/*! Close a connection to the driver
-*   \param hDriver     Handle to connection, that is being closed
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverClose(CIFXHANDLE hDriver)
-{
-  if(!g_tDriverInfo.fInitialized)
-    return CIFX_DRV_DRIVER_NOT_LOADED;
-
-  if(g_tDriverInfo.ulOpenCount == 0)
-    return CIFX_DRV_NOT_OPENED;
-
-  CHECK_DRIVERHANDLE(hDriver);
-
-  --g_tDriverInfo.ulOpenCount;
-
-  return CIFX_NO_ERROR; /*lint !e438 */
-}
-
-/*****************************************************************************/
-/*! Query Driver information
-*   \param hDriver      Handle to the driver
-*   \param ulSize       Size of the passed DRIVER_INFORMATION Structure
-*   \param pvDriverInfo Pointer to returned data (DRIVER_INFORMATION
-*                       structure)
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverGetInformation(CIFXHANDLE hDriver, uint32_t ulSize, void* pvDriverInfo)
-{
-  DRIVER_INFORMATION* ptDriverInfo = (DRIVER_INFORMATION*)pvDriverInfo;
-
-  if(g_tDriverInfo.ulOpenCount == 0)
-    return CIFX_DRV_NOT_OPENED;
-
-  CHECK_DRIVERHANDLE(hDriver);
-  CHECK_POINTER(pvDriverInfo);
-
-  if(ulSize < (uint32_t)sizeof(*ptDriverInfo))
-    return CIFX_INVALID_BUFFERSIZE;
-
-  ptDriverInfo->ulBoardCnt = g_ulDeviceCount;
-  (void)OS_Strncpy(ptDriverInfo->abDriverVersion, TOOLKIT_VERSION, sizeof(ptDriverInfo->abDriverVersion));
-
-  return CIFX_NO_ERROR; /*lint !e438 */
-}
-#endif
-/*****************************************************************************/
-/*! Query human readable error description
-*   \param lError       Error to look up
-*   \param szBuffer     Pointer to return data
-*   \param ulBufferLen  Length of return buffer
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverGetErrorDescription(int32_t lError, char* szBuffer, uint32_t ulBufferLen)
-{
-  int32_t lRet = CIFX_FUNCTION_FAILED;
-  int     iIdx = 0;
-
-  CHECK_POINTER(szBuffer);
-
-  for(iIdx = 0; iIdx < (int)(sizeof(s_atErrorToDescrTable) / sizeof(s_atErrorToDescrTable[0])); ++iIdx)
-  {
-    if(s_atErrorToDescrTable[iIdx].lError == lError)
-    {
-      (void)OS_Strncpy(szBuffer, s_atErrorToDescrTable[iIdx].szErrorDescr, ulBufferLen);
-      lRet = CIFX_NO_ERROR;
-      break;
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Enumerate over all handled boards/devices
-*   \param hDriver      Driver handle
-*   \param ulBoard      Board number (incremented from 0 up)
-*   \param ulSize       Size of return buffer
-*   \param pvBoardInfo  Return buffer (BOARD_INFORMATION structure)
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverEnumBoards(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulSize, void* pvBoardInfo)
-{
-  BOARD_INFORMATION*        ptBoardInfo   = (BOARD_INFORMATION*)pvBoardInfo;
-  PDEVICEINSTANCE           ptDevInstance = NULL;
-  HIL_DPM_SYSTEM_CHANNEL_T* ptSysChannel  = NULL;
-
-  if(g_tDriverInfo.ulOpenCount == 0)
-    return CIFX_DRV_NOT_OPENED;
-
-  CHECK_DRIVERHANDLE(hDriver);
-  CHECK_POINTER(pvBoardInfo);
-
-  if(ulSize < (uint32_t)sizeof(*ptBoardInfo))
-    return CIFX_INVALID_BUFFERSIZE;
-
-  if(ulBoard >= g_ulDeviceCount)
-    return CIFX_NO_MORE_ENTRIES;
-
-  ptDevInstance = g_pptDevices[ulBoard];
-  ptSysChannel  = (HIL_DPM_SYSTEM_CHANNEL_T*)ptDevInstance->pbDPM;
-
-  (void)OS_Strncpy(ptBoardInfo->abBoardName,  ptDevInstance->szName,  sizeof(ptBoardInfo->abBoardName));
-  (void)OS_Strncpy(ptBoardInfo->abBoardAlias, ptDevInstance->szAlias, sizeof(ptBoardInfo->abBoardAlias));
-  ptBoardInfo->ulBoardID         = ulBoard;
-
-  {
-    ptBoardInfo->ulSystemError     = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulSystemError));
-
-    ptBoardInfo->ulPhysicalAddress = ptDevInstance->ulPhysicalAddress;
-    ptBoardInfo->ulIrqNumber       = ptDevInstance->ulIrqNumber;
-    ptBoardInfo->bIrqEnabled       = ptDevInstance->fIrqEnabled? 1 : 0;
-    ptBoardInfo->ulDpmTotalSize    = ptDevInstance->ulDPMSize;
-    ptBoardInfo->ulChannelCnt      = ptDevInstance->ulCommChannelCount;
-
-    HWIF_READN(ptDevInstance, &ptBoardInfo->tSystemInfo, &ptSysChannel->tSystemInfo, sizeof(ptBoardInfo->tSystemInfo));
-  }
-
-  (void)cifXConvertEndianess(0,
-                             &ptBoardInfo->tSystemInfo,
-                             sizeof(ptBoardInfo->tSystemInfo),
-                             s_atSystemInfoBlock,
-                             sizeof(s_atSystemInfoBlock) / sizeof(s_atSystemInfoBlock[0]));
-
-  return CIFX_NO_ERROR; /*lint !e438 */
-}
-
-/*****************************************************************************/
-/*! Enumerate over all channels on the given boards
-*   \param hDriver        Driver handle
-*   \param ulBoard        Board number
-*   \param ulChannel      Channel number (incremented from 0 up)
-*   \param ulSize         Size of return buffer
-*   \param pvChannelInfo  Return buffer (CHANNEL_INFORMATION structure)
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xDriverEnumChannels(CIFXHANDLE  hDriver, uint32_t ulBoard, uint32_t ulChannel, uint32_t ulSize, void* pvChannelInfo)
-{
-  CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
-  PDEVICEINSTANCE       ptDevInstance = NULL;
-  PCHANNELINSTANCE      ptChannel     = NULL;
-  int32_t               lRet          = CIFX_NO_ERROR;
-
-  if(g_tDriverInfo.ulOpenCount == 0)
-    return CIFX_DRV_NOT_OPENED;
-
-  CHECK_DRIVERHANDLE(hDriver);
-  CHECK_POINTER(pvChannelInfo);
-
-  if(ulSize < (uint32_t)sizeof(*ptChannelInfo))
-    return CIFX_INVALID_BUFFERSIZE;
-
-  if(ulBoard >= g_ulDeviceCount)
-    return CIFX_INVALID_BOARD;
-
-  ptDevInstance = g_pptDevices[ulBoard];
-
-  if(ulChannel >= ptDevInstance->ulCommChannelCount)
-    return CIFX_NO_MORE_ENTRIES;
-
-  ptChannel = ptDevInstance->pptCommChannels[ulChannel];
-
-  /* Read the channel information */
-  lRet = xChannelInfo( ptChannel, ulSize, ptChannelInfo);
-
-  return lRet; /*lint !e438 */
-}
-
-/*! **************************************************************************
-* Get/Return a memory pointer to the boards dual-port memory
-*   \param hDriver      Driver handle
-*   \param ulBoard      The board number (0)
-*   \param ulCmd        Function command (CIFX_MEM_PTR_OPEN/CIFX_MEM_PTR_CLOSE)
-*   \param pvMemoryInfo Memory information structure
-*   \return CIFX_NO_ERROR on success
-******************************************************************************/
-int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulCmd, void* pvMemoryInfo)
-{
-  int32_t             lRet     = CIFX_NO_ERROR;
-  MEMORY_INFORMATION* ptMemory = (MEMORY_INFORMATION*)pvMemoryInfo;
-
-  if(0 == g_tDriverInfo.ulOpenCount)
-    return CIFX_DRV_NOT_OPENED;
-
-  CHECK_DRIVERHANDLE(hDriver);
-  CHECK_POINTER(pvMemoryInfo);
-
-  /* We only support 1 board */
-  if(ulBoard >= g_ulDeviceCount)
-  {
-    lRet = CIFX_INVALID_BOARD;
-  } else
-  {
-    /* Get the device instance */
-    PDEVICEINSTANCE ptDevInst = g_pptDevices[ulBoard];
-    switch(ulCmd)
-    {
-      case CIFX_MEM_PTR_OPEN:
-        {
-          void* pvMappedDPM       = NULL;
-
-          *(ptMemory->pulMemorySize) = 0;
-          *(ptMemory->ppvMemoryPtr)  = NULL;
-
-          /* Return global memory information */
-          if(NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(ptDevInst->pbDPM, ptDevInst->ulDPMSize, &pvMappedDPM, ptDevInst->pvOSDependent, 0)))
-          {
-            lRet = CIFX_MEMORY_MAPPING_FAILED;
-          } else
-          {
-            *(ptMemory->ppvMemoryPtr)  = (void*)pvMappedDPM;
-            *(ptMemory->pulMemorySize) = ptDevInst->ulDPMSize;
-          }
-
-          /* Check requested channel */
-          if(ptMemory->ulChannel != CIFX_NO_CHANNEL)
-          {
-            /* Process channel information */
-            if(ptMemory->ulChannel >= ptDevInst->ulCommChannelCount)
-            {
-              *(ptMemory->pulChannelStartOffset) = 0;
-              *(ptMemory->pulChannelSize)        = 0;
-              lRet = CIFX_INVALID_CHANNEL;
-            } else
-            {
-              PCHANNELINSTANCE ptChannel = ptDevInst->pptCommChannels[ptMemory->ulChannel];
-              uint32_t    ulOffset  = (uint32_t)(ptChannel->pbDPMChannelStart -
-                                                           ptDevInst->pbDPM);
-
-              /* Get Channel information */
-              *(ptMemory->pulChannelSize)        = ptChannel->ulDPMChannelLength;
-              *(ptMemory->pulChannelStartOffset) = ulOffset;
-            }
-          }
-        }
-        break;
-
-      case CIFX_MEM_PTR_CLOSE:
-        /* Clear user area */
-        if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInst->pvOSDependent))
-        {
-          lRet = CIFX_INVALID_HANDLE;
-        } else
-        {
-          ptMemory->pvMemoryID       = NULL;
-          *(ptMemory->ppvMemoryPtr)  = NULL;
-          *(ptMemory->pulMemorySize) = 0;
-          *(ptMemory->ppvMemoryPtr)  = NULL;
-        }
-        break;
-
-      default:
-        lRet = CIFX_INVALID_COMMAND;
-        break;
-    } /* end switch */
-  }
-
-  return lRet; /*lint !e438 */
-}
-
 /*****************************************************************************/
 /*! Get Channel information on an open channel
 *   \param hChannel       Handle to the channel
@@ -2759,7 +2789,7 @@ int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint
 *   \param pvChannelInfo  Return buffer (CHANNEL_INFORMATION structure)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChannelInfo)
+CIFX_STATIC int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChannelInfo)
 {
   CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
   PCHANNELINSTANCE      ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2813,7 +2843,7 @@ int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChan
 
   /* Check if we are in interrupt mode */
   if(!((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
-    DEV_ReadHandshakeFlags(ptChannel, 0, 1);
+    CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptChannel, 0, 1);
 
   ptChannelInfo->ulNetxFlags      = ptChannel->usNetxFlags;
   ptChannelInfo->ulHostFlags      = ptChannel->usHostFlags;
@@ -2832,9 +2862,12 @@ int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChan
 *                         (informational use only)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulTrigger)
+CIFX_STATIC int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulTrigger)
 {
-  return DEV_TriggerWatchdog( (PCHANNELINSTANCE)hChannel, ulCmd, pulTrigger);
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+
+  return CIFX_MAKE_DEV_FUN(DEV_TriggerWatchdog)((PCHANNELINSTANCE)hChannel, ulCmd, pulTrigger);
 }
 
 /*****************************************************************************/
@@ -2847,8 +2880,10 @@ int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t*
 *                         flag
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
+  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   int32_t lRet = CIFX_INVALID_PARAMETER;
 
   CHECK_CHANNELHANDLE(hChannel);
@@ -2857,13 +2892,13 @@ int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t
   switch(ulCmd)
   {
   case CIFX_HOST_STATE_READ:
-    lRet = DEV_GetHostState( (PCHANNELINSTANCE)hChannel,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_GetHostState)((PCHANNELINSTANCE)hChannel,
                              pulState);
     break;
 
   case CIFX_HOST_STATE_READY:
   case CIFX_HOST_STATE_NOT_READY:
-    lRet = DEV_SetHostState( (PCHANNELINSTANCE)hChannel,
+    lRet = CIFX_MAKE_DEV_FUN(DEV_SetHostState)((PCHANNELINSTANCE)hChannel,
                              ulCmd,
                              ulTimeout);
     break;
@@ -2885,8 +2920,8 @@ int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE hChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
-                                   PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
+CIFX_STATIC int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE hChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
+                                                   PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
@@ -2903,253 +2938,14 @@ int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE hChannel, CIFX_DIRECTORYENTRY*
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelFindNextFile(CIFXHANDLE hChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
-                                   PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
+CIFX_STATIC int32_t APIENTRY xChannelFindNextFile(CIFXHANDLE hChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
+                                                  PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
   CHECK_CHANNELHANDLE(hChannel);
 
   return xSysdeviceFindNextFile(hChannel, ptChannel->ulChannelNumber, ptDirectoryInfo, pfnRecvPktCallback, pvUser);
-}
-
-/*****************************************************************************/
-/*! Starts directory enumeration on the given channel
-*   \param hSysdevice       Handle to the system device
-*   \param ulChannel        Channel number to get directory from
-*   \param ptDirectoryInfo  Pointer to enumeration result.
-*                           (Will be initialized inside function)
-*   \param pfnRecvPktCallback Callback for unhandled packets
-*   \param pvUser             User data for callback function
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE hSysdevice, uint32_t ulChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
-                                      PFN_RECV_PKT_CALLBACK  pfnRecvPktCallback, void* pvUser)
-{
-  int32_t             lRet         = CIFX_NO_ERROR;
-  PCHANNELINSTANCE    ptChannel    = (PCHANNELINSTANCE)hSysdevice;
-  union
-  {
-    CIFX_PACKET        tPacket;
-    HIL_DIR_LIST_REQ_T tDirListReq;
-
-  }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
-
-  OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
-
-#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
-  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
-       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
-       return CIFX_INVALID_HANDLE;
-#endif
-
-  CHECK_POINTER(ptDirectoryInfo);
-
-  if(OS_Strlen(ptDirectoryInfo->szFilename) > 0)
-  {
-    uint16_t usDirNameLength = (uint16_t)(OS_Strlen(ptDirectoryInfo->szFilename) + 1);
-
-    uSendPacket.tDirListReq.tData.usDirNameLength = HOST_TO_LE16(usDirNameLength);
-    (void)OS_Strncpy( (char*)((&uSendPacket.tDirListReq.tData) + 1),
-                       ptDirectoryInfo->szFilename,
-                       usDirNameLength);
-  }
-
-  uSendPacket.tDirListReq.tHead.ulDest      = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-  uSendPacket.tDirListReq.tHead.ulSrc       = HOST_TO_LE32(((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->ulPhysicalAddress);
-  uSendPacket.tDirListReq.tHead.ulCmd       = HOST_TO_LE32(HIL_DIR_LIST_REQ);
-  uSendPacket.tDirListReq.tHead.ulLen       = HOST_TO_LE32( ((uint32_t)sizeof(uSendPacket.tDirListReq.tData) +
-                                                            uSendPacket.tDirListReq.tData.usDirNameLength) );
-  uSendPacket.tDirListReq.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
-
-
-  lRet = DEV_TransferPacket(ptChannel,
-                            &uSendPacket.tPacket,
-                            (CIFX_PACKET*)&tDirListCnf,
-                            sizeof(tDirListCnf),
-                            CIFX_TO_SEND_PACKET,
-                            pfnRecvPktCallback,
-                            pvUser);
-
-  if( CIFX_NO_ERROR == lRet)
-  {
-    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(tDirListCnf.tHead.ulSta)) )
-    {
-      uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
-      if ((tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
-      {
-        /* this is the last packet */
-        lRet = CIFX_NO_MORE_ENTRIES;
-        /* invalidate handle */
-        *pbListEntry = 0;
-      } else
-      {
-        /* TODO: Store handle for directory list, which needs to be set by firmware */
-        *pbListEntry = 1;
-
-        (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
-                         sizeof(ptDirectoryInfo->szFilename));
-
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
-      }
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Enumerate next entry in directory on the given channel
-*   \param hSysdevice       Handle to the system device
-*   \param ulChannel        Channel number to get directory from
-*   \param ptDirectoryInfo  Pointer to enumeration result
-*   \param pfnRecvPktCallback Callback for unhandled packets
-*   \param pvUser             User data for callback function
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE hSysdevice, uint32_t ulChannel, CIFX_DIRECTORYENTRY* ptDirectoryInfo,
-                                     PFN_RECV_PKT_CALLBACK  pfnRecvPktCallback, void* pvUser)
-{
-  int32_t             lRet         = CIFX_NO_ERROR;
-  PCHANNELINSTANCE    ptChannel    = (PCHANNELINSTANCE)hSysdevice;
-  union
-  {
-    CIFX_PACKET         tPacket;
-    HIL_DIR_LIST_REQ_T  tDirListReq;
-
-  }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
-  uint16_t            usDirNameLen = 0;
-
-  OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
-
-#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
-  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
-       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
-       return CIFX_INVALID_HANDLE;
-#endif
-
-  CHECK_POINTER(ptDirectoryInfo);
-
-  usDirNameLen = (uint16_t)(OS_Strlen(ptDirectoryInfo->szFilename) + 1);
-  uSendPacket.tDirListReq.tData.usDirNameLength = HOST_TO_LE16(usDirNameLen);
-  (void)OS_Strncpy( (char*)((&uSendPacket.tDirListReq.tData) + 1),
-                    ptDirectoryInfo->szFilename,
-                    usDirNameLen);
-
-  uSendPacket.tDirListReq.tHead.ulDest      = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-  uSendPacket.tDirListReq.tHead.ulSrc       = HOST_TO_LE32(((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->ulPhysicalAddress);
-  uSendPacket.tDirListReq.tHead.ulCmd       = HOST_TO_LE32(HIL_DIR_LIST_REQ);
-  uSendPacket.tDirListReq.tHead.ulLen       = HOST_TO_LE32( ((uint32_t)sizeof(uSendPacket.tDirListReq.tData) + usDirNameLen) );
-  uSendPacket.tDirListReq.tHead.ulExt       = HOST_TO_LE32(HIL_PACKET_SEQ_MIDDLE);
-
-  uSendPacket.tDirListReq.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
-
-  lRet = DEV_TransferPacket(ptChannel,
-                            &uSendPacket.tPacket,
-                            (CIFX_PACKET*)&tDirListCnf,
-                            sizeof(tDirListCnf),
-                            CIFX_TO_SEND_PACKET,
-                            pfnRecvPktCallback,
-                            pvUser);
-
-  if(CIFX_NO_ERROR == lRet)
-  {
-    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(tDirListCnf.tHead.ulSta))) )
-    {
-      if(( LE32_TO_HOST(tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
-      {
-        uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
-
-        /* invalidate handle */
-        *pbListEntry = 0;
-
-        /* this is the last packet */
-        lRet = CIFX_NO_MORE_ENTRIES;
-
-      } else
-      {
-        (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
-                         sizeof(tDirListCnf.tData.szName));
-
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
-      }
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Uploads a file via system channel
-*   \param hSysdevice         Handle to the System device
-*   \param ulChannel          Channel number to get directory from
-*   \param ulMode             Transfer Mode
-*   \param pszFileName        Filename to upload
-*   \param pabFileData        Pointer to buffer receiving upload
-*   \param pulFileSize        [in]Length of buffer, [out] Bytes copied to buffer
-*   \param pfnCallback        Callback pointer for progress
-*                             (NULL for no callback)
-*   \param pfnRecvPktCallback Callback pointer for unsolicited receive packets
-*                             (NULL for no callback)
-*   \param pvUser             User parameter on callback.
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xSysdeviceUpload(CIFXHANDLE hSysdevice, uint32_t ulChannel,
-                               uint32_t ulMode, char* pszFileName, uint8_t* pabFileData, uint32_t* pulFileSize,
-                               PFN_PROGRESS_CALLBACK pfnCallback, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
-{
-  PCHANNELINSTANCE ptSysDevice    = (PCHANNELINSTANCE)hSysdevice;
-  uint32_t         ulTransferType = 0;
-  int32_t          lRet           = CIFX_NO_ERROR;
-
-#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
-  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
-       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice))     )
-       return CIFX_INVALID_HANDLE;
-#endif
-
-  CHECK_POINTER(pszFileName);
-  CHECK_POINTER(pabFileData);
-  CHECK_POINTER(pulFileSize);
-
-  switch(ulMode)
-  {
-  case DOWNLOAD_MODE_FIRMWARE:
-    if( CIFX_NO_ERROR != (lRet = DEV_GetFWTransferTypeFromFileName( ((PDEVICEINSTANCE)(ptSysDevice->pvDeviceInstance))->eChipType,
-                                                                     pszFileName, &ulTransferType)))
-      return lRet;
-    break;
-
-  case DOWNLOAD_MODE_CONFIG:
-  case DOWNLOAD_MODE_FILE:
-    ulTransferType = HIL_FILE_XFER_FILE;
-    break;
-
-  default:
-    return CIFX_INVALID_PARAMETER;
-  }
-
-  lRet = DEV_UploadFile(ptSysDevice,
-                        ulChannel,
-                        ptSysDevice->tRecvMbx.ulRecvMailboxLength,
-                        ulTransferType,
-                        pszFileName,
-                        pulFileSize,
-                        pabFileData,
-                        DEV_TransferPacket,
-                        pfnCallback,
-                        pfnRecvPktCallback,
-                        pvUser);
-
-  return lRet;
 }
 
 /*****************************************************************************/
@@ -3166,9 +2962,9 @@ int32_t APIENTRY xSysdeviceUpload(CIFXHANDLE hSysdevice, uint32_t ulChannel,
 *   \param pvUser             User parameter on callback.
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelUpload(CIFXHANDLE hChannel, uint32_t ulMode,
-                             char* pszFileName, uint8_t* pabFileData, uint32_t* pulFileSize,
-                             PFN_PROGRESS_CALLBACK pfnCallback, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
+CIFX_STATIC int32_t APIENTRY xChannelUpload(CIFXHANDLE hChannel, uint32_t ulMode,
+                                            char* pszFileName, uint8_t* pabFileData, uint32_t* pulFileSize,
+                                            PFN_PROGRESS_CALLBACK pfnCallback, PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
@@ -3193,7 +2989,7 @@ int32_t APIENTRY xChannelUpload(CIFXHANDLE hChannel, uint32_t ulMode,
 *   \param pulState         Return actual state on CIFX_GET_DMA_STATE
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState)
+CIFX_STATIC int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState)
 {
 #ifdef CIFX_TOOLKIT_DMA
 
@@ -3220,9 +3016,9 @@ int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t
   /*if( !ptChannel->ptCommonStatusBlock->ulCommunicationCOS->fPCICard) */
   /*  return CIFX_FUNCTION_NOT_AVAILABLE; */
 
-  lRet = DEV_DMAState( (PCHANNELINSTANCE)hChannel,
-                        ulCmd,
-                        pulState);
+  lRet = CIFX_MAKE_DEV_FUN(DEV_DMAState)( (PCHANNELINSTANCE)hChannel,
+                                          ulCmd,
+                                          pulState);
 
   return lRet;
 
@@ -3244,21 +3040,21 @@ int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t
 *   \param pvUser             User data pointer
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
-                                              uint32_t             ulNotification,
-                                              PFN_NOTIFY_CALLBACK  pfnCallback,
-                                              void*                pvUser)
+CIFX_STATIC int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
+                                                          uint32_t             ulNotification,
+                                                          PFN_NOTIFY_CALLBACK  pfnCallback,
+                                                          void*                pvUser)
 {
   int32_t          lRet             = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel        = (PCHANNELINSTANCE)hChannel;
-  PDEVICEINSTANCE  ptDevInst        = NULL;
+  PDEVICEINSTANCE  ptDevInstance    = NULL;
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pfnCallback);
 
-  ptDevInst = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
-  if(!ptDevInst->fIrqEnabled)
+  if(!ptDevInstance->fIrqEnabled)
     return CIFX_INTERRUPT_DISABLED;
 
   switch (ulNotification)
@@ -3274,13 +3070,14 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptChannel->tRecvMbx.pvUser      = pvUser;
         ptChannel->tRecvMbx.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForBitState(ptChannel,
+        if(CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(
+                               ptChannel,
                                ptChannel->tRecvMbx.bRecvACKBitoffset,
                                HIL_FLAGS_NOT_EQUAL,
                                0))
         {
           CIFX_NOTIFY_RX_MBX_FULL_DATA_T tData;
-          tData.ulRecvCount = LE16_TO_HOST(HWIF_READ16(ptDevInst, ptChannel->tRecvMbx.ptRecvMailboxStart->usWaitingPackages));
+          tData.ulRecvCount = LE16_TO_HOST(HWIF_READ16(ptDevInstance, ptChannel->tRecvMbx.ptRecvMailboxStart->usWaitingPackages));
 
           pfnCallback(CIFX_NOTIFY_RX_MBX_FULL, sizeof(tData), &tData, pvUser);
         }
@@ -3298,13 +3095,14 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptChannel->tSendMbx.pvUser      = pvUser;
         ptChannel->tSendMbx.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForBitState(ptChannel,
+        if(CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(
+                               ptChannel,
                                ptChannel->tSendMbx.bSendCMDBitoffset,
                                HIL_FLAGS_EQUAL,
                                0))
         {
           CIFX_NOTIFY_TX_MBX_EMPTY_DATA_T tData;
-          tData.ulMaxSendCount = LE16_TO_HOST(HWIF_READ16(ptDevInst, ptChannel->tSendMbx.ptSendMailboxStart->usPackagesAccepted));
+          tData.ulMaxSendCount = LE16_TO_HOST(HWIF_READ16(ptDevInstance, ptChannel->tSendMbx.ptSendMailboxStart->usPackagesAccepted));
 
           pfnCallback(CIFX_NOTIFY_TX_MBX_EMPTY, sizeof(tData), &tData, pvUser);
         }
@@ -3317,13 +3115,13 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
     {
       IOINSTANCE* ptIOArea    = ptChannel->pptIOInputAreas[0];
       uint32_t    ulAreaCount = ptChannel->ulIOInputAreas;
-      uint8_t     bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 0);
+      uint8_t     bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 0);
 
       if( CIFX_NOTIFY_PD0_OUT == ulNotification)
       {
         ptIOArea    = ptChannel->pptIOOutputAreas[0];
         ulAreaCount = ptChannel->ulIOOutputAreas;
-        bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 1);
+        bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 1);
       }
 
       /* Check if we have one input area */
@@ -3342,7 +3140,8 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptIOArea->pvUser      = pvUser;
         ptIOArea->pfnCallback = pfnCallback;
 
-        if(DEV_WaitForBitState(ptChannel,
+        if(CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(
+                               ptChannel,
                                ptIOArea->bHandshakeBit,
                                bIOBitState,
                                0))
@@ -3360,13 +3159,13 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
     {
       IOINSTANCE* ptIOArea    = ptChannel->pptIOInputAreas[1];
       uint32_t    ulAreaCount = ptChannel->ulIOInputAreas;
-      uint8_t     bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 0);
+      uint8_t     bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 0);
 
       if( CIFX_NOTIFY_PD1_OUT == ulNotification)
       {
         ptIOArea    = ptChannel->pptIOOutputAreas[1];
         ulAreaCount = ptChannel->ulIOOutputAreas;
-        bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 1);
+        bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIOArea, 1);
       }
 
       /* Check if we have two input areas */
@@ -3385,7 +3184,8 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptIOArea->pvUser      = pvUser;
         ptIOArea->pfnCallback = pfnCallback;
 
-        if(DEV_WaitForBitState(ptChannel,
+        if(CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(
+                               ptChannel,
                                ptIOArea->bHandshakeBit,
                                bIOBitState,
                                0))
@@ -3410,10 +3210,11 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptChannel->tSynch.pfnCallback = pfnCallback;
 
         /* Add callback for sync on startup */
-        if( HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptDevInst, ptChannel->ptCommonStatusBlock->bSyncHskMode))
+        if( HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptDevInstance, ptChannel->ptCommonStatusBlock->bSyncHskMode))
           bState = HIL_FLAGS_EQUAL;
 
-        if(DEV_WaitForSyncState(ptChannel,
+        if(CIFX_MAKE_DEV_FUN(DEV_WaitForSyncState)(
+                                ptChannel,
                                 bState,
                                 0))
         {
@@ -3437,7 +3238,8 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
         ptChannel->tComState.pfnCallback = pfnCallback;
 
         /* Just update the actual flag state by reading it once */
-        (void)DEV_WaitForBitState(ptChannel,
+        (void)CIFX_MAKE_DEV_FUN(DEV_WaitForBitState)(
+                                  ptChannel,
                                   NCF_COMMUNICATING_BIT_NO,
                                   HIL_FLAGS_SET,
                                   0);
@@ -3461,8 +3263,8 @@ int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
 *   \param ulNotification     Notification
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE hChannel,
-                                                 uint32_t   ulNotification)
+CIFX_STATIC int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE hChannel,
+                                                             uint32_t   ulNotification)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -3601,10 +3403,10 @@ int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE hChannel,
 *   \param pulErrorCount      Actual sync error counter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
-                                    uint32_t    ulCmd,
-                                    uint32_t    ulTimeout,
-                                    uint32_t*   pulErrorCount)
+CIFX_STATIC int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
+                                                uint32_t    ulCmd,
+                                                uint32_t    ulTimeout,
+                                                uint32_t*   pulErrorCount)
 {
   int32_t           lRet      = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
@@ -3618,6 +3420,7 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
     lRet = CIFX_DRV_CHANNEL_NOT_INITIALIZED;
   } else
   {
+    PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
     switch (ulCmd)
     {
       case CIFX_SYNC_SIGNAL_CMD:
@@ -3627,20 +3430,20 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
           /* Invalid Device mode */
           lRet = CIFX_DEV_SYNC_STATE_INVALID_MODE;
 
-        } else if(!DEV_WaitForSyncState(ptChannel, HIL_FLAGS_EQUAL, ulTimeout))
+        } else if(!CIFX_MAKE_DEV_FUN(DEV_WaitForSyncState)(ptChannel, HIL_FLAGS_EQUAL, ulTimeout))
         {
           /* Sync cannot be signalled as bits are in wrong state */
           lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
         } else
         {
           /* Signal new sync */
-          DEV_ToggleSyncBit( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
+          CIFX_MAKE_DEV_FUN(DEV_ToggleSyncBit)( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
 
           /* Return actual error counter */
           *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommonStatusBlock->bErrorSyncCnt);
 
           /* Check if the device is communication */
-          (void)DEV_IsCommunicating(ptChannel, &lRet);
+          (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
         }
       break;
 
@@ -3651,20 +3454,20 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
           /* Invalid Device mode */
           lRet = CIFX_DEV_SYNC_STATE_INVALID_MODE;
 
-        } else if(!DEV_WaitForSyncState(ptChannel, HIL_FLAGS_NOT_EQUAL, ulTimeout))
+        } else if(!CIFX_MAKE_DEV_FUN(DEV_WaitForSyncState)(ptChannel, HIL_FLAGS_NOT_EQUAL, ulTimeout))
         {
           /* Sync cannot be signalled as bits are in wrong state */
           lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
         } else
         {
           /* Acknowledge an device sys */
-          DEV_ToggleSyncBit( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
+          CIFX_MAKE_DEV_FUN(DEV_ToggleSyncBit)( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
 
           /* Return actual error counter */
           *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommonStatusBlock->bErrorSyncCnt);
 
           /* Check if the device is communication */
-          (void)DEV_IsCommunicating(ptChannel, &lRet);
+          (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
         }
       break;
 
@@ -3683,7 +3486,7 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
               bState = HIL_FLAGS_EQUAL;
 
             /* Wait for sync */
-            if(!DEV_WaitForSyncState(ptChannel, bState, ulTimeout))
+            if(!CIFX_MAKE_DEV_FUN(DEV_WaitForSyncState)(ptChannel, bState, ulTimeout))
             {
               /* Sync timeout */
               lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
@@ -3693,7 +3496,7 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
               *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommonStatusBlock->bErrorSyncCnt);
 
               /* Check if the device is communication */
-              (void)DEV_IsCommunicating(ptChannel, &lRet);
+              (void)CIFX_MAKE_DEV_FUN(DEV_IsCommunicating)(ptChannel, &lRet);
             }
           }
         }
@@ -3707,6 +3510,359 @@ int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
 
   return lRet;
 }
+
+#ifndef CIFX_TOOLKIT_USE_CUSTOM_DRV_FUNCS
+/*****************************************************************************/
+/*! Open a connection to the driver
+*   \param phDriver     Returned handle to the driver
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverOpen(CIFXHANDLE* phDriver)
+{
+  if(!g_tDriverInfo.fInitialized)
+    return CIFX_DRV_DRIVER_NOT_LOADED;
+
+  CHECK_POINTER(phDriver);
+
+  *phDriver = &g_tDriverInfo;
+
+  ++g_tDriverInfo.ulOpenCount;
+
+  return CIFX_NO_ERROR;
+}
+
+/*****************************************************************************/
+/*! Close a connection to the driver
+*   \param hDriver     Handle to connection, that is being closed
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverClose(CIFXHANDLE hDriver)
+{
+  if(!g_tDriverInfo.fInitialized)
+    return CIFX_DRV_DRIVER_NOT_LOADED;
+
+  if(g_tDriverInfo.ulOpenCount == 0)
+    return CIFX_DRV_NOT_OPENED;
+
+  CHECK_DRIVERHANDLE(hDriver);
+
+  --g_tDriverInfo.ulOpenCount;
+
+  return CIFX_NO_ERROR; /*lint !e438 */
+}
+
+/*****************************************************************************/
+/*! Query Driver information
+*   \param hDriver      Handle to the driver
+*   \param ulSize       Size of the passed DRIVER_INFORMATION Structure
+*   \param pvDriverInfo Pointer to returned data (DRIVER_INFORMATION
+*                       structure)
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverGetInformation(CIFXHANDLE hDriver, uint32_t ulSize, void* pvDriverInfo)
+{
+  DRIVER_INFORMATION* ptDriverInfo = (DRIVER_INFORMATION*)pvDriverInfo;
+
+  if(g_tDriverInfo.ulOpenCount == 0)
+    return CIFX_DRV_NOT_OPENED;
+
+  CHECK_DRIVERHANDLE(hDriver);
+  CHECK_POINTER(pvDriverInfo);
+
+  if(ulSize < (uint32_t)sizeof(*ptDriverInfo))
+    return CIFX_INVALID_BUFFERSIZE;
+
+  ptDriverInfo->ulBoardCnt = g_ulDeviceCount;
+  (void)OS_Strncpy(ptDriverInfo->abDriverVersion, TOOLKIT_VERSION, sizeof(ptDriverInfo->abDriverVersion));
+
+  return CIFX_NO_ERROR; /*lint !e438 */
+}
+#endif
+
+/*****************************************************************************/
+/*! Query human readable error description
+*   \param lError       Error to look up
+*   \param szBuffer     Pointer to return data
+*   \param ulBufferLen  Length of return buffer
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverGetErrorDescription(int32_t lError, char* szBuffer, uint32_t ulBufferLen)
+{
+  int32_t lRet = CIFX_FUNCTION_FAILED;
+  int     iIdx = 0;
+
+  CHECK_POINTER(szBuffer);
+
+  for(iIdx = 0; iIdx < (int)(sizeof(s_atErrorToDescrTable) / sizeof(s_atErrorToDescrTable[0])); ++iIdx)
+  {
+    if(s_atErrorToDescrTable[iIdx].lError == lError)
+    {
+      (void)OS_Strncpy(szBuffer, s_atErrorToDescrTable[iIdx].szErrorDescr, ulBufferLen);
+      lRet = CIFX_NO_ERROR;
+      break;
+    }
+  }
+
+  return lRet;
+}
+
+/*****************************************************************************/
+/*! Enumerate over all handled boards/devices
+*   \param hDriver      Driver handle
+*   \param ulBoard      Board number (incremented from 0 up)
+*   \param ulSize       Size of return buffer
+*   \param pvBoardInfo  Return buffer (BOARD_INFORMATION structure)
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverEnumBoards(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulSize, void* pvBoardInfo)
+{
+  BOARD_INFORMATION*        ptBoardInfo   = (BOARD_INFORMATION*)pvBoardInfo;
+  PDEVICEINSTANCE           ptDevInstance = NULL;
+  HIL_DPM_SYSTEM_CHANNEL_T* ptSysChannel  = NULL;
+
+  if(g_tDriverInfo.ulOpenCount == 0)
+    return CIFX_DRV_NOT_OPENED;
+
+  CHECK_DRIVERHANDLE(hDriver);
+  CHECK_POINTER(pvBoardInfo);
+
+  if(ulSize < (uint32_t)sizeof(*ptBoardInfo))
+    return CIFX_INVALID_BUFFERSIZE;
+
+  if(ulBoard >= g_ulDeviceCount)
+    return CIFX_NO_MORE_ENTRIES;
+
+  ptDevInstance = g_pptDevices[ulBoard];
+  ptSysChannel  = (HIL_DPM_SYSTEM_CHANNEL_T*)ptDevInstance->pbDPM;
+
+  (void)OS_Strncpy(ptBoardInfo->abBoardName,  ptDevInstance->szName,  sizeof(ptBoardInfo->abBoardName));
+  (void)OS_Strncpy(ptBoardInfo->abBoardAlias, ptDevInstance->szAlias, sizeof(ptBoardInfo->abBoardAlias));
+  ptBoardInfo->ulBoardID         = ulBoard;
+
+  {
+    ptBoardInfo->ulSystemError     = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulSystemError));
+
+    ptBoardInfo->ulPhysicalAddress = ptDevInstance->ulPhysicalAddress;
+    ptBoardInfo->ulIrqNumber       = ptDevInstance->ulIrqNumber;
+    ptBoardInfo->bIrqEnabled       = ptDevInstance->fIrqEnabled? 1 : 0;
+    ptBoardInfo->ulDpmTotalSize    = ptDevInstance->ulDPMSize;
+    ptBoardInfo->ulChannelCnt      = ptDevInstance->ulCommChannelCount;
+
+    HWIF_READN(ptDevInstance, &ptBoardInfo->tSystemInfo, &ptSysChannel->tSystemInfo, sizeof(ptBoardInfo->tSystemInfo));
+  }
+
+  (void)cifXConvertEndianess(0,
+                             &ptBoardInfo->tSystemInfo,
+                             sizeof(ptBoardInfo->tSystemInfo),
+                             s_atSystemInfoBlock,
+                             sizeof(s_atSystemInfoBlock) / sizeof(s_atSystemInfoBlock[0]));
+
+  return CIFX_NO_ERROR; /*lint !e438 */
+}
+
+/*****************************************************************************/
+/*! Enumerate over all channels on the given boards
+*   \param hDriver        Driver handle
+*   \param ulBoard        Board number
+*   \param ulChannel      Channel number (incremented from 0 up)
+*   \param ulSize         Size of return buffer
+*   \param pvChannelInfo  Return buffer (CHANNEL_INFORMATION structure)
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverEnumChannels(CIFXHANDLE  hDriver, uint32_t ulBoard, uint32_t ulChannel, uint32_t ulSize, void* pvChannelInfo)
+{
+  CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
+  PDEVICEINSTANCE       ptDevInstance = NULL;
+  PCHANNELINSTANCE      ptChannel     = NULL;
+  int32_t               lRet          = CIFX_NO_ERROR;
+
+  if(g_tDriverInfo.ulOpenCount == 0)
+    return CIFX_DRV_NOT_OPENED;
+
+  CHECK_DRIVERHANDLE(hDriver);
+  CHECK_POINTER(pvChannelInfo);
+
+  if(ulSize < (uint32_t)sizeof(*ptChannelInfo))
+    return CIFX_INVALID_BUFFERSIZE;
+
+  if(ulBoard >= g_ulDeviceCount)
+    return CIFX_INVALID_BOARD;
+
+  ptDevInstance = g_pptDevices[ulBoard];
+
+  if(ulChannel >= ptDevInstance->ulCommChannelCount)
+    return CIFX_NO_MORE_ENTRIES;
+
+  ptChannel = ptDevInstance->pptCommChannels[ulChannel];
+
+  /* Read the channel information */
+  lRet = CIFX_MAKE_CIFX_FUN(xChannelInfo)(ptChannel, ulSize, ptChannelInfo);
+
+  return lRet; /*lint !e438 */
+}
+
+/*! **************************************************************************
+* Get/Return a memory pointer to the boards dual-port memory
+*   \param hDriver      Driver handle
+*   \param ulBoard      The board number (0)
+*   \param ulCmd        Function command (CIFX_MEM_PTR_OPEN/CIFX_MEM_PTR_CLOSE)
+*   \param pvMemoryInfo Memory information structure
+*   \return CIFX_NO_ERROR on success
+******************************************************************************/
+CIFX_STATIC int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulCmd, void* pvMemoryInfo)
+{
+  int32_t             lRet     = CIFX_NO_ERROR;
+  MEMORY_INFORMATION* ptMemory = (MEMORY_INFORMATION*)pvMemoryInfo;
+
+  if(0 == g_tDriverInfo.ulOpenCount)
+    return CIFX_DRV_NOT_OPENED;
+
+  CHECK_DRIVERHANDLE(hDriver);
+  CHECK_POINTER(pvMemoryInfo);
+
+  /* We only support 1 board */
+  if(ulBoard >= g_ulDeviceCount)
+  {
+    lRet = CIFX_INVALID_BOARD;
+  } else
+  {
+    /* Get the device instance */
+    PDEVICEINSTANCE ptDevInstance = g_pptDevices[ulBoard];
+    switch(ulCmd)
+    {
+      case CIFX_MEM_PTR_OPEN:
+        {
+          void* pvMappedDPM       = NULL;
+
+          *(ptMemory->pulMemorySize) = 0;
+          *(ptMemory->ppvMemoryPtr)  = NULL;
+
+          /* Return global memory information */
+          if(NULL == (ptMemory->pvMemoryID = OS_MapUserPointer(ptDevInstance->pbDPM, ptDevInstance->ulDPMSize, &pvMappedDPM, ptDevInstance->pvOSDependent, 0)))
+          {
+            lRet = CIFX_MEMORY_MAPPING_FAILED;
+          } else
+          {
+            *(ptMemory->ppvMemoryPtr)  = (void*)pvMappedDPM;
+            *(ptMemory->pulMemorySize) = ptDevInstance->ulDPMSize;
+          }
+
+          /* Check requested channel */
+          if(ptMemory->ulChannel != CIFX_NO_CHANNEL)
+          {
+            /* Process channel information */
+            if(ptMemory->ulChannel >= ptDevInstance->ulCommChannelCount)
+            {
+              *(ptMemory->pulChannelStartOffset) = 0;
+              *(ptMemory->pulChannelSize)        = 0;
+              lRet = CIFX_INVALID_CHANNEL;
+            } else
+            {
+              PCHANNELINSTANCE ptChannel = ptDevInstance->pptCommChannels[ptMemory->ulChannel];
+              uint32_t    ulOffset  = (uint32_t)(ptChannel->pbDPMChannelStart -
+                                                           ptDevInstance->pbDPM);
+
+              /* Get Channel information */
+              *(ptMemory->pulChannelSize)        = ptChannel->ulDPMChannelLength;
+              *(ptMemory->pulChannelStartOffset) = ulOffset;
+            }
+          }
+        }
+        break;
+
+      case CIFX_MEM_PTR_CLOSE:
+        /* Clear user area */
+        if(!OS_UnmapUserPointer(ptMemory->pvMemoryID, ptDevInstance->pvOSDependent))
+        {
+          lRet = CIFX_INVALID_HANDLE;
+        } else
+        {
+          ptMemory->pvMemoryID       = NULL;
+          *(ptMemory->ppvMemoryPtr)  = NULL;
+          *(ptMemory->pulMemorySize) = 0;
+          *(ptMemory->ppvMemoryPtr)  = NULL;
+        }
+        break;
+
+      default:
+        lRet = CIFX_INVALID_COMMAND;
+        break;
+    } /* end switch */
+  }
+
+  return lRet; /*lint !e438 */
+}
+
+#ifdef CIFX_TOOLKIT_FUNCTION_LIST
+
+/*****************************************************************************/
+/*! Local structure for cifX API function pointers                           */
+/*****************************************************************************/
+static CIFX_API_FUNCTION_LIST_T s_tCifxDpmApiFuns =
+{
+  xDriverOpen,
+  xDriverClose,
+  xDriverGetInformation,
+  xDriverGetErrorDescription,
+  xDriverEnumBoards,
+  xDriverEnumChannels,
+  xDriverMemoryPointer,
+  NULL, /* OS specific, implemented by user. */
+  xSysdeviceOpen,
+  xSysdeviceClose,
+  xSysdeviceGetMBXState,
+  xSysdevicePutPacket,
+  xSysdeviceGetPacket,
+  xSysdeviceInfo,
+  xSysdeviceFindFirstFile,
+  xSysdeviceFindNextFile,
+  xSysdeviceDownload,
+  xSysdeviceUpload,
+  xSysdeviceReset,
+  xSysdeviceResetEx,
+  xSysdeviceBootstart,
+  xSysdeviceExtendedMemory,
+  xChannelOpen,
+  xChannelClose,
+  xChannelFindFirstFile,
+  xChannelFindNextFile,
+  xChannelDownload,
+  xChannelUpload,
+  xChannelGetMBXState,
+  xChannelPutPacket,
+  xChannelGetPacket,
+  xChannelGetSendPacket,
+  xChannelConfigLock,
+  xChannelReset,
+  xChannelInfo,
+  xChannelWatchdog,
+  xChannelHostState,
+  xChannelBusState,
+  xChannelDMAState,
+  xChannelIOInfo,
+  xChannelIORead,
+  xChannelIOWrite,
+  xChannelIOReadSendData,
+  xChannelControlBlock,
+  xChannelCommonStatusBlock,
+  xChannelExtendedStatusBlock,
+  xChannelUserBlock,
+  xChannelPLCMemoryPtr,
+  xChannelPLCIsReadReady,
+  xChannelPLCIsWriteReady,
+  xChannelPLCActivateWrite,
+  xChannelPLCActivateRead,
+  xChannelRegisterNotification,
+  xChannelUnregisterNotification,
+  xChannelSyncState,
+};
+
+PCIFX_API_FUNCTION_LIST_T cifXTkitGetDpmApiFunctionList(void)
+{
+  return &s_tCifxDpmApiFuns;
+}
+
+#endif
 
 /*****************************************************************************/
 /*! \}                                                                       */

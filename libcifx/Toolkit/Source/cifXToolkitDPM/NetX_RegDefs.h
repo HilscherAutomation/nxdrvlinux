@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: NetX_RegDefs.h 7534 2016-04-07 10:48:59Z LuisContreras $:
+  $Id: NetX_RegDefs.h 15171 2025-08-05 08:18:45Z AMinor $:
 
   Description:
     netX register definitions for DPM/DMA access
