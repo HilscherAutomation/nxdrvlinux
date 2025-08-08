@@ -1343,10 +1343,10 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
     }
 #else
     {
-      if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace( dev_instance,
-                   TRACE_LEVEL_ERROR,
+                   CIFX_TRACE_LEVEL_ERROR,
                    "cifX Driver was compiled without PCI support. Unable to handle requested (uio based) PCI card @0x%lx!",
                    ulPys_Addr);
       }
@@ -1556,10 +1556,10 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
       if(!match_pci_card(ptDevInstance, ptDevice->dpmaddr))
       {
         /* Don't add this device */
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Error finding pci device (Phys. Addr 0x%lx) on PCI bus",
                      ptDevice->dpmaddr);
         }
@@ -1578,11 +1578,11 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
     /* initialize the hardware function interface */
     if (ptDevice->hwif_init) {
       if (CIFX_NO_ERROR != (ret = ptDevice->hwif_init( ptDevice))) {
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           char szError[1024] ={0};
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Failed to initialize custom hardware interface. 'hwif_init' returns 0x%lx - %s! Skip adding custom device to toolkit!",
                      (unsigned int)ret,
                      ((CIFX_NO_ERROR == xDriverGetErrorDescription( ret,  szError, sizeof(szError))) ? szError : "Unknown error"));
@@ -1601,7 +1601,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
         HWIF_WRITEN( ptDevInstance, ptDevInstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
       }
       if ((ret = cifXTKitAddDevice(ptDevInstance))) {
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           char szError[1024] ={0};
           xDriverGetErrorDescription( ret,  szError, sizeof(szError));
@@ -1641,7 +1641,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
       if (NULL != cifxeth_create_device( &config))
       {
         ptInternalDev->eth_support = 1;
-        if (g_ulTraceLevel & TRACE_LEVEL_INFO)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
         {
           USER_Trace(ptDevInstance, 0, "Successfully created ethernet interface on %s", ptDevInstance->szName);
         }
@@ -1920,10 +1920,10 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
        PCIFX_DEVICE_INTERNAL_T dev_intern = (PCIFX_DEVICE_INTERNAL_T)ptDev->pvOSDependent;
 #endif
 
-       if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+       if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
        {
          USER_Trace( ptDev,
-                     TRACE_LEVEL_DEBUG,
+                     CIFX_TRACE_LEVEL_DEBUG,
                     "RESTART DEVICE requested for device: %s",
                      szBoardName);
        }
@@ -1948,11 +1948,11 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
          if (dev_intern->userdevice->hwif_init) {
            lRet = dev_intern->userdevice->hwif_init( dev_intern->userdevice);
            if (CIFX_NO_ERROR != lRet) {
-             if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+             if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
              {
                char szError[1024] ={0};
                USER_Trace(ptDev,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Failed to initialize custom hardware interface. 'hwif_init' returns 0x%lx - %s! Skip adding custom device to toolkit!",
                           (unsigned int)lRet,
                           ((CIFX_NO_ERROR == xDriverGetErrorDescription( lRet,  szError, sizeof(szError))) ? szError : "Unknown error"));
@@ -1981,10 +1981,10 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 #endif
           }
        }
-       if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+       if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
        {
          USER_Trace(ptDev,
-                   TRACE_LEVEL_DEBUG,
+                   CIFX_TRACE_LEVEL_DEBUG,
                    "RESTART DEVICE done, (Status: 0x%08X)\n",
                    lRet);
        }

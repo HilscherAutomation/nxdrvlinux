@@ -25,13 +25,13 @@
 
 #define FORMAT_STR(type,fmt) type "%s: " fmt
 #define ERR(fmt, ...)  do { \
-                         if (g_ulTraceLevel & TRACE_LEVEL_ERROR) { \
+                         if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR) { \
                            fprintf( stderr, FORMAT_STR("ERR:",fmt), __func__, ##__VA_ARGS__); \
                          } \
                         } while (0)
 #if defined(VERBOSE) || defined(DEBUG)
   #define DBG(fmt, ...)  do { \
-                           if (g_ulTraceLevel & TRACE_LEVEL_DEBUG) { \
+                           if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) { \
                              fprintf( stdout, FORMAT_STR("DBG:",fmt), __func__, ##__VA_ARGS__); \
                            } \
                          } while (0)

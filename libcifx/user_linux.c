@@ -21,6 +21,7 @@
 #include <ctype.h>
 #include "WarmstartFile.h"
 #include "cifxlinux_internal.h"
+#include "Hil_FileHeaderV3.h"
 
 char* g_szDriverBaseDir = NULL;  /*!< Global base path to driver/cifX configuration data */
 
@@ -37,14 +38,14 @@ static const char* DEVICE_CONF_ETH          = "eth=";
 
 uint8_t severity_mapping[] = {
   0xff, /* not used */
-  1,    /* TRACE_LEVEL_DEBUG */
-  2,    /* TRACE_LEVEL_INFO */
+  1,    /* CIFX_TRACE_LEVEL_DEBUG */
+  2,    /* CIFX_TRACE_LEVEL_INFO */
   0xff, /* not used */
-  4,    /* TRACE_LEVEL_WARNING */
+  4,    /* CIFX_TRACE_LEVEL_WARNING */
   0xff, /* not used */
   0xff, /* not used */
   0xff, /* not used */
-  8,    /* TRACE_LEVEL_ERROR */
+  8,    /* CIFX_TRACE_LEVEL_ERROR */
 };
 
 /*****************************************************************************/
@@ -457,10 +458,10 @@ int USER_GetWarmstartParameters(PCIFX_DEVICE_INFORMATION ptDevInfo, CIFX_PACKET*
   {
     if (errno != ENOENT) /* do not print an error if file does not exists */
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error opening warm start file! %s", strerror(errno));
       }
     }
@@ -471,27 +472,27 @@ int USER_GetWarmstartParameters(PCIFX_DEVICE_INFORMATION ptDevInfo, CIFX_PACKET*
     /* Read file header */
     if (OS_FileRead( pvFile, 0, sizeof(tHeader), &tHeader) != sizeof(tHeader))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error reading from warm start file!");
       }
 
     } else if( tHeader.ulCookie != CIFX_WS_WARMSTART_FILE_COOKIE)
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Invalid warm start file cookie!");
       }
     } else if( tHeader.ulDataLen > sizeof(*ptPacket))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Invalid warm start file length!");
       }
     } else
@@ -499,10 +500,10 @@ int USER_GetWarmstartParameters(PCIFX_DEVICE_INFORMATION ptDevInfo, CIFX_PACKET*
       /* Read file data */
       if (OS_FileRead( pvFile, sizeof(tHeader), tHeader.ulDataLen, (void*)ptPacket) != tHeader.ulDataLen)
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInfo->ptDeviceInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error reading user data from warm start file!");
         }
       } else
@@ -686,10 +687,10 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
 #else
       if( (!IS_VFIO_DEVICE(internaldev)) && (internaldev->userdevice->uio_fd < 0) ) {
 #endif
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInfo->ptDeviceInstance,
-                         TRACE_LEVEL_ERROR,
+                         CIFX_TRACE_LEVEL_ERROR,
                          "Trying to activate IRQ's on a device, that does not have a uio connection. Fallback to polling mode!");
         }
       } else
@@ -707,10 +708,10 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
              (ret != EACCES) )
         {
           ret = 0;
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInfo->ptDeviceInstance,
-                         TRACE_LEVEL_ERROR,
+                         CIFX_TRACE_LEVEL_ERROR,
                          "Error enabling interrupts (%s), fallback to polling mode!",
                          strerror(errno));
           }
@@ -722,10 +723,10 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
             internaldev->set_irq_prio = 1;
             internaldev->irq_prio     = atoi(szTempData);
 
-            if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
             {
               USER_Trace(ptDevInfo->ptDeviceInstance,
-                         TRACE_LEVEL_INFO,
+                         CIFX_TRACE_LEVEL_INFO,
                          "Using custom IRQ thread priority (%d).",
                          internaldev->irq_prio);
             }
@@ -744,10 +745,10 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
             {
               /* SCHED_FIFO */
               internaldev->irq_scheduler_algo = SCHED_FIFO;
-              if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
               {
                 USER_Trace(ptDevInfo->ptDeviceInstance,
-                           TRACE_LEVEL_INFO,
+                           CIFX_TRACE_LEVEL_INFO,
                            "Using custom IRQ thread scheduling algorithm (SCHED_FIFO).");
               }
 
@@ -755,20 +756,20 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
             {
               /* SCHED_RR */
               internaldev->irq_scheduler_algo = SCHED_RR;
-              if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
               {
                 USER_Trace(ptDevInfo->ptDeviceInstance,
-                           TRACE_LEVEL_INFO,
+                           CIFX_TRACE_LEVEL_INFO,
                            "Using custom IRQ thread scheduling algorithm (SCHED_RR).");
               }
 
             } else
             {
               internaldev->set_irq_scheduler_algo = 0;
-              if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
               {
                 USER_Trace(ptDevInfo->ptDeviceInstance,
-                           TRACE_LEVEL_INFO,
+                           CIFX_TRACE_LEVEL_INFO,
                            "Trying to override IRQ thread scheduling policy, but unknown policy was given (%s)", szTempData);
               }
             }
@@ -783,9 +784,9 @@ int USER_GetInterruptEnable(PCIFX_DEVICE_INFORMATION ptDevInfo)
     }
     free(szTempIrq);
   }
-  if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
   {
-    USER_Trace( ptDevInfo->ptDeviceInstance, TRACE_LEVEL_INFO, "%s", (ret)?"IRQ-Mode enabled!":"Polling Mode enabled!");
+    USER_Trace( ptDevInfo->ptDeviceInstance, CIFX_TRACE_LEVEL_INFO, "%s", (ret)?"IRQ-Mode enabled!":"Polling Mode enabled!");
   }
 
   return ret;
@@ -810,7 +811,7 @@ int USER_GetDMAMode(PCIFX_DEVICE_INFORMATION ptDevInfo)
   {
     if(0 == strcasecmp("yes", szTempDMA))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance, 0, "DMA mode enabled!");
       }
@@ -818,7 +819,7 @@ int USER_GetDMAMode(PCIFX_DEVICE_INFORMATION ptDevInfo)
     }
     free(szTempDMA);
   }
-  if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
   {
     USER_Trace(ptDevInfo->ptDeviceInstance, 0, "No DMA support!");
   }
@@ -846,7 +847,7 @@ int USER_GetEthernet(PCIFX_DEVICE_INFORMATION ptDevInfo)
   {
     if(0 == strcasecmp("yes", szTempEth))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
       {
         USER_Trace(ptDevInfo->ptDeviceInstance, 0, "Ethernet support enabled!");
       }
@@ -855,7 +856,7 @@ int USER_GetEthernet(PCIFX_DEVICE_INFORMATION ptDevInfo)
     free(szTempEth);
   } else
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
     {
       USER_Trace(ptDevInfo->ptDeviceInstance, 0, "No ethernet support!");
     }
