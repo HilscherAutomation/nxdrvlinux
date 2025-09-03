@@ -193,8 +193,10 @@ typedef struct DEVICEINSTANCEtag
   uint32_t                  ulCommChannelCount;     /*!< Number of fount communication channels on the card   */
   CHANNELINSTANCE**         pptCommChannels;        /*!< Array of all found channels                          */
 
+#ifdef CIFX_TOOLKIT_DMA
   uint32_t                  ulDMABufferCount;                     /*!< Number of available DMA buffers  */
   CIFX_DMABUFFER_T          atDmaBuffers[CIFX_DMA_BUFFER_COUNT];  /*!< DMA buffer definition for the device */
+#endif
 
   int                       fCachedMemAccess;                     /*!< Cached memory access to DMA buffer         */
 

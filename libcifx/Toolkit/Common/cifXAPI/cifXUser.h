@@ -507,7 +507,10 @@ typedef void(APIENTRY *PFN_NOTIFY_CALLBACK)  (uint32_t ulNotification, uint32_t 
 #define DOWNLOAD_MODE_MODULE      6
 
 
-#ifndef CIFX_TOOLKIT_FUNCTION_LIST
+/* The current toolkit versions uses same function names as the cifX API which lead to an */
+/* error when function pointer API is enabled:                                            */
+/*   e.g. static declaration of ‘xDriverMemoryPointer’ follows non-static declaration     */
+#ifndef CIFX_API_PREVENT_DECL_ERROR
 /***************************************************************************
 * API Functions
 ***************************************************************************/

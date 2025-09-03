@@ -34,6 +34,9 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 *   cifX API function implementation                                         */
 /*****************************************************************************/
 
+/* temporary solution (as long as Toolkit API uses same function names as cifX API) */
+#define CIFX_API_PREVENT_DECL_ERROR
+
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
