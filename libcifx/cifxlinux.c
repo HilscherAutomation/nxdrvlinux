@@ -1251,7 +1251,8 @@ void cifx_ISA_unmap_dpm( void* dpmaddr, int dpmlen)
 int cifx_hil_pci_flash_based( int device_id, int subdevice_id) {
   if ( ((device_id == NETPLC100C_PCI_DEVICE_ID) && (subdevice_id == NETPLC100C_PCI_SUBYSTEM_ID_FLASH)) ||
        ((device_id == NETJACK100_PCI_DEVICE_ID) && (subdevice_id == NETJACK100_PCI_SUBYSTEM_ID_FLASH)) ||
-       (device_id == CIFX4000_PCI_DEVICE_ID) ) {
+       (device_id == CIFX4000_PCI_DEVICE_ID) ||
+       (device_id == CIFX900_PCI_DEVICE_ID) ) {
     return 1;
   }
   return 0;
