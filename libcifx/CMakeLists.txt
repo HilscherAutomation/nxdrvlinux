@@ -39,6 +39,8 @@ option(VFIO_FORCE_LEGACY      "Force library supporting only the legacy vfio int
 # sbom
 option(SBOM                   "Generate SBOM" OFF)
 
+option(TOOLKIT_FUNCTION_LIST  "Make use of the cifX API function pointer interface (netx912 support)" OFF)
+
 if(SHARED)
     add_library( cifx SHARED)
     set_target_properties(cifx PROPERTIES VERSION ${DRV_VERSION} SOVERSION ${DRV_MAJOR})
@@ -77,9 +79,13 @@ target_compile_definitions( cifx
 
         $<$<OR:$<BOOL:${VFIO}>,$<BOOL:${VFIO_FORCE_LEGACY}>>:VFIO_SUPPORT>
         $<$<NOT:$<BOOL:${VFIO_FORCE_LEGACY}>>:VFIO_CDEV>
+        $<$<BOOL:${TOOLKIT_FUNCTION_LIST}>:CIFX_TOOLKIT_FUNCTION_LIST>
 )
+if (TOOLKIT_FUNCTION_LIST)
+    set(hif_src "${tk_dir}/Source/cifXToolkitHIF/*.c")
+endif (TOOLKIT_FUNCTION_LIST)
 
-file(GLOB SOURCES "${src_dir}/*.c" "${tk_dir}/Source/*.c")
+file(GLOB SOURCES "${src_dir}/*.c" "${tk_dir}/Source/*.c" "${tk_dir}/Source/cifXToolkitDPM/*.c" "${hif_src}" )
 if(VIRTETH)
     file(GLOB NETXTAP_SOURCES ${src_dir}/netx_tap/*.c)
     set_source_files_properties(${tk_dir}/Source/cifXFunctions.c PROPERTIES COMPILE_FLAGS -DAPIRENAME)
@@ -112,6 +118,8 @@ target_include_directories( cifx
         ${tk_dir}/Common/HilscherDefinitions/
         $<$<NOT:$<BOOL:${DISABLE_LIB_PCIACCESS}>>:${LIBPCIACCESS_INCLUDE_DIRS}>
         $<$<BOOL:${VIRTETH}>:${src_dir}/netx_tap/ ${LIBDNL_CLI_INCLUDE_DIRS} ${LIBDNL_INCLUDE_DIRS}>
+        ${tk_dir}/Source/cifXToolkitDPM/
+        ${tk_dir}/Source/cifXToolkitHIF/
 )
 
 target_link_libraries( cifx

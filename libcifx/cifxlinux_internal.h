@@ -21,6 +21,8 @@
 #include "cifXEndianess.h"
 #include "cifxlinux_dbg.h"
 
+#include "intapi2pointer.h"
+
 /* off set of global IRQ status/control in DPM */
 #define IRQ_CFG_REG_OFFSET 0xfff0
 
