@@ -39,7 +39,9 @@ option(VFIO_FORCE_LEGACY      "Force library supporting only the legacy vfio int
 # sbom
 option(SBOM                   "Generate SBOM" OFF)
 
-option(TOOLKIT_FUNCTION_LIST  "Make use of the cifX API function pointer interface (netx912 support)" OFF)
+#option(TOOLKIT_FUNCTION_LIST  "Make use of the cifX API function pointer interface (netx912 support)" OFF)
+# currently always enabled since toolkit does not support disable/switching (option might be removed in future)
+set(TOOLKIT_FUNCTION_LIST ON)
 
 if(SHARED)
     add_library( cifx SHARED)
