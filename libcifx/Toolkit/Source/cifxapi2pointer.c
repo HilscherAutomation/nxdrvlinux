@@ -6,6 +6,8 @@
 #include "cifXFunctionList.h"
 #include "intapi2pointer.h"
 
+//TODO: option to select of only one toolkit? -> may skip wrapper call
+
 extern int g_api_if_initialized;
 
 extern CIFX_TKIT_FUNCTION_LIST_T* g_pDPMTKfun;

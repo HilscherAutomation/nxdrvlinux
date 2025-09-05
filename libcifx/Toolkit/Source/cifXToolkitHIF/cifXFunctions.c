@@ -35,9 +35,6 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 *   cifX API function implementation                                         */
 /*****************************************************************************/
 
-/* temporary solution (as long as Toolkit API uses same function names as cifX API) */
-#define CIFX_API_PREVENT_DECL_ERROR
-
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
@@ -375,7 +372,7 @@ static int32_t CheckChannelHandle(CIFXHANDLE hChannel)
 *   \param phSysdevice  Returned handle to the System device area
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, CIFXHANDLE* phSysdevice)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, CIFXHANDLE* phSysdevice)
 {
   int32_t  lRet = CIFX_INVALID_BOARD;
   uint32_t ulIdx;
@@ -407,7 +404,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceOpen(CIFXHANDLE hDriver, char* szBoard, C
 *   \param hSysdevice  Handle to the System device to close
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceClose(CIFXHANDLE hSysdevice)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceClose(CIFXHANDLE hSysdevice)
 {
   PCHANNELINSTANCE ptSysDevice = (PCHANNELINSTANCE)hSysdevice;
 
@@ -426,7 +423,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceClose(CIFXHANDLE hSysdevice)
 *                          at once
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
 {
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
@@ -446,7 +443,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceGetMBXState(CIFXHANDLE hSysdevice, uint32
 *                          by device (in ms)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
@@ -474,7 +471,7 @@ CIFX_STATIC int32_t APIENTRY xSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PAC
 *                          by device (in ms)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
@@ -508,7 +505,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t
 *   \param pvUser             User parameter passed to callback
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevice,
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceDownload( CIFXHANDLE            hSysdevice,
                                                  uint32_t              ulChannel,
                                                  uint32_t              ulMode,
                                                  char*                 pszFileName,
@@ -568,7 +565,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceDownload( CIFXHANDLE            hSysdevic
 *   \param pvUser             User parameter on callback.
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceUpload(CIFXHANDLE            hSysdevice,
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceUpload(CIFXHANDLE            hSysdevice,
                                               uint32_t              ulChannel,
                                               uint32_t              ulMode,
                                               char*                 pszFileName,
@@ -624,7 +621,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceUpload(CIFXHANDLE            hSysdevice,
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
                                                      uint32_t              ulChannel,
                                                      CIFX_DIRECTORYENTRY*  ptDirectoryInfo,
                                                      PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
@@ -711,7 +708,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysd
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
                                                     uint32_t              ulChannel,
                                                     CIFX_DIRECTORYENTRY*  ptDirectoryInfo,
                                                     PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
@@ -795,7 +792,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysde
 *   \param pvInfo       Pointer to the structure for returned data
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t ulSize, void* pvInfo)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t ulSize, void* pvInfo)
 {
   int32_t                     lRet         = CIFX_NO_ERROR;
   PCHANNELINSTANCE            ptSysDevice  = (PCHANNELINSTANCE)hSysdevice;
@@ -974,7 +971,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCm
 *   \param ulMode     Reset mode with parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, uint32_t ulMode)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, uint32_t ulMode)
 {
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE) hSysdevice;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
@@ -1014,7 +1011,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t u
 *   \param ulTimeout  Timeout to wait for card to finish reset
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 {
   int32_t          lRet;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
@@ -1038,7 +1035,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceReset(CIFXHANDLE hSysdevice, uint32_t ulT
 *   \param ulTimeout  Timeout to wait for card to finish reset
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
 {
   int32_t          lRet;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
@@ -1058,7 +1055,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t
 *   \param ptExtMemInfo Pointer to a user buffer to return the information
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
+CIFX_STATIC int32_t APIENTRY HIFxSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
 {
   int32_t                     lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE            ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
@@ -1160,7 +1157,7 @@ CIFX_STATIC int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uin
 *                     specific operations)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelOpen(CIFXHANDLE hDriver, char* szBoard, uint32_t ulChannel, CIFXHANDLE* phChannel)
+CIFX_STATIC int32_t APIENTRY HIFxChannelOpen(CIFXHANDLE hDriver, char* szBoard, uint32_t ulChannel, CIFXHANDLE* phChannel)
 {
   int32_t  lRet = CIFX_INVALID_BOARD;
   uint32_t ulIdx;
@@ -1203,7 +1200,7 @@ CIFX_STATIC int32_t APIENTRY xChannelOpen(CIFXHANDLE hDriver, char* szBoard, uin
 *   \param hChannel Channel handle acquired by xChannelOpen
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelClose(CIFXHANDLE hChannel)
+CIFX_STATIC int32_t APIENTRY HIFxChannelClose(CIFXHANDLE hChannel)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
@@ -1228,7 +1225,7 @@ CIFX_STATIC int32_t APIENTRY xChannelClose(CIFXHANDLE hChannel)
 *   \param pvUser             User parameter passed to callback
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelDownload(CIFXHANDLE            hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelDownload(CIFXHANDLE            hChannel,
                                               uint32_t              ulMode,
                                               char*                 pszFileName,
                                               uint8_t*              pabFileData,
@@ -1280,7 +1277,7 @@ CIFX_STATIC int32_t APIENTRY xChannelDownload(CIFXHANDLE            hChannel,
 *   \param pulSendPktCount  State of the Send Mailbox
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
+CIFX_STATIC int32_t APIENTRY HIFxChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* pulRecvPktCount, uint32_t* pulSendPktCount)
 {
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -1297,7 +1294,7 @@ CIFX_STATIC int32_t APIENTRY xChannelGetMBXState(CIFXHANDLE hChannel, uint32_t* 
 *   \param ulTimeout  Time in ms to wait for card to accept the packet
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  ptSendPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  ptSendPkt, uint32_t ulTimeout)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -1325,7 +1322,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*
 *   \param ulTimeout  Time in ms to wait for available message
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt, uint32_t ulTimeout)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -1352,7 +1349,7 @@ CIFX_STATIC int32_t APIENTRY xChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulS
 *   \param ptRecvPkt  Returned packet
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt)
+CIFX_STATIC int32_t APIENTRY HIFxChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIFX_PACKET* ptRecvPkt)
 {
   PCHANNELINSTANCE   ptChannel   = (PCHANNELINSTANCE)hChannel;
   NETX_BLOCK_T*      ptMailbox   = &ptChannel->tFromHostMbx.tCom.tBlock;
@@ -1435,7 +1432,7 @@ static int32_t DoConfigLock(PCHANNELINSTANCE ptChannel, uint32_t ulState)
 *   \param ulTimeout        Timeout in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
   int32_t           lRet      = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
@@ -1492,7 +1489,7 @@ CIFX_STATIC int32_t APIENTRY xChannelConfigLock(CIFXHANDLE  hChannel, uint32_t u
 *   \param ulTimeout        Timeout in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelBusState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelBusState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -1517,7 +1514,7 @@ CIFX_STATIC int32_t APIENTRY xChannelBusState(CIFXHANDLE hChannel, uint32_t ulCm
 *   \param ulTimeout       Timeout to wait for reset complete in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
 {
   int32_t          lRet;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -1558,7 +1555,7 @@ CIFX_STATIC int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulRese
 *   \param pvData           Pointer to returned data
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulAreaNumber, uint32_t ulSize, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulAreaNumber, uint32_t ulSize, void* pvData)
 {
   int32_t                 lRet            = CIFX_NO_ERROR;
   PCHANNELINSTANCE        ptChannel       = (PCHANNELINSTANCE)hChannel;
@@ -1627,7 +1624,7 @@ CIFX_STATIC int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd,
 *   \param ulTimeout    Timeout in ms to wait for finished I/O Handshake
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
 {
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -1753,7 +1750,7 @@ CIFX_STATIC int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulArea
 *   \param ulTimeout    Timeout in ms to wait for handshake completion
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)
 {
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -1877,7 +1874,7 @@ CIFX_STATIC int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAre
 *   \param pvData       Data buffer
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
   NETX_IO_BLOCK_T* ptIOArea  = NULL;
@@ -1935,7 +1932,7 @@ CIFX_STATIC int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32
 *   \param pvData         Buffer to copy from/to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   UNREFERENCED_PARAMETER(hChannel);
   UNREFERENCED_PARAMETER(ulCmd);
@@ -1954,7 +1951,7 @@ CIFX_STATIC int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t 
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2012,7 +2009,7 @@ CIFX_STATIC int32_t APIENTRY xChannelCommonStatusBlock(CIFXHANDLE hChannel, uint
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   PCHANNELINSTANCE  ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -2081,7 +2078,7 @@ CIFX_STATIC int32_t APIENTRY xChannelExtendedStatusBlock(CIFXHANDLE hChannel, ui
 *   \param pvData         Buffer to copy to
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
+CIFX_STATIC int32_t APIENTRY HIFxChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
@@ -2096,7 +2093,7 @@ CIFX_STATIC int32_t APIENTRY xChannelUserBlock(CIFXHANDLE  hChannel, uint32_t ul
 *   \param pvMemoryInfo   Pointer to requested memory structure
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void* pvMemoryInfo)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ulCmd, void* pvMemoryInfo)
 {
   PLC_MEMORY_INFORMATION* ptMemory          = (PLC_MEMORY_INFORMATION*)pvMemoryInfo;
   PCHANNELINSTANCE        ptChannel         = (PCHANNELINSTANCE)hChannel;
@@ -2335,7 +2332,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t 
 *   \param pulReadState   Returned state of the area (!=0 means area is ready)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulReadState)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulReadState)
 {
   int32_t           lRet         = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel    = (PCHANNELINSTANCE)hChannel;
@@ -2389,7 +2386,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_
 *   \param pulWriteState  Returned state of the area (!=0 means area is ready)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulWriteState)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t* pulWriteState)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2431,7 +2428,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32
 *   \param ulAreaNumber   Areanumber
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2484,7 +2481,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPLCActivateWrite(CIFXHANDLE hChannel, uint3
 *   \param ulAreaNumber   Areanumber
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
+CIFX_STATIC int32_t APIENTRY HIFxChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t ulAreaNumber)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2532,7 +2529,7 @@ CIFX_STATIC int32_t APIENTRY xChannelPLCActivateRead(CIFXHANDLE hChannel, uint32
 *   \param pvChannelInfo  Return buffer (CHANNEL_INFORMATION structure)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChannelInfo)
+CIFX_STATIC int32_t APIENTRY HIFxChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, void* pvChannelInfo)
 {
   CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
   PCHANNELINSTANCE      ptChannel     = (PCHANNELINSTANCE)hChannel;
@@ -2605,7 +2602,7 @@ CIFX_STATIC int32_t APIENTRY xChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, 
 *                         (informational use only)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulTrigger)
+CIFX_STATIC int32_t APIENTRY HIFxChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulTrigger)
 {
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -2623,7 +2620,7 @@ CIFX_STATIC int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCm
 *                         flag
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+CIFX_STATIC int32_t APIENTRY HIFxChannelHostState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
   UNREFERENCED_PARAMETER(hChannel);
   UNREFERENCED_PARAMETER(ulCmd);
@@ -2641,7 +2638,7 @@ CIFX_STATIC int32_t APIENTRY xChannelHostState(CIFXHANDLE hChannel, uint32_t ulC
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE             hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelFindFirstFile(CIFXHANDLE             hChannel,
                                                    CIFX_DIRECTORYENTRY*   ptDirectoryInfo,
                                                    PFN_RECV_PKT_CALLBACK  pfnRecvPktCallback,
                                                    void*                  pvUser)
@@ -2650,7 +2647,7 @@ CIFX_STATIC int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE             hChann
 
   CHECK_CHANNELHANDLE(hChannel);
 
-  return xSysdeviceFindFirstFile(hChannel, ptChannel->ulChannelNumber, ptDirectoryInfo, pfnRecvPktCallback, pvUser);
+  return HIFxSysdeviceFindFirstFile(hChannel, ptChannel->ulChannelNumber, ptDirectoryInfo, pfnRecvPktCallback, pvUser);
 }
 
 /*****************************************************************************/
@@ -2661,7 +2658,7 @@ CIFX_STATIC int32_t APIENTRY xChannelFindFirstFile(CIFXHANDLE             hChann
 *   \param pvUser             User data for callback function
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelFindNextFile(CIFXHANDLE            hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelFindNextFile(CIFXHANDLE            hChannel,
                                                   CIFX_DIRECTORYENTRY*  ptDirectoryInfo,
                                                   PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
                                                   void*                 pvUser)
@@ -2670,7 +2667,7 @@ CIFX_STATIC int32_t APIENTRY xChannelFindNextFile(CIFXHANDLE            hChannel
 
   CHECK_CHANNELHANDLE(hChannel);
 
-  return xSysdeviceFindNextFile(hChannel, ptChannel->ulChannelNumber, ptDirectoryInfo, pfnRecvPktCallback, pvUser);
+  return HIFxSysdeviceFindNextFile(hChannel, ptChannel->ulChannelNumber, ptDirectoryInfo, pfnRecvPktCallback, pvUser);
 }
 
 /*****************************************************************************/
@@ -2687,7 +2684,7 @@ CIFX_STATIC int32_t APIENTRY xChannelFindNextFile(CIFXHANDLE            hChannel
 *   \param pvUser             User parameter on callback.
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelUpload(CIFXHANDLE            hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelUpload(CIFXHANDLE            hChannel,
                                             uint32_t              ulMode,
                                             char*                 pszFileName,
                                             uint8_t*              pabFileData,
@@ -2739,7 +2736,7 @@ CIFX_STATIC int32_t APIENTRY xChannelUpload(CIFXHANDLE            hChannel,
 *   \param pulState         Return actual state on CIFX_GET_DMA_STATE
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState)
+CIFX_STATIC int32_t APIENTRY HIFxChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState)
 {
 #ifdef CIFX_TOOLKIT_DMA
 
@@ -2790,7 +2787,7 @@ CIFX_STATIC int32_t APIENTRY xChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulC
 *   \param pvUser             User data pointer
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hChannel,
                                                           uint32_t             ulNotification,
                                                           PFN_NOTIFY_CALLBACK  pfnCallback,
                                                           void*                pvUser)
@@ -3060,7 +3057,7 @@ CIFX_STATIC int32_t APIENTRY xChannelRegisterNotification(CIFXHANDLE           h
 *   \param ulNotification     Notification
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelUnregisterNotification(CIFXHANDLE hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelUnregisterNotification(CIFXHANDLE hChannel,
                                                             uint32_t   ulNotification)
 {
   int32_t lRet = CIFX_NO_ERROR;
@@ -3261,7 +3258,7 @@ CIFX_STATIC int32_t APIENTRY xChannelUnregisterNotification(CIFXHANDLE hChannel,
 *   \param pulErrorCount      Actual sync error counter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
+CIFX_STATIC int32_t APIENTRY HIFxChannelSyncState( CIFXHANDLE  hChannel,
                                                 uint32_t    ulCmd,
                                                 uint32_t    ulTimeout,
                                                 uint32_t*   pulErrorCount)
@@ -3380,7 +3377,7 @@ CIFX_STATIC int32_t APIENTRY xChannelSyncState( CIFXHANDLE  hChannel,
 *   \param phDriver     Returned handle to the driver
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverOpen(CIFXHANDLE* phDriver)
+CIFX_STATIC int32_t APIENTRY HIFxDriverOpen(CIFXHANDLE* phDriver)
 {
   if(!g_tDriverInfo.fInitialized)
     return CIFX_DRV_DRIVER_NOT_LOADED;
@@ -3399,7 +3396,7 @@ CIFX_STATIC int32_t APIENTRY xDriverOpen(CIFXHANDLE* phDriver)
 *   \param hDriver     Handle to connection, that is being closed
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverClose(CIFXHANDLE hDriver)
+CIFX_STATIC int32_t APIENTRY HIFxDriverClose(CIFXHANDLE hDriver)
 {
   if(!g_tDriverInfo.fInitialized)
     return CIFX_DRV_DRIVER_NOT_LOADED;
@@ -3422,7 +3419,7 @@ CIFX_STATIC int32_t APIENTRY xDriverClose(CIFXHANDLE hDriver)
 *                       structure)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverGetInformation(CIFXHANDLE hDriver, uint32_t ulSize, void* pvDriverInfo)
+CIFX_STATIC int32_t APIENTRY HIFxDriverGetInformation(CIFXHANDLE hDriver, uint32_t ulSize, void* pvDriverInfo)
 {
   DRIVER_INFORMATION* ptDriverInfo = (DRIVER_INFORMATION*)pvDriverInfo;
 
@@ -3449,7 +3446,7 @@ CIFX_STATIC int32_t APIENTRY xDriverGetInformation(CIFXHANDLE hDriver, uint32_t 
 *   \param ulBufferLen  Length of return buffer
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverGetErrorDescription(int32_t lError, char* szBuffer, uint32_t ulBufferLen)
+CIFX_STATIC int32_t APIENTRY HIFxDriverGetErrorDescription(int32_t lError, char* szBuffer, uint32_t ulBufferLen)
 {
   int32_t lRet = CIFX_FUNCTION_FAILED;
   int     iIdx = 0;
@@ -3477,7 +3474,7 @@ CIFX_STATIC int32_t APIENTRY xDriverGetErrorDescription(int32_t lError, char* sz
 *   \param pvBoardInfo  Return buffer (BOARD_INFORMATION structure)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverEnumBoards(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulSize, void* pvBoardInfo)
+CIFX_STATIC int32_t APIENTRY HIFxDriverEnumBoards(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulSize, void* pvBoardInfo)
 {
   BOARD_INFORMATION*        ptBoardInfo   = (BOARD_INFORMATION*)pvBoardInfo;
   PDEVICEINSTANCE           ptDevInstance = NULL;
@@ -3532,7 +3529,7 @@ CIFX_STATIC int32_t APIENTRY xDriverEnumBoards(CIFXHANDLE hDriver, uint32_t ulBo
 *   \param pvChannelInfo  Return buffer (CHANNEL_INFORMATION structure)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverEnumChannels(CIFXHANDLE  hDriver, uint32_t ulBoard, uint32_t ulChannel, uint32_t ulSize, void* pvChannelInfo)
+CIFX_STATIC int32_t APIENTRY HIFxDriverEnumChannels(CIFXHANDLE  hDriver, uint32_t ulBoard, uint32_t ulChannel, uint32_t ulSize, void* pvChannelInfo)
 {
   CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
   PDEVICEINSTANCE       ptDevInstance = NULL;
@@ -3572,7 +3569,7 @@ CIFX_STATIC int32_t APIENTRY xDriverEnumChannels(CIFXHANDLE  hDriver, uint32_t u
 *   \param pvMemoryInfo Memory information structure
 *   \return CIFX_NO_ERROR on success
 ******************************************************************************/
-CIFX_STATIC int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulCmd, void* pvMemoryInfo)
+CIFX_STATIC int32_t APIENTRY HIFxDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint32_t ulCmd, void* pvMemoryInfo)
 {
   int32_t             lRet     = CIFX_NO_ERROR;
   MEMORY_INFORMATION* ptMemory = (MEMORY_INFORMATION*)pvMemoryInfo;
@@ -3662,61 +3659,61 @@ CIFX_STATIC int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t u
 /*****************************************************************************/
 static CIFX_API_FUNCTION_LIST_T s_tCifxHifApiFuns =
 {
-  xDriverOpen,
-  xDriverClose,
-  xDriverGetInformation,
-  xDriverGetErrorDescription,
-  xDriverEnumBoards,
-  xDriverEnumChannels,
-  xDriverMemoryPointer,
+  HIFxDriverOpen,
+  HIFxDriverClose,
+  HIFxDriverGetInformation,
+  HIFxDriverGetErrorDescription,
+  HIFxDriverEnumBoards,
+  HIFxDriverEnumChannels,
+  HIFxDriverMemoryPointer,
   NULL, /* OS specific, implemented by user. */
-  xSysdeviceOpen,
-  xSysdeviceClose,
-  xSysdeviceGetMBXState,
-  xSysdevicePutPacket,
-  xSysdeviceGetPacket,
-  xSysdeviceInfo,
-  xSysdeviceFindFirstFile,
-  xSysdeviceFindNextFile,
-  xSysdeviceDownload,
-  xSysdeviceUpload,
-  xSysdeviceReset,
-  xSysdeviceResetEx,
-  xSysdeviceBootstart,
-  xSysdeviceExtendedMemory,
-  xChannelOpen,
-  xChannelClose,
-  xChannelFindFirstFile,
-  xChannelFindNextFile,
-  xChannelDownload,
-  xChannelUpload,
-  xChannelGetMBXState,
-  xChannelPutPacket,
-  xChannelGetPacket,
-  xChannelGetSendPacket,
-  xChannelConfigLock,
-  xChannelReset,
-  xChannelInfo,
-  xChannelWatchdog,
-  xChannelHostState,
-  xChannelBusState,
-  xChannelDMAState,
-  xChannelIOInfo,
-  xChannelIORead,
-  xChannelIOWrite,
-  xChannelIOReadSendData,
-  xChannelControlBlock,
-  xChannelCommonStatusBlock,
-  xChannelExtendedStatusBlock,
-  xChannelUserBlock,
-  xChannelPLCMemoryPtr,
-  xChannelPLCIsReadReady,
-  xChannelPLCIsWriteReady,
-  xChannelPLCActivateWrite,
-  xChannelPLCActivateRead,
-  xChannelRegisterNotification,
-  xChannelUnregisterNotification,
-  xChannelSyncState,
+  HIFxSysdeviceOpen,
+  HIFxSysdeviceClose,
+  HIFxSysdeviceGetMBXState,
+  HIFxSysdevicePutPacket,
+  HIFxSysdeviceGetPacket,
+  HIFxSysdeviceInfo,
+  HIFxSysdeviceFindFirstFile,
+  HIFxSysdeviceFindNextFile,
+  HIFxSysdeviceDownload,
+  HIFxSysdeviceUpload,
+  HIFxSysdeviceReset,
+  HIFxSysdeviceResetEx,
+  HIFxSysdeviceBootstart,
+  HIFxSysdeviceExtendedMemory,
+  HIFxChannelOpen,
+  HIFxChannelClose,
+  HIFxChannelFindFirstFile,
+  HIFxChannelFindNextFile,
+  HIFxChannelDownload,
+  HIFxChannelUpload,
+  HIFxChannelGetMBXState,
+  HIFxChannelPutPacket,
+  HIFxChannelGetPacket,
+  HIFxChannelGetSendPacket,
+  HIFxChannelConfigLock,
+  HIFxChannelReset,
+  HIFxChannelInfo,
+  HIFxChannelWatchdog,
+  HIFxChannelHostState,
+  HIFxChannelBusState,
+  HIFxChannelDMAState,
+  HIFxChannelIOInfo,
+  HIFxChannelIORead,
+  HIFxChannelIOWrite,
+  HIFxChannelIOReadSendData,
+  HIFxChannelControlBlock,
+  HIFxChannelCommonStatusBlock,
+  HIFxChannelExtendedStatusBlock,
+  HIFxChannelUserBlock,
+  HIFxChannelPLCMemoryPtr,
+  HIFxChannelPLCIsReadReady,
+  HIFxChannelPLCIsWriteReady,
+  HIFxChannelPLCActivateWrite,
+  HIFxChannelPLCActivateRead,
+  HIFxChannelRegisterNotification,
+  HIFxChannelUnregisterNotification,
+  HIFxChannelSyncState,
 };
 
 PCIFX_API_FUNCTION_LIST_T cifXTkitGetHifApiFunctionList(void)
