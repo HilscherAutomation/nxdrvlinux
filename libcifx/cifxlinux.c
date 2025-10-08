@@ -2346,7 +2346,7 @@ static int check_if_compatible_pci_card( char* pci_path) {
 
     if (IS_HILSCHER_PCI_DEV(pci_path, &id)) {
       /* now check if the driver can handle the device */
-      if (sysfs_get_pci_id( pci_path, "subsystem_device", &id) == 0) {
+      if (sysfs_get_pci_id( pci_path, "device", &id) == 0) {
          if ( (id == NETX_CHIP_PCI_DEVICE_ID) ||
               (id == NETPLC100C_PCI_DEVICE_ID) ||
               (id == NETJACK100_PCI_DEVICE_ID) ||
