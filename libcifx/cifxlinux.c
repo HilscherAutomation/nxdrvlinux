@@ -2347,11 +2347,12 @@ static int check_if_compatible_pci_card( char* pci_path) {
 
     if (IS_HILSCHER_PCI_DEV(pci_path, &id)) {
       /* now check if the driver can handle the device */
-      if (sysfs_get_pci_id( pci_path, "subsystem_device", &id) == 0) {
+      if (sysfs_get_pci_id( pci_path, "device", &id) == 0) {
          if ( (id == NETX_CHIP_PCI_DEVICE_ID) ||
               (id == NETPLC100C_PCI_DEVICE_ID) ||
               (id == NETJACK100_PCI_DEVICE_ID) ||
-              (id == CIFX4000_PCI_DEVICE_ID) ) {
+              (id == CIFX4000_PCI_DEVICE_ID) ||
+              (id == CIFX900_PCI_DEVICE_ID) ) {
           return 0;
         } else {
           DBG( "Skip Hilscher device '%s' as it is not listed as a compatible device (sub device id=0x%X)\n", pci_path, id);
