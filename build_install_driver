@@ -83,7 +83,7 @@ if [ "${dma_enable}" = "y" ]; then
   CIFX_DMA_SUPPORT="1"
 
   echo -e "\n************************************************************"
-  echo "**** Please type 'y' if IOMMU support is enabled and not set to 'passthrough' ***"
+  echo "**** Please type 'y' if IOMMU support is enabled and not set to 'passthrough' or the driver is running on a system with \"EFI Secure Boot\" enabled."
   echo "************************************************************"
   echo "NOTE: This will disable support for PCI devices of the uio_netx driver. Instead vfio-pci will be used."
   read iommu_enable

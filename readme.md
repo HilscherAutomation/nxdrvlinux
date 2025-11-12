@@ -124,6 +124,8 @@ A PCI device can be accessed via the kernel module uio_netx or vfio-pci. Both dr
 
 This means if DMA is to be used and IOMMU is enabled and mode="translated" vfio-pci is required. Setting the IOMMU mode to "passthrough" allows further use of the uio_netx driver. The userspace driver can handle both at the same time for information refer to [uio_netx & vfio-pci parallel](#Running-uio_netx-and-vfio-pci-in-parallel).</b>
 
+<b>NOTE: A special case is if ['kernel lockdown'](https://man7.org/linux/man-pages/man7/kernel_lockdown.7.html) feature is enabled. On EFI-enabled machines, this will probably the case if 'EFI Secure Boot' is enabled. In this case PCI BAR access from user space will be prohibited and therefore ONLY the vfio-pci driver will work.</b>
+
 The following table gives an overview of performance impact and DMA support according to the system's abiltiy and configuration.
 
 | hardware IOMMU (BIOS)   | IOMMU mode            | kernel module     | DMA  | access protection | max. performance in case of virtualization     |
