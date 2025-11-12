@@ -539,14 +539,14 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     }
   }
 #endif
-
+  /* reset stop flag */
+  info->irq_stop = 0;
   if( (ret = pthread_create( &info->irq_thread, &info->irq_thread_attr, netx_irq_thread,
                       (void*)info )) != 0 )
   {
     ERR( "Enabling Interrupts (pthread_create=%d)", ret);
   } else
   {
-    info->irq_stop = 0;
     if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
       HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
       ulVal |= HOST_TO_LE32(MSK_IRQ_EN0_INT_REQ);
