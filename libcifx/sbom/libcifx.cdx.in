@@ -1,0 +1,68 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "metadata": {
+    "component": {
+      "name": "libcifx",
+      "description": "Linux user space driver for cifX devices.",
+      "type": "library",
+      "version": "3.0.0",
+      "manufacturer": {
+        "name": "Hilscher Gesellschaft fuer Systemautomation mbH",
+        "url": [
+          "https://www.hilscher.com"
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "name": "CLOSED",
+            "text": {
+              "content": "",
+              "contentType": "text/plain"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "cifxtoolkit",
+      "description": "The cifX Toolkit is a standard component for accessing the Hilscher DPM used on COMX/CIFX and other netX based devices.",
+      "type": "library",
+      "version": "2.8.0.1",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://hilscher.atlassian.net/wiki/x/bYHSB"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "name": "SLA",
+            "text": {
+              "content": "",
+              "contentType": "text/plain"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

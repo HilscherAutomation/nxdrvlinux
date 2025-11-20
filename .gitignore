@@ -7,6 +7,7 @@
 Module.symvers
 modules.order
 
+libcifx.cdx.json
 cifx.pc
 cifx_api
 cifx_tcpserver
@@ -15,3 +16,5 @@ CMakeCache.txt
 CMakeFiles
 cmake_install.cmake
 install_manifest.txt
+Makefile
+

@@ -30,6 +30,8 @@ option(SPM_PLUGIN             "Build spm-plugin and enables support of device pl
 # vfio
 option(VFIO                   "Build libary supporting VFIO interface (default: OFF)" OFF)
 option(VFIO_FORCE_LEGACY      "Force library supporting only the legacy vfio interface and not cdev interface (CONFIG_VFIO_DEVICE_CDEV) (sets VFIO)" OFF)
+# sbom
+option(SBOM                   "Generate SBOM" OFF)
 
 if(SHARED)
     add_library( cifx SHARED)
@@ -44,6 +46,10 @@ set(tk_dir  ${src_dir}/Toolkit)
 # check endianess
 include (TestBigEndian)
 TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
+
+if (NOT DISABLE_LIB_PCIACCESS)
+    set(SBOM_OPTS ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libpciaccess.cdx.in)
+endif()
 
 target_compile_definitions( cifx
     PRIVATE
@@ -81,6 +87,8 @@ if(VIRTETH)
         pkg_check_modules(LIBDNL-CLI libnl-cli-3.0)
         set(REQUIRED_PACKAGES "${REQUIRED_PACKAGES} libnl-cli-3.0")
     endif(NOT LIBDNL_CLI_INCLUDE_DIRS OR NOT LIBDNL_CLI_LIBRARY_DIRS OR NOT LIBDNL_CLI_LIBRARIES)
+
+    set(SBOM_OPTS "${SBOM_OPTS} ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libnl.cdx.in")
 endif(VIRTETH)
 
 target_link_directories( cifx
@@ -149,3 +157,26 @@ if (SPM_PLUGIN)
     set(CIFX_HEADER ${tk_dir}/Common/cifXAPI/ ${tk_dir}/Common/HilscherDefinitions/ ${tk_dir}/Source/  ${src_dir}/)
     include(${src_dir}/../plugins/netx-spm/CMakeLists.txt)
 endif(SPM_PLUGIN)
+
+add_custom_target(libcifx_sbom
+    ALL
+    SOURCES
+        $<$<BOOL:${SBOM}>:${CMAKE_CURRENT_BINARY_DIR}/libcifx.cdx.json>
+)
+
+set(update_sbom ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/update_sbom)
+set(TKIT_VERSION "2.8.0.1")
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Toolkit/LICENSE.md TKIT_LICENSE_TEXT)
+if(NOT "${TKIT_LICENSE_TEXT}" STREQUAL "")
+    string(REGEX REPLACE "\ " "\\\\ "  TKIT_LICENSE_TEXT_SAN "${TKIT_LICENSE_TEXT}")
+    string(REGEX REPLACE "\n" "\\\\n"  TKIT_LICENSE_TEXT_SAN "${TKIT_LICENSE_TEXT_SAN}")
+    string(REPLACE "\"" "\\\""  TKIT_LICENSE_TEXT_SAN "${TKIT_LICENSE_TEXT_SAN}")
+endif()
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libcifx.cdx.json
+    DEPENDS cifx
+    DEPENDS ${update_sbom}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libcifx.cdx.in
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Toolkit/LICENSE.md
+    COMMAND jq '.metadata.component.version = \"${DRV_VERSION}\" | .components[0].version = \"${TKIT_VERSION}\" | .components[0].licenses[0].license.text.content = \"${TKIT_LICENSE_TEXT_SAN}\"' ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libcifx.cdx.in > ${CMAKE_CURRENT_BINARY_DIR}/sbom/libcifx.cdx.json
+    COMMAND bash -c '${update_sbom} ${CMAKE_CURRENT_BINARY_DIR}/sbom/libcifx.cdx.json ${CMAKE_CURRENT_BINARY_DIR}/libcifx.cdx.json "${SBOM_OPTS}" '
+)
