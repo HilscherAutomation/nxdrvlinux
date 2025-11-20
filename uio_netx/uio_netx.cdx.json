@@ -1,0 +1,39 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.6",
+  "metadata" : {
+    "component" :
+    {
+      "name" : "uio_netx",
+      "description": "uio-netx kernel mode driver",
+      "type" : "library",
+      "version" : "3.0.0",
+      "manufacturer" :
+      {
+        "name" : "Hilscher Gesellschaft fuer Systemautomation mbH",
+        "url" : [ "https://www.hilscher.com" ]
+      },
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    }
+  }
+}

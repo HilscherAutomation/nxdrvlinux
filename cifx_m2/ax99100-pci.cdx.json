@@ -1,0 +1,96 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.6",
+  "metadata" : {
+    "component" :
+    {
+      "name" : "ax99100",
+      "description": "cifX M.2 kernel mode driver",
+      "type" : "library",
+      "version" : "3.0.0",
+      "manufacturer" :
+      {
+        "name" : "Hilscher Gesellschaft fuer Systemautomation mbH",
+        "url" : [ "https://www.hilscher.com" ]
+      },
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    }
+  },
+  "components" :
+  [
+    {
+      "name" : "ax99100-pci-spi",
+      "description": "Kernel mode driver for Hilscher cifX M.2 devices.",
+      "type" : "library",
+      "version" : "3.0.0",
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    },
+    {
+      "name" : "ax99100-pci-gpio",
+      "description": "Kernel mode driver for Hilscher cifX M.2 IRQ support.",
+      "type" : "library",
+      "version" : "3.0.0",
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    }
+  ]
+}
