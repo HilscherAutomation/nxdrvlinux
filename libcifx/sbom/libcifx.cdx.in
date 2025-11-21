@@ -19,12 +19,20 @@
           "url": "https://github.com/HilscherAutomation/nxdrvlinux"
         },
         {
-          "type": "issue-tracker",
-          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+          "type": "website",
+          "url": "https://hilscher.atlassian.net/wiki/x/5ITSB"
         },
         {
           "type": "vcs",
           "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://ticket.hilscher.com/projects/NXDRVLINUX/summary"
         }
       ],
       "licenses": [
