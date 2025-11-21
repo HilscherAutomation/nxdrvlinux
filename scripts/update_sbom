@@ -1,0 +1,17 @@
+#!/bin/bash
+
+in=$1
+out=$2
+
+[ ! -e $in ] && echo "$0: Given source file does not exist! "
+
+tmp=$(cat $in)
+if [ $# -gt 2 ]; then
+    append_components=$3
+
+    for component in $append_components; do
+        tmp=$(jq ".components += [$(jq . ${component})]" <<< ${tmp})
+    done
+    jq "." <<< $tmp > ${out}
+fi
+jq "." <<< $tmp > ${out}

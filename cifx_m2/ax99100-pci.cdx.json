@@ -1,0 +1,104 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.6",
+  "metadata" : {
+    "component" :
+    {
+      "name" : "ax99100",
+      "description": "cifX M.2 kernel mode driver",
+      "type" : "device-driver",
+      "version" : "3.0.0",
+      "manufacturer" :
+      {
+        "name" : "Hilscher Gesellschaft fuer Systemautomation mbH",
+        "url" : [ "https://www.hilscher.com" ]
+      },
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "website",
+          "url": "https://hilscher.atlassian.net/wiki/x/5ITSB"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://ticket.hilscher.com/projects/NXDRVLINUX/summary"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    }
+  },
+  "components" :
+  [
+    {
+      "name" : "ax99100-pci-spi",
+      "description": "Kernel mode driver for Hilscher cifX M.2 devices.",
+      "type" : "device-driver",
+      "version" : "3.0.0",
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    },
+    {
+      "name" : "ax99100-pci-gpio",
+      "description": "Kernel mode driver for Hilscher cifX M.2 IRQ support.",
+      "type" : "device-driver",
+      "version" : "3.0.0",
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/HilscherAutomation/nxdrvlinux/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/HilscherAutomation/nxdrvlinux.git"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "GPLv-2-only"
+        }
+      ]
+    }
+  ]
+}

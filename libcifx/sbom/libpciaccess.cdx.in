@@ -1,0 +1,12 @@
+    {
+      "name": "libpciaccess",
+      "description": "Generic PCI access library for X - development files",
+      "type": "library",
+      "version": "0.16-0",
+      "externalReferences": [],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ]
+    }

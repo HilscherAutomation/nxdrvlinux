@@ -1,0 +1,27 @@
+    {
+      "name" : "libnl",
+      "type" : "library",
+      "description": "The libnl suite is a collection of libraries providing APIs to netlink protocol based Linux kernel interfaces.",
+      "version" : "3.0",
+      "externalReferences" :
+      [
+        {
+          "type": "website",
+          "url": "http://www.infradead.org/~tgr/libnl/"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/thom311/libnl/issues"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://git.infradead.org/users/tgr/libnl.git/"
+        }
+      ],
+      "licenses" :
+      [
+        {
+          "expression" : "LGPL-2.1"
+        }
+      ]
+    }
