@@ -37,13 +37,7 @@
       ],
       "licenses": [
         {
-          "license": {
-            "name": "CLOSED",
-            "text": {
-              "content": "",
-              "contentType": "text/plain"
-            }
-          }
+          "expression" : "MIT"
         }
       ]
     }
