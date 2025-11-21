@@ -6,7 +6,7 @@
     {
       "name" : "uio_netx",
       "description": "uio-netx kernel mode driver",
-      "type" : "library",
+      "type" : "device-driver",
       "version" : "3.0.0",
       "manufacturer" :
       {

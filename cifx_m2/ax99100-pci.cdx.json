@@ -6,7 +6,7 @@
     {
       "name" : "ax99100",
       "description": "cifX M.2 kernel mode driver",
-      "type" : "library",
+      "type" : "device-driver",
       "version" : "3.0.0",
       "manufacturer" :
       {
@@ -41,7 +41,7 @@
     {
       "name" : "ax99100-pci-spi",
       "description": "Kernel mode driver for Hilscher cifX M.2 devices.",
-      "type" : "library",
+      "type" : "device-driver",
       "version" : "3.0.0",
       "externalReferences" :
       [
@@ -68,7 +68,7 @@
     {
       "name" : "ax99100-pci-gpio",
       "description": "Kernel mode driver for Hilscher cifX M.2 IRQ support.",
-      "type" : "library",
+      "type" : "device-driver",
       "version" : "3.0.0",
       "externalReferences" :
       [
