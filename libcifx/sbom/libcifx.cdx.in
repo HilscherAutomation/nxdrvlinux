@@ -52,6 +52,10 @@
         {
           "type": "website",
           "url": "https://hilscher.atlassian.net/wiki/x/bYHSB"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://ticket.hilscher.com/projects/NXDRVTKIT/"
         }
       ],
       "licenses": [
