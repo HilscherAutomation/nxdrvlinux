@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: SerialDPMInterface.c 14801 2023-05-10 09:36:54Z RMayer $:
+  $Id: SerialDPMInterface.c 15272 2025-11-05 06:59:14Z AMinor $:
 
   Description:
     Serial DPM Interface
@@ -12,6 +12,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
   Changes:
     Date        Description
     -----------------------------------------------------------------------------------
+    2025-11-05  Call OS_Spi* functions with pvOSDependent instead of pvDevInstance
     2023-05-10  Adapted netX Read/Write function definitions to new ulOption parameter
     2019-08-06  Chip detection loop in SerialDPM_Init() reworked
     2018-08-09  fixed pclint warnings
@@ -75,29 +76,29 @@ static void* Read_NX50( uint32_t ulOption, void* pvDevInstance, void* pvAddr, vo
     abSend[1] = (uint8_t)((ulDpmAddr >> 0) & 0xFF);
     abSend[2] = (uint8_t)(CMD_READ_NX50(ulChunkLen));
 
-    OS_SpiAssert(pvDevInstance);
-    OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
+    OS_SpiAssert(ptDevice->pvOSDependent);
+    OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
 
     do
     {
       if(ulByteTimeout == 0)
       {
-          OS_SpiDeassert(pvDevInstance);
+          OS_SpiDeassert(ptDevice->pvOSDependent);
           return pvData;
       }
       --ulByteTimeout;
 
       /* get the idle bytes done */
-      OS_SpiTransfer(pvDevInstance, NULL, &bUnused, 1);
+      OS_SpiTransfer(ptDevice->pvOSDependent, NULL, &bUnused, 1);
 
     } while((bUnused & 0xFF) != 0xA5);
 
     while(ulChunkLen--)
     {
-      OS_SpiTransfer(pvDevInstance, &bUnused, pabData++, 1);
+      OS_SpiTransfer(ptDevice->pvOSDependent, &bUnused, pabData++, 1);
     }
 
-    OS_SpiDeassert(pvDevInstance);
+    OS_SpiDeassert(ptDevice->pvOSDependent);
 
     ulDpmAddr += MAX_TRANSFER_LEN;
   }
@@ -133,10 +134,10 @@ static void* Write_NX50( uint32_t ulOption, void* pvDevInstance, void* pvAddr, v
     abSend[1] = (uint8_t)((ulDpmAddr >> 0) & 0xFF);
     abSend[2] = (uint8_t)ulChunkLen;
 
-    OS_SpiAssert(pvDevInstance);
-    OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
-    OS_SpiTransfer(pvDevInstance, pabData, NULL, ulChunkLen);
-    OS_SpiDeassert(pvDevInstance);
+    OS_SpiAssert(ptDevice->pvOSDependent);
+    OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
+    OS_SpiTransfer(ptDevice->pvOSDependent, pabData, NULL, ulChunkLen);
+    OS_SpiDeassert(ptDevice->pvOSDependent);
 
     ulDpmAddr += ulChunkLen;
     pabData   += ulChunkLen;      /*lint !e662 */
@@ -164,14 +165,14 @@ static void* Read_NX500( uint32_t ulOption, void* pvDevInstance, void* pvAddr, v
   uint32_t        ulPreLen      = ulDpmAddr&0x3;
 
   /* Align offset and length */
-  ulDpmAddr &= ~0x3;
+  ulDpmAddr &= (uint32_t)~0x3;
 
   OS_SpiLock(ptDevice->pvOSDependent);
   while (ulLen > 0)
   {
     uint8_t  abSend[3];
     uint32_t ulChunkLen   = MIN(MAX_TRANSFER_LEN, ulLen);
-    uint32_t ulAlignedLen = (ulChunkLen+3)&~0x3;
+    uint32_t ulAlignedLen = (ulChunkLen + 3) & (uint32_t)~0x3;
 
     ulLen -= ulChunkLen;
 
@@ -181,37 +182,37 @@ static void* Read_NX500( uint32_t ulOption, void* pvDevInstance, void* pvAddr, v
     abSend[2] = (uint8_t)(CMD_READ_NX50(ulAlignedLen));
 
     /* assert chip select */
-    OS_SpiAssert(pvDevInstance);
-    OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
+    OS_SpiAssert(ptDevice->pvOSDependent);
+    OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
 
     do
     {
       if(ulByteTimeout == 0)
       {
-          OS_SpiDeassert(pvDevInstance);
+          OS_SpiDeassert(ptDevice->pvOSDependent);
           return pvData;
       }
       --ulByteTimeout;
 
       /* get the idle bytes done */
-      OS_SpiTransfer(pvDevInstance, NULL, &bUnused, 1);
+      OS_SpiTransfer(ptDevice->pvOSDependent, NULL, &bUnused, 1);
 
     } while((bUnused & 0xFF) != 0xA5);
 
     if (ulPreLen)
     {
-      OS_SpiTransfer(pvDevInstance, NULL, NULL, ulPreLen);
+      OS_SpiTransfer(ptDevice->pvOSDependent, NULL, NULL, ulPreLen);
       ulPreLen = 0;
     }
 
-    OS_SpiTransfer(pvDevInstance, NULL, pabData, ulChunkLen);
+    OS_SpiTransfer(ptDevice->pvOSDependent, NULL, pabData, ulChunkLen);
 
     if (0 != (ulAlignedLen - ulChunkLen))
     {
-      OS_SpiTransfer(pvDevInstance, NULL, NULL, ulAlignedLen - ulChunkLen);
+      OS_SpiTransfer(ptDevice->pvOSDependent, NULL, NULL, ulAlignedLen - ulChunkLen);
     }
 
-    OS_SpiDeassert(pvDevInstance);
+    OS_SpiDeassert(ptDevice->pvOSDependent);
 
     ulDpmAddr += ulChunkLen;
     pabData   += ulChunkLen;      /*lint !e662 */
@@ -237,7 +238,7 @@ static void* ReadModifyWrite_NX500( uint32_t ulOption, void* pvDevInstance, void
 
   if (ulDpmAddr&0x3)
   {
-    uint32_t ulAlignedAddr = ulDpmAddr&~0x3;
+    uint32_t ulAlignedAddr = ulDpmAddr & (uint32_t)~0x3;
     uint8_t* pabRead       = &abRead[ulDpmAddr&0x3];
     uint32_t ulPartLen     = MIN(ulLen, (4 - (ulDpmAddr&0x3)));
 
@@ -252,9 +253,9 @@ static void* ReadModifyWrite_NX500( uint32_t ulOption, void* pvDevInstance, void
     (void) Write_NX50( 0, pvDevInstance, (void*)ulAlignedAddr, abRead, 4);
   }
 
-  if (ulLen&~0x3)
+  if (ulLen & (uint32_t)~0x3)
   {
-    uint32_t ulAlignedLen = ulLen&~0x3;
+    uint32_t ulAlignedLen = ulLen & (uint32_t)~0x3;
     (void) Write_NX50( 0, pvDevInstance, (void*)ulDpmAddr, pabData, ulAlignedLen);
     pabData   += ulAlignedLen;
     ulDpmAddr += ulAlignedLen;
@@ -294,10 +295,10 @@ static void* Read_NX10( uint32_t ulOption, void* pvDevInstance, void* pvAddr, vo
   abSend[2] = (uint8_t)(CMD_READ_NX10(ulLen));
 
   OS_SpiLock(ptDevice->pvOSDependent);
-  OS_SpiAssert(pvDevInstance);
-  OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
-  OS_SpiTransfer(pvDevInstance, NULL, (uint8_t*)pvData, ulLen);
-  OS_SpiDeassert(pvDevInstance);
+  OS_SpiAssert(ptDevice->pvOSDependent);
+  OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
+  OS_SpiTransfer(ptDevice->pvOSDependent, NULL, (uint8_t*)pvData, ulLen);
+  OS_SpiDeassert(ptDevice->pvOSDependent);
   OS_SpiUnlock(ptDevice->pvOSDependent);
   return pvData;
 }
@@ -321,10 +322,10 @@ static void* Write_NX10( uint32_t ulOption, void* pvDevInstance, void* pvAddr, v
   abSend[2] = (uint8_t)(CMD_WRITE_NX10(ulLen));
 
   OS_SpiLock(ptDevice->pvOSDependent);
-  OS_SpiAssert(pvDevInstance);
-  OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
-  OS_SpiTransfer(pvDevInstance, (uint8_t*)pvData, NULL, ulLen);
-  OS_SpiDeassert(pvDevInstance);
+  OS_SpiAssert(ptDevice->pvOSDependent);
+  OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
+  OS_SpiTransfer(ptDevice->pvOSDependent, (uint8_t*)pvData, NULL, ulLen);
+  OS_SpiDeassert(ptDevice->pvOSDependent);
   OS_SpiUnlock(ptDevice->pvOSDependent);
   return pvAddr;
 }
@@ -349,10 +350,10 @@ static void* Read_NX51( uint32_t ulOption, void* pvDevInstance, void* pvAddr, vo
   abSend[3] = (uint8_t)(CMD_LEN_NX51(ulLen));
 
   OS_SpiLock(ptDevice->pvOSDependent);
-  OS_SpiAssert(pvDevInstance);
-  OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
-  OS_SpiTransfer(pvDevInstance, NULL, (uint8_t*)pvData, ulLen);
-  OS_SpiDeassert(pvDevInstance);
+  OS_SpiAssert(ptDevice->pvOSDependent);
+  OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
+  OS_SpiTransfer(ptDevice->pvOSDependent, NULL, (uint8_t*)pvData, ulLen);
+  OS_SpiDeassert(ptDevice->pvOSDependent);
   OS_SpiUnlock(ptDevice->pvOSDependent);
   return pvData;
 }
@@ -376,10 +377,10 @@ static void* Write_NX51( uint32_t ulOption, void* pvDevInstance, void* pvAddr, v
   abSend[2] = (uint8_t)(((uint32_t)pvAddr >> 0) & 0xFF);
 
   OS_SpiLock(ptDevice->pvOSDependent);
-  OS_SpiAssert(pvDevInstance);
-  OS_SpiTransfer(pvDevInstance, abSend, NULL, MAX_CNT(abSend));
-  OS_SpiTransfer(pvDevInstance, (uint8_t*)pvData, NULL, ulLen);
-  OS_SpiDeassert(pvDevInstance);
+  OS_SpiAssert(ptDevice->pvOSDependent);
+  OS_SpiTransfer(ptDevice->pvOSDependent, abSend, NULL, MAX_CNT(abSend));
+  OS_SpiTransfer(ptDevice->pvOSDependent, (uint8_t*)pvData, NULL, ulLen);
+  OS_SpiDeassert(ptDevice->pvOSDependent);
   OS_SpiUnlock(ptDevice->pvOSDependent);
   return pvAddr;
 }
@@ -408,9 +409,9 @@ int SerialDPM_Init(DEVICEINSTANCE* ptDevice)
     do
     {
       /* Execute the SPI chip detection */
-      OS_SpiAssert(ptDevice);
-      OS_SpiTransfer(ptDevice, abSend, (unsigned char*)&ulDetect, MAX_CNT(abSend));
-      OS_SpiDeassert(ptDevice);
+      OS_SpiAssert(ptDevice->pvOSDependent);
+      OS_SpiTransfer(ptDevice->pvOSDependent, abSend, (unsigned char*)&ulDetect, MAX_CNT(abSend));
+      OS_SpiDeassert(ptDevice->pvOSDependent);
 
       if (0 == ulDetect)
       {

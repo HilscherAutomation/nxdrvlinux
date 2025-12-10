@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkit.c 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: cifXToolkit.c 15355 2025-11-28 09:28:41Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -45,6 +45,8 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
+#include "cifXHWFunctions.h"
+#include "cifXHWFunctionsWrapper.h"
 
 #include "Hil_Packet.h"
 #include "Hil_ModuleLoader.h"
@@ -52,6 +54,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "Hil_Results.h"
 
 #include "NetX_ROMLoader.h"
+#include "NetX_RegDefs.h"
 #include "netx50_romloader_dpm.h"
 #include "netx51_romloader_dpm.h"
 
@@ -106,7 +109,7 @@ extern void*                   g_pvTkitLock;
 /*****************************************************************************/
 /*! Cyclic timer for COS bit checking, if we are running in polling mode     */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitCyclicTimer(void)
+static void DPMcifXTKitCyclicTimer(void)
 {
   uint32_t ulIdx;
 
@@ -117,10 +120,10 @@ CIFX_STATIC void cifXTKitCyclicTimer(void)
     {
       PDEVICEINSTANCE ptDevInstance = g_pptDevices[ulIdx];
       /* COS handling is only available on DPM- and not on HIF-devices. */
-      if (0 == ptDevInstance->bDPMLayout)
+      if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
       {
         /* Device is not running in IRQ mode, so we need to check COS */
-        CIFX_MAKE_DEV_FUN(DEV_CheckCOSFlags)(g_pptDevices[ulIdx]);
+        DEV_CheckCOSFlags(g_pptDevices[ulIdx]);
       }
     }
   }
@@ -769,15 +772,15 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
         /*---------------------------------------------------------------------------------------------*/
         /* based devices are not using a FLASH file system, the BASE OS file must be always downloaded */
         /*---------------------------------------------------------------------------------------------*/
-        } else if(CIFX_NO_ERROR != (lRet = CIFX_MAKE_CIFX_FUN(xSysdeviceDownload)(hSysDevice,
-                                                                                  0,
-                                                                                  DOWNLOAD_MODE_FIRMWARE,
-                                                                                  tFileInfo.szShortFileName,
-                                                                                  (uint8_t*)pbBuffer,
-                                                                                  ulFileLength,
-                                                                                  NULL,
-                                                                                  NULL,
-                                                                                  NULL)))
+        } else if(CIFX_NO_ERROR != (lRet = xSysdeviceDownload(hSysDevice,
+                                                              0,
+                                                              DOWNLOAD_MODE_FIRMWARE,
+                                                              tFileInfo.szShortFileName,
+                                                              (uint8_t*)pbBuffer,
+                                                              ulFileLength,
+                                                              NULL,
+                                                              NULL,
+                                                              NULL)))
         {
           /* Error during download */
           if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
@@ -816,8 +819,7 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
           tSendPkt.tData.ulChannelNo = HOST_TO_LE32(CIFX_SYSTEM_DEVICE);
 
           /* Transfer packet */
-          lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                                    &ptDevInstance->tSystemDevice,
+          lRet = DEV_TransferPacket(&ptDevInstance->tSystemDevice,
                                     (CIFX_PACKET*)&tSendPkt,
                                     (CIFX_PACKET*)&tRecvPkt,
                                     sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
@@ -841,7 +843,7 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             /*--------------------------------------------
                 Wait until READY is gone!!!!!!!!!!!!!!!!!!!
             --------------------------------------------*/
-            if (!CIFX_MAKE_DEV_FUN(DEV_WaitForNotReady_Poll)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
+            if (!DEV_WaitForNotReady_Poll( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
             {
               lRet = CIFX_DEV_RESET_TIMEOUT;
 
@@ -858,7 +860,7 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
                   Wait until READY is back
               --------------------------------------------*/
               /* Check if firmware is READY because we need the DPM Layout */
-              if (!CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
+              if (!DEV_WaitForReady_Poll( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
               {
                 lRet = CIFX_DEV_NOT_READY;
 
@@ -1005,16 +1007,15 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
              We will only download it, if our file is different from that on the
              device, or the device does not have this file                      */
           int fDownload = 0;
-          if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_CheckForDownload)(
-                                                              hSysDevice,
-                                                              HIL_PACKET_DEST_SYSTEM, /* BASE OS will be found in "PORT_0" */
-                                                              &fDownload,
-                                                              tFileInfo.szShortFileName,
-                                                              pbBuffer,
-                                                              ulFileLength,
-                                                              CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
-                                                              NULL,
-                                                              NULL)))
+          if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload(hSysDevice,
+                                                             HIL_PACKET_DEST_SYSTEM, /* BASE OS will be found in "PORT_0" */
+                                                             &fDownload,
+                                                             tFileInfo.szShortFileName,
+                                                             pbBuffer,
+                                                             ulFileLength,
+                                                             DEV_TransferPacket,
+                                                             NULL,
+                                                             NULL)))
           {
             /* Display an error */
             if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
@@ -1041,19 +1042,19 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             uint32_t ulChNum = 0;
             for ( ulChNum = 0; ulChNum < CIFX_MAX_NUMBER_OF_CHANNELS; ulChNum++)
             {
-              (void)CIFX_MAKE_DEV_FUN(DEV_RemoveChannelFiles)((PCHANNELINSTANCE)hSysDevice, ulChNum, CIFX_MAKE_DEV_FUN(DEV_TransferPacket), NULL, NULL, NULL);
+              (void)DEV_RemoveChannelFiles((PCHANNELINSTANCE)hSysDevice, ulChNum, DEV_TransferPacket, NULL, NULL, NULL);
             }
 
             /* Download the file stored in the buffer */
-            lRet = CIFX_MAKE_CIFX_FUN(xSysdeviceDownload)(hSysDevice,
-                                                          0,
-                                                          DOWNLOAD_MODE_FIRMWARE,
-                                                          tFileInfo.szShortFileName,
-                                                          pbBuffer,
-                                                          ulFileLength,
-                                                          NULL,
-                                                          NULL,
-                                                          NULL);
+            lRet = xSysdeviceDownload(hSysDevice,
+                                      0,
+                                      DOWNLOAD_MODE_FIRMWARE,
+                                      tFileInfo.szShortFileName,
+                                      pbBuffer,
+                                      ulFileLength,
+                                      NULL,
+                                      NULL,
+                                      NULL);
 
             if(CIFX_NO_ERROR != lRet)
             {
@@ -1079,7 +1080,7 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
 
               /* Start the Base OS */
               /* We have to do a SYSTEMSTART */
-              if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
+              if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
               {
                 if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
@@ -1218,18 +1219,17 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
             } else
             {
               uint8_t bLoadState = CIFXTKIT_DOWNLOAD_NONE;
-              if( CIFX_NO_ERROR == (lRet = CIFX_MAKE_DEV_FUN(DEV_ProcessFWDownload)(
-                                                                  ptDevInstance,
-                                                                  ulChannel,
-                                                                  tFileInfo.szFullFileName,
-                                                                  tFileInfo.szShortFileName,
-                                                                  ulFileLength,
-                                                                  pbBuffer,
-                                                                  &bLoadState,
-                                                                  CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
-                                                                  NULL,
-                                                                  NULL,
-                                                                  NULL)))
+              if( CIFX_NO_ERROR == (lRet = DEV_ProcessFWDownload(ptDevInstance,
+                                                                 ulChannel,
+                                                                 tFileInfo.szFullFileName,
+                                                                 tFileInfo.szShortFileName,
+                                                                 ulFileLength,
+                                                                 pbBuffer,
+                                                                 &bLoadState,
+                                                                 DEV_TransferPacket,
+                                                                 NULL,
+                                                                 NULL,
+                                                                 NULL)))
               {
                 switch(bLoadState & ~CIFXTKIT_DOWNLOAD_EXECUTED)
                 {
@@ -1389,16 +1389,15 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
             {
               /* Check if we have to download the file or if it already exists on the hardware */
               int fDownload = 0;
-              if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_CheckForDownload)(
-                                                                  hSysDevice,
-                                                                  ulChannel,
-                                                                  &fDownload,
-                                                                  tFileInfo.szShortFileName,
-                                                                  pbBuffer,
-                                                                  ulFileLength,
-                                                                  CIFX_MAKE_DEV_FUN(DEV_TransferPacket),
-                                                                  NULL,
-                                                                  NULL)))
+              if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload(hSysDevice,
+                                                                 ulChannel,
+                                                                 &fDownload,
+                                                                 tFileInfo.szShortFileName,
+                                                                 pbBuffer,
+                                                                 ulFileLength,
+                                                                 DEV_TransferPacket,
+                                                                 NULL,
+                                                                 NULL)))
               {
                 /* Display an error */
                 if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
@@ -1421,7 +1420,7 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
               } else
               {
                 /* Download the file stored in the buffer */
-                lRet = CIFX_MAKE_CIFX_FUN(xSysdeviceDownload)(
+                lRet = xSysdeviceDownload(
                     hSysDevice,
                     ulChannel,
                     DOWNLOAD_MODE_CONFIG,
@@ -1488,7 +1487,7 @@ static int32_t cifXReadHardwareIdent(PDEVICEINSTANCE ptDevInstance,
   PCHANNELINSTANCE ptSystemdevice = &ptDevInstance->tSystemDevice;
 
   HIL_HW_IDENTIFY_REQ_T tSendPkt;
-  CIFX_PACKET           tRecvPkt;
+  HIL_HW_IDENTIFY_CNF_T tRecvPkt;
 
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
   OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
@@ -1500,17 +1499,16 @@ static int32_t cifXReadHardwareIdent(PDEVICEINSTANCE ptDevInstance,
   tSendPkt.tHead.ulLen        = 0;
 
   /* Transfer packet */
-  lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                             ptSystemdevice,
+  lRet = DEV_TransferPacket( ptSystemdevice,
                              (CIFX_PACKET*)&tSendPkt,
-                             &tRecvPkt,
+                             (CIFX_PACKET*)&tRecvPkt,
                              sizeof(tRecvPkt),
                              CIFX_TO_SEND_PACKET,
                              pfnRecvPktCallback,
                              pvUser);
 
   if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHeader.ulState))) )
+      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
   {
     if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
     {
@@ -1521,9 +1519,7 @@ static int32_t cifXReadHardwareIdent(PDEVICEINSTANCE ptDevInstance,
     }
   } else
   {
-    HIL_HW_IDENTIFY_CNF_T* ptData = (HIL_HW_IDENTIFY_CNF_T*)&tRecvPkt;
-
-    ptDevInstance->eChipType  = (CIFX_TOOLKIT_CHIPTYPE_E)LE32_TO_HOST(ptData->tData.ulChipTyp);
+    ptDevInstance->eChipType  = (CIFX_TOOLKIT_CHIPTYPE_E)LE32_TO_HOST(tRecvPkt.tData.ulChipTyp);
   }
 
   return lRet;
@@ -1617,8 +1613,7 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
      file size (and contained firmware).
      Measurements showed that for every 100kB the module needs
      one additional second for relocation */
-  lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                             &ptDevInstance->tSystemDevice,
+  lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                              &uSendPacket.tPacket,
                              (CIFX_PACKET*)&tRecvPacket,
                              sizeof(tRecvPacket),
@@ -1654,7 +1649,7 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
       /* We should have such a communication channel */
       do
       {
-        if (CIFX_MAKE_DEV_FUN(DEV_IsReady)(ptDevInstance->pptCommChannels[ulChannelNumber]))
+        if (DEV_IsReady(ptDevInstance->pptCommChannels[ulChannelNumber]))
         {
           lRet = CIFX_NO_ERROR;
           break;
@@ -1737,8 +1732,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     tSendPkt.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
 
     /* Transfer packet */
-    lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                              &ptDevInstance->tSystemDevice,
+    lRet = DEV_TransferPacket(&ptDevInstance->tSystemDevice,
                               (CIFX_PACKET*)&tSendPkt,
                               (CIFX_PACKET*)&tRecvPkt,
                               sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
@@ -1762,7 +1756,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
       /*--------------------------------------------
           Wait until READY is gone!!!!!!!!!!!!!!!!!!!
       --------------------------------------------*/
-      if (!CIFX_MAKE_DEV_FUN(DEV_WaitForNotReady_Poll)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
+      if (!DEV_WaitForNotReady_Poll( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
       {
         lRet = CIFX_DEV_RESET_TIMEOUT;
 
@@ -1780,7 +1774,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
             Wait until READY is back
         --------------------------------------------*/
         /* Check if firmware is READY because we need the DPM Layout */
-        if (!CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
+        if (!DEV_WaitForReady_Poll( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
         {
           lRet = CIFX_DEV_NOT_READY;
 
@@ -1880,7 +1874,7 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
         if( 0 == fSystemStartDone)
         {
           /* We have to do a SYSTEMSTART before loading a Module again! Maybe it is already running */
-          if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
+          if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
           {
             if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
@@ -1905,7 +1899,7 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
     if(ptDevChannelCfg->fFWLoaded == 1)
     {
       /* We have to do a SYSTEMSTART */
-      if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_DoSystemStart)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
+      if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
       {
         if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
@@ -1990,7 +1984,7 @@ static int32_t cifXStartFlashConfiguration(PDEVICEINSTANCE ptDevInstance, PDEVIC
 
       if ( ptDevChannelCfg->atChannelData[ulChannel].fCNFLoaded)
       {
-        lChannelRet = CIFX_MAKE_DEV_FUN(DEV_DoChannelInit)(ptDevInstance->pptCommChannels[ulChannel], CIFX_TO_SEND_PACKET);
+        lChannelRet = DEV_DoChannelInit(ptDevInstance->pptCommChannels[ulChannel], CIFX_TO_SEND_PACKET);
 
         if(CIFX_NO_ERROR == lChannelRet)
         {
@@ -2034,7 +2028,7 @@ static int32_t cifXCheckDpmLayout(PDEVICEINSTANCE ptDevInstance)
   int32_t                   lRet         = CIFX_NO_ERROR;
   uint8_t                   bDpmLayout   = HWIF_READ8(ptDevInstance, ptSysChannel->tSystemInfo.bHifLayout);
 
-  if (bDpmLayout != HIL_HIF_LAYOUT_NA) /* bDpmLayout must be 0 (HIL_HIF_LAYOUT_NA) */
+  if (HIL_HIF_LAYOUT_NA != bDpmLayout) /* bDpmLayout must be 0 (HIL_HIF_LAYOUT_NA) */
     lRet = CIFX_DEV_DPM_LAYOUT_UNKNOWN;
 
   return lRet;
@@ -2201,15 +2195,15 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
     ptSystemDevice->fIsSysDevice        = 1;
 
     /* Read actual Host state, in case they differ from 0 */
-    CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)(&ptDevInstance->tSystemDevice, 1);
-    CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(&ptDevInstance->tSystemDevice, 1, 0);
+    DEV_ReadHostFlags(&ptDevInstance->tSystemDevice, 1);
+    DEV_ReadHandshakeFlags(&ptDevInstance->tSystemDevice, 1, 0);
 
 
     /*--------------------------------------------
       Check if READY is available
     --------------------------------------------*/
     /* Check if system channel is READY before exceuting additional functions on it */
-    if (!CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
+    if (!DEV_WaitForReady_Poll( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START))
     {
       lRet = CIFX_DEV_NOT_READY;
 
@@ -2306,8 +2300,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
     tSendPkt.tData.ulSubblockIndex  = HOST_TO_LE32(ulIdx);                  /* Insert Block index into packet */
 
     /* Transfer request */
-    if ( (lRet = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                                     &ptDevInstance->tSystemDevice,
+    if ( (lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                                      (CIFX_PACKET*)&tSendPkt,
                                      (CIFX_PACKET*)&tRecvPkt,
                                      sizeof(HIL_DPM_GET_BLOCK_INFO_CNF_T),
@@ -2880,8 +2873,7 @@ static int32_t cifXHandleWarmstartParameter(PDEVICEINSTANCE ptDevInstance)
     } else
     {
       /* Send warm start parameter to hardware */
-      int32_t lChannelError = CIFX_MAKE_DEV_FUN(DEV_TransferPacket)(
-                                                  ptChannelInst,
+      int32_t lChannelError = DEV_TransferPacket( ptChannelInst,
                                                   &tPacket,
                                                   &tRecvPacket,
                                                   sizeof(tRecvPacket),
@@ -2906,7 +2898,7 @@ static int32_t cifXHandleWarmstartParameter(PDEVICEINSTANCE ptDevInstance)
         /*--------------------------------------------*/
         /* Wait until STACK is READY/RUNNING          */
         /*--------------------------------------------*/
-        if (CIFX_MAKE_DEV_FUN(DEV_WaitForRunning_Poll)( ptChannelInst, CIFX_TO_FIRMWARE_START))
+        if (DEV_WaitForRunning_Poll( ptChannelInst, CIFX_TO_FIRMWARE_START))
         {
           /* Firmware started after warm start process */
           if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
@@ -3073,8 +3065,8 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
 
         ptChannelInst->bHandshakeWidth    = HWIF_READ8(ptDevInstance, ptChannel->tCom.bSizePositionOfHandshake) & HIL_HANDSHAKE_SIZE_MASK;
 
-        CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)(ptChannelInst, 1);
-        CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptChannelInst, 0, 0);
+        DEV_ReadHostFlags(ptChannelInst, 1);
+        DEV_ReadHandshakeFlags(ptChannelInst, 0, 0);
 
         /* Read channel layout */
         if (CIFX_NO_ERROR != (lRet = cifXReadChannelLayout(ptDevInstance, ptChannelInst, HWIF_READ8(ptDevInstance, ptSysChannel->atChannelInfo[ulBlockID].tCom.bNumberOfBlocks))))
@@ -3086,8 +3078,8 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
         } else
         {
           /* Read the host flag once, to keep them in sync with the actual DPM state */
-          CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)(ptChannelInst, 1);
-          CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptChannelInst, 0, 0);
+          DEV_ReadHostFlags(ptChannelInst, 1);
+          DEV_ReadHandshakeFlags(ptChannelInst, 0, 0);
 
           /* Check if we have an communication channel. Than we have to make sure,
              all necessary block are availbale  */
@@ -3143,7 +3135,7 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
                 /* We created a new channel, now read firmware information */
                 /* Wait until STACK is READY before communicating with it */
                 /*--------------------------------------------------------*/
-                if (!CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)(ptChannelInst, CIFX_TO_FIRMWARE_START))
+                if (!DEV_WaitForReady_Poll(ptChannelInst, CIFX_TO_FIRMWARE_START))
                 {
                   /* READY failed */
                   if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
@@ -3155,7 +3147,7 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
                 } else
                 {
                   /* We need the actual state of all channel flags, including our own one */
-                  CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)( ptChannelInst, 1);
+                  DEV_ReadHostFlags( ptChannelInst, 1);
                 }
               }
             }
@@ -3183,7 +3175,7 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
               /* If a module firmware was loaded we are waiting before on the channel ready. */
               /* If we have not downloaded a firmware / module we skipping the prior test but we have to */
               /* make sure the channel is READY and we have also to handle COS flags in this case! */
-              if( CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)(ptChannelInst, 20))
+              if( DEV_WaitForReady_Poll(ptChannelInst, 20))
               {
                 int32_t lTempError = CIFX_NO_ERROR;
                 if ( CIFX_NO_ERROR != (lTempError = cifXReadFirmwareIdent( ptDevInstance,
@@ -3405,7 +3397,7 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         if(ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
         {
           /* This channel has DMA activated, setup DMA buffers */
-          (void)CIFX_MAKE_DEV_FUN(DEV_SetupDMABuffers)( ptChannel);
+          (void)DEV_SetupDMABuffers( ptChannel);
         }
       }
     }
@@ -3424,10 +3416,10 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         /* TODO: Check DMA capability of the channel */
 
         /* This channel has DMA activated, setup DMA buffers */
-        (void)CIFX_MAKE_DEV_FUN(DEV_SetupDMABuffers)( ptChannel);
+        (void)DEV_SetupDMABuffers( ptChannel);
 
         /* Activate DMA on all channels which are available */
-        if ( CIFX_NO_ERROR != CIFX_MAKE_DEV_FUN(DEV_DMAState)( ptChannel, CIFX_DMA_STATE_ON, &ulTemp))
+        if ( CIFX_NO_ERROR != DEV_DMAState( ptChannel, CIFX_DMA_STATE_ON, &ulTemp))
         {
           if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
@@ -3452,7 +3444,7 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         if(ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
         {
           /* This channel has DMA active, switch OFF */
-          (void)CIFX_MAKE_DEV_FUN(DEV_DMAState)( ptChannel, CIFX_DMA_STATE_OFF, &ulTemp);
+          (void)DEV_DMAState( ptChannel, CIFX_DMA_STATE_OFF, &ulTemp);
         }
       }
     }
@@ -3914,9 +3906,12 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
 /*****************************************************************************/
 static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
 {
-  int32_t          lRet = CIFX_NO_ERROR;
+  int32_t          lRet           = CIFX_NO_ERROR;
   uint32_t         ulIdx          = 0;
   PCHANNELINSTANCE ptSystemDevice = &ptDevInstance->tSystemDevice;
+
+  if (HIL_HIF_LAYOUT_NA != ptDevInstance->bDPMLayout)
+    return CIFX_DEV_DPM_LAYOUT_UNKNOWN;
 
   /* Process all created communication channels */
   for(ulIdx = 0; ulIdx < ptDevInstance->ulCommChannelCount; ++ulIdx)
@@ -4061,7 +4056,7 @@ static int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
 *   \return CIFX_TKIT_IRQ_DSR_REQUESTED/CIFX_TKIT_IRQ_HANDLED on success
 *           CIFX_TKIT_IRQ_OTHERDEVICE if the IRQ is not from the device      */
 /*****************************************************************************/
-CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
+static int DPMcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
 {
   int iRet;
 
@@ -4183,13 +4178,12 @@ static void ProcessIOArea(PCHANNELINSTANCE  ptChannel,
                           uint16_t          usUnequalBits,
                           int               fOutput)
 {
-  PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   uint16_t usBitMask = (uint16_t)(1 << ptIoArea->bHandshakeBit);
 
   if(usChangedBits & usBitMask)
   {
     PFN_NOTIFY_CALLBACK pfnCallback = NULL;
-    uint8_t             bIOBitState = CIFX_MAKE_DEV_FUN(DEV_GetIOBitstate)(ptChannel, ptIoArea, fOutput);
+    uint8_t             bIOBitState = DEV_GetIOBitstate(ptChannel, ptIoArea, fOutput);
 
     switch(bIOBitState)
     {
@@ -4225,7 +4219,7 @@ static void ProcessIOArea(PCHANNELINSTANCE  ptChannel,
 /*! Deferred interrupt handler
 *   \param ptDevInstance Instance the DSR is requested for                   */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
+static void DPMcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
 {
   if(!ptDevInstance->fResetActive)
   {
@@ -4443,7 +4437,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
               ptChannel->ulDeviceCOSFlags         = ulNewCOSFlags;
             }
 
-            CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, HCF_NETX_COS_ACK);
+            DEV_ToggleBit(ptChannel, HCF_NETX_COS_ACK);
 
             /* Unlock flag access */
             OS_LeaveLock(ptChannel->pvLock);
@@ -4472,7 +4466,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
               ptChannel->ulHostCOSFlagsSaved = ptChannel->ulHostCOSFlags;
 
               /* Signal new COS flags */
-              CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, HCF_HOST_COS_CMD);
+              DEV_ToggleBit(ptChannel, HCF_HOST_COS_CMD);
 
               /* Remove all enable flags from the local COS flags */
               ptChannel->ulHostCOSFlags &= ~(HIL_APP_COS_BUS_ON_ENABLE | HIL_APP_COS_INITIALIZATION_ENABLE | HIL_APP_COS_LOCK_CONFIGURATION_ENABLE);
@@ -4513,7 +4507,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
               ptChannel->ulDeviceCOSFlags         = ulNewCOSFlags;
             }
 
-            CIFX_MAKE_DEV_FUN(DEV_ToggleBit)(ptChannel, HSF_NETX_COS_ACK);
+            DEV_ToggleBit(ptChannel, HSF_NETX_COS_ACK);
 
             /* Unlock flag access */
             OS_LeaveLock(ptChannel->pvLock);
@@ -4582,7 +4576,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
 /*! Physically Enable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void DPMcifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   /* Set interrupt enable bits in PCI mode only if the complete 64KByte DPM is available */
   if( (ptDevInstance->fPCICard) ||
@@ -4602,7 +4596,7 @@ CIFX_STATIC void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 /*! Physically Disable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void DPMcifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   /* Clear interrupt enable bits in PCI mode or if the complete 64Kb DPM is available */
   if( (ptDevInstance->fPCICard) ||
@@ -4622,7 +4616,7 @@ CIFX_STATIC void cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 *                        the DPM)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
+static int32_t DPMcifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t lRet;
 
@@ -4633,11 +4627,9 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
   /* Disable interrupts during startup phase. Just in case the user has set this flag! */
   ptDevInstance->fIrqEnabled = 0;
 
-#ifdef CIFX_TOOLKIT_FUNCTION_LIST
   ptDevInstance->ptTkitFun = cifXTkitGetDpmTkitFunctionList();
   ptDevInstance->ptCifxFun = cifXTkitGetDpmApiFunctionList();
   ptDevInstance->ptDevFun  = cifXTkitGetDpmDevFunctionList();
-#endif
 
 #ifdef CIFX_TOOLKIT_HWIF
   /* Validate hardware access function pointers != NULL */
@@ -4689,12 +4681,12 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
       if(0 != (ptDevInstance->fIrqEnabled))
       {
         /* Perform a dummy interrupt cycle to get handshake flags in Sync for proper operation */
-        if(CIFX_TKIT_IRQ_DSR_REQUESTED == cifXTKitISRHandler(ptDevInstance, 1))
-          cifXTKitDSRHandler(ptDevInstance);
+        if(CIFX_TKIT_IRQ_DSR_REQUESTED == DPMcifXTKitISRHandler(ptDevInstance, 1))
+          DPMcifXTKitDSRHandler(ptDevInstance);
 
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
         OS_EnableInterrupts(ptDevInstance->pvOSDependent);
-        cifXTKitEnableHWInterrupt(ptDevInstance);
+        DPMcifXTKitEnableHWInterrupt(ptDevInstance);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
       }
     }
@@ -4713,7 +4705,7 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 *                         any references to the device are open
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
+static int32_t DPMcifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 {
   int32_t  lRet   = CIFX_INVALID_BOARD;
   int      fFound = 0;
@@ -4742,7 +4734,7 @@ CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
     if(ptDevInst->fIrqEnabled)
     {
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
-      cifXTKitDisableHWInterrupt(ptDevInst);
+      DPMcifXTKitDisableHWInterrupt(ptDevInst);
       OS_DisableInterrupts(ptDevInst->pvOSDependent);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
 
@@ -4794,51 +4786,57 @@ CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 /*****************************************************************************/
 /*! Un-Initializes the cifX Toolkit                                          */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDeinit( void)
+static void DPMcifXTKitDeinit( void)
 {
-  uint32_t ulIdx = 0;
+  int32_t lIdx = 0;
 
   if(g_pvTkitLock)
   {
     OS_EnterLock(g_pvTkitLock);
   }
 
-  for(ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
+  /* g_ulDeviceCount is decremented inside cifXStopDevice() */
+  for(lIdx = g_ulDeviceCount-1; lIdx >= 0; lIdx--)
   {
-    (void)cifXStopDevice(g_pptDevices[ulIdx]);
+    (void)cifXStopDevice(g_pptDevices[lIdx]);
   }
 
-  if(g_pptDevices)
+  if (0 == g_ulDeviceCount)
   {
-    OS_Memfree(g_pptDevices);
-    g_pptDevices    = NULL;
-  }
-  g_ulDeviceCount = 0;
+    if(g_pptDevices)
+    {
+      OS_Memfree(g_pptDevices);
+      g_pptDevices    = NULL;
+    }
 
-  if(g_pvTkitLock)
+    if(g_pvTkitLock)
+    {
+      OS_LeaveLock(g_pvTkitLock);
+      OS_DeleteLock(g_pvTkitLock);
+      g_pvTkitLock = NULL;
+    }
+
+    /* Uninitialize OS functions */
+    OS_Deinit();
+
+    g_tDriverInfo.fInitialized = 0;
+    g_tDriverInfo.ulOpenCount  = 0;
+  } else
   {
     OS_LeaveLock(g_pvTkitLock);
-    OS_DeleteLock(g_pvTkitLock);
-    g_pvTkitLock = NULL;
   }
-
-  /* Uninitialize OS functions */
-  OS_Deinit();
-
-  g_tDriverInfo.fInitialized = 0;
-  g_tDriverInfo.ulOpenCount  = 0;
 }
 
 /*****************************************************************************/
 /*! Initializes the cifX Toolkit
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitInit( void)
+static int32_t DPMcifXTKitInit( void)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
   /* Uninitialize toolkit, just in case it was not correctly closed before */
-  cifXTKitDeinit();
+  DPMcifXTKitDeinit();
 
   /* Initialize OS functions */
   lRet = OS_Init();
@@ -4863,30 +4861,26 @@ CIFX_STATIC int32_t cifXTKitInit( void)
   return lRet;
 }
 
-#ifdef CIFX_TOOLKIT_FUNCTION_LIST
-
 /*****************************************************************************/
 /*! Local structure for cifX Toolkit function pointers                       */
 /*****************************************************************************/
 static CIFX_TKIT_FUNCTION_LIST_T s_tCifxDpmTkitFuns =
 {
-  cifXTKitInit,
-  cifXTKitDeinit,
-  cifXTKitAddDevice,
-  cifXTKitRemoveDevice,
-  cifXTKitEnableHWInterrupt,
-  cifXTKitDisableHWInterrupt,
-  cifXTKitISRHandler,
-  cifXTKitDSRHandler,
-  cifXTKitCyclicTimer,
+  DPMcifXTKitInit,
+  DPMcifXTKitDeinit,
+  DPMcifXTKitAddDevice,
+  DPMcifXTKitRemoveDevice,
+  DPMcifXTKitEnableHWInterrupt,
+  DPMcifXTKitDisableHWInterrupt,
+  DPMcifXTKitISRHandler,
+  DPMcifXTKitDSRHandler,
+  DPMcifXTKitCyclicTimer,
 };
 
 PCIFX_TKIT_FUNCTION_LIST_T cifXTkitGetDpmTkitFunctionList(void)
 {
   return &s_tCifxDpmTkitFuns;
 }
-
-#endif
 
 /*****************************************************************************/
 /*! \}                                                                       */

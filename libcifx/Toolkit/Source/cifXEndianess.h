@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXEndianess.h 13253 2019-10-11 10:57:04Z LuisContreras $:
+  $Id: cifXEndianess.h 15385 2025-12-05 09:08:32Z AMinor $:
 
   Description:
     Little/Big Endian conversion
@@ -41,13 +41,13 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
     /* BIG endian, so we DO need a conversion */
     /*lint -emacro(572, LE??_TO_HOST) : Excessive shift value */
     /*lint -esym(666, LE??_TO_HOST)   : Expression with side effects passed to repeated parameter 1 */
-    #define LE16_TO_HOST(a)   ( (((a) & 0x00FF) << 8) | \
-                                (((a) & 0xFF00) >> 8) )
+    #define LE16_TO_HOST(a)   ( (uint16_t)( (((a) & 0x00FF) << 8) | \
+                                            (((a) & 0xFF00) >> 8) ) )
 
-    #define LE32_TO_HOST(a)   ( (((a) & 0x000000FFUL) << 24) | \
-                                (((a) & 0x0000FF00UL) << 8)  | \
-                                (((a) & 0x00FF0000UL) >> 8)  | \
-                                (((a) & 0xFF000000UL) >> 24) )
+    #define LE32_TO_HOST(a)   ( (uint32_t)( (((a) & 0x000000FFUL) << 24) | \
+                                            (((a) & 0x0000FF00UL) << 8)  | \
+                                            (((a) & 0x00FF0000UL) >> 8)  | \
+                                            (((a) & 0xFF000000UL) >> 24) ) )
 
     #define LE64_TO_HOST(a)   ( (((a) & 0x00000000000000FFULL) << 56) | \
                                 (((a) & 0x000000000000FF00ULL) << 40) | \

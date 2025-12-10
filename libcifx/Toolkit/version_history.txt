@@ -1,6 +1,10 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.2.0
+-----------------
+  - Switch to level triggered interrupt handling (netX900)
+
   V2.8.1.0
 -----------------
   - Calculate download timeout value instead of using a constant one
