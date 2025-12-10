@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20250814-00/includes/Hil_Taglist.h $: *//**
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_Taglist.h $: *//**
 
   \file Hil_Taglist.h
 
@@ -2788,7 +2788,7 @@ typedef struct
 /**************************************************************************************
   Tag: HIL_TAG_S3S_SCP_FEATURES
   Name: Sercos SCP Features
-  Desc: Enable/ Disable Sercos SCP Features.
+  Desc: Enable or disable Sercos SCP features.
 
   Help: Due to CRA requirements it could be necessary to disable the SCP types
         SIP (Sercos Internet Protocol Services) or the TFTP (Trivial File Transfer Protocol).

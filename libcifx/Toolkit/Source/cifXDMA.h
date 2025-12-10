@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXDMA.h 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: cifXDMA.h 15327 2025-11-24 12:03:05Z AMinor $:
 
   Description:
     DMA related information

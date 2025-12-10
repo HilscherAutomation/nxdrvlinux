@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkit.h 15205 2025-08-11 09:38:15Z AMinor $:
+  $Id: cifXToolkit.h 15320 2025-11-21 11:21:08Z AMinor $:
 
   Description:
     cifX toolkit function declaration.
@@ -29,7 +29,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #ifndef CIFX_TOOLKIT__H
 #define CIFX_TOOLKIT__H
 
-#include "cifXHWFunctions.h"
+#include "cifXFunctionList.h"
 #include "USER_Dependent.h"
 
 #ifdef __cplusplus
@@ -37,25 +37,23 @@ extern "C"
 {
 #endif
 
-#define TOOLKIT_VERSION   "cifX Toolkit 2.8.1.0"
+#define TOOLKIT_VERSION   "cifX Toolkit 2.8.2.0"
 
 /*****************************************************************************/
 /*! \addtogroup CIFX_TK_GLOBAL_API Toolkit global API functions              */
 /*! \{                                                                       */
 /*****************************************************************************/
 
-#ifndef CIFX_TOOLKIT_FUNCTION_LIST
-  /* Global Toolkit Functions */
-  int32_t cifXTKitInit              (void);
-  void    cifXTKitDeinit            (void);
-  int32_t cifXTKitAddDevice         (PDEVICEINSTANCE ptDevInstance);
-  int32_t cifXTKitRemoveDevice      (char* szBoard, int fForceRemove);
-  void    cifXTKitEnableHWInterrupt (PDEVICEINSTANCE ptDevInstance);
-  void    cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance);
-  int     cifXTKitISRHandler        (PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag);
-  void    cifXTKitDSRHandler        (PDEVICEINSTANCE ptDevInstance);
-  void    cifXTKitCyclicTimer       (void);
-#endif
+/* Global Toolkit Functions */
+int32_t cifXTKitInit              (void);
+void    cifXTKitDeinit            (void);
+int32_t cifXTKitAddDevice         (PDEVICEINSTANCE ptDevInstance);
+int32_t cifXTKitRemoveDevice      (char* szBoard, int fForceRemove);
+void    cifXTKitEnableHWInterrupt (PDEVICEINSTANCE ptDevInstance);
+void    cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance);
+int     cifXTKitISRHandler        (PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag);
+void    cifXTKitDSRHandler        (PDEVICEINSTANCE ptDevInstance);
+void    cifXTKitCyclicTimer       (void);
 
 /*****************************************************************************/
 /*! \}                                                                       */
