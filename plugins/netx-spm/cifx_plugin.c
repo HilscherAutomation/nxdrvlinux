@@ -197,6 +197,7 @@ uint32_t cifx_device_count(void)
   find_config_path(base_path);
   sprintf(config, "%sconfig0", base_path);
   while ((file_exist(config)) && (CheckIsSPIDevice(config))) {
+    DBG("SPI config file found '%s'\n", config);
     sprintf(config, "%sconfig%d",base_path,++spi_dev);
   }
   return spi_dev;
@@ -219,13 +220,17 @@ struct CIFX_DEVICE_T* cifx_alloc_device(uint32_t num)
   find_config_path(base_path);
   sprintf(config, "%sconfig%d", base_path, num);
   if (0 == CheckIsSPIDevice(config)) {
+    ERR("Not a valid SPI device (config file: %s)\n", config);
     return NULL;
   } else if (0 == GetDeviceName( &devicename, config)) {
+    ERR("Error reading SPI device name (config file: %s)\n", config);
     return NULL;
   } else if (0 == GetSPISpeed( &speed, config)) {
+    ERR("Error reading SPI frequency (config file: %s)\n", config);
     free(devicename);
     return NULL;
   } else if (0 == GetSPIMode( &mode, config)) {
+    ERR("Error reading SPI mode (config file: %s)\n", config);
     free(devicename);
     return NULL;
   } else {
