@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctions.c 15327 2025-11-24 12:03:05Z AMinor $:
+  $Id: cifXFunctionsHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -697,7 +697,9 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   NETX_IO_BLOCK_T* ptIOArea      = NULL;
   int32_t          lRet          = CIFX_NO_ERROR;
+#if 0 // TODO
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
+#endif
 
   CHECK_CHANNELHANDLE(hChannel);
 
@@ -706,6 +708,8 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
 
   if(ulAreaNumber >= ptChannel->tIoArea.ulIOInputAreas)
     return CIFX_INVALID_PARAMETER;
+
+  UNREFERENCED_PARAMETER(ptDevInstance); /* in case CIFX_TOOLKIT_DMA is not set */
 
   ptIOArea    = ptChannel->tIoArea.aptIOInputAreas[ulAreaNumber];
 #if 0 // TODO
@@ -815,7 +819,9 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PNETX_IO_BLOCK_T ptIOArea      = NULL;
   int32_t          lRet          = CIFX_NO_ERROR;
+#if 0 // TODO
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
+#endif
 
   CHECK_CHANNELHANDLE(hChannel);
 
@@ -826,7 +832,7 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
     return CIFX_INVALID_PARAMETER;
 
   ptIOArea    = ptChannel->tIoArea.aptIOOutputAreas[ulAreaNumber];
-#if 0
+#if 0 // TODO
   bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 1);  // TODO this returns HIL_FLAGS_NOT_EQUAL
 #endif
 
@@ -1076,6 +1082,8 @@ static int32_t APIENTRY HIFxChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
 
+  UNREFERENCED_PARAMETER(ulCmd);
+
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
   {
@@ -1145,6 +1153,13 @@ static int32_t APIENTRY HIFxChannelUserBlock(CIFXHANDLE  hChannel,
 {
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pvData);
+
+  UNREFERENCED_PARAMETER(hChannel);
+  UNREFERENCED_PARAMETER(ulAreaNumber);
+  UNREFERENCED_PARAMETER(ulCmd);
+  UNREFERENCED_PARAMETER(ulOffset);
+  UNREFERENCED_PARAMETER(ulDataLen);
+  UNREFERENCED_PARAMETER(pvData);
 
   return CIFX_FUNCTION_NOT_AVAILABLE;
 }
@@ -2265,6 +2280,9 @@ static int32_t APIENTRY HIFxChannelSyncState(CIFXHANDLE  hChannel,
 
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pulErrorCount);
+
+  UNREFERENCED_PARAMETER(ulTimeout);
+  UNREFERENCED_PARAMETER(pulErrorCount);
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)

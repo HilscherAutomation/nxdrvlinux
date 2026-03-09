@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctions.c 15327 2025-11-24 12:03:05Z AMinor $:
+  $Id: cifXFunctions.c 15405 2025-12-12 07:33:32Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -965,6 +965,8 @@ static int32_t APIENTRY DPMxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
   if(ulAreaNumber >= ptChannel->ulIOInputAreas)
     return CIFX_INVALID_PARAMETER;
 
+  UNREFERENCED_PARAMETER(ptDevInstance); /* in case CIFX_TOOLKIT_DMA is not set */
+
   ptIOArea    = ptChannel->pptIOInputAreas[ulAreaNumber];
   bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 0);
 
@@ -1101,8 +1103,11 @@ static int32_t APIENTRY DPMxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
 
   if(!DEV_IsRunning(ptChannel))
     return CIFX_DEV_NOT_RUNNING;
+
   if(ulAreaNumber >= ptChannel->ulIOOutputAreas)
     return CIFX_INVALID_PARAMETER;
+
+  UNREFERENCED_PARAMETER(ptDevInstance); /* in case CIFX_TOOLKIT_DMA is not set */
 
   ptIOArea    = ptChannel->pptIOOutputAreas[ulAreaNumber];
   bIOBitState = DEV_GetIOBitstate(ptChannel, ptIOArea, 1);
