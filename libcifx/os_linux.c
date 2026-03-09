@@ -378,9 +378,10 @@ void unmask_vfio_irq(PCIFX_DEVICE_INTERNAL_T info) {
 
   if (pfd->irq.vfio_irq_ctrl != NULL) {
     /* in case of MSI no need to unmask */
-    if (pfd->irq.vfio_irq_ctrl->index == VFIO_PCI_MSI_IRQ_INDEX)
+    if (pfd->irq.vfio_irq_ctrl->index != VFIO_PCI_INTX_IRQ_INDEX)
         return;
 
+    /* INTX_IRQ irq is automatically masked - so we need to unmask after processing */
     pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_NONE | VFIO_IRQ_SET_ACTION_UNMASK);
     if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) < 0) {
       ERR( "Error - VFIO_DEVICE_SET_IRQS (ret=%d)\n", errno);
@@ -397,10 +398,6 @@ void disable_vfio_irq( PCIFX_DEVICE_INTERNAL_T info) {
     return;
 
   if (pfd->irq.vfio_irq_ctrl != NULL) {
-    pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_NONE | VFIO_IRQ_SET_ACTION_MASK);
-    if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) < 0) {
-      ERR( "Error masking irq (ret=%d)\n", errno);
-    }
     free(pfd->irq.vfio_irq_ctrl);
     pfd->irq.vfio_irq_ctrl = NULL;
   }
@@ -426,35 +423,25 @@ int enable_vfio_irq( PCIFX_DEVICE_INTERNAL_T info) {
 
         /* try to run MSI interrupt */
         if (ioctl( pfd->vfio_fd, VFIO_DEVICE_GET_IRQ_INFO, &iinfo) == 0) {
+            /* if count == 0 we assume INTX_IRQ (flags=maskable/automasked) */
             if (iinfo.count > 0)
                 pfd->irq.vfio_irq_ctrl->index = VFIO_PCI_MSI_IRQ_INDEX;
-        } else {
-            DBG( "Error retrieving MSI IRQ info via VFIO_DEVICE_GET_IRQ_INFO (ret=%d) - trying legacy...\n", errno);
-        }
 
-        if ((pfd->irq.efd = eventfd( 0, 0)) >= 0) {
-            *((uint32_t*)pfd->irq.vfio_irq_ctrl->data) = pfd->irq.efd;
-            if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) == 0)
-              return 0;
+            if ((pfd->irq.efd = eventfd( 0, 0)) >= 0) {
+                *((uint32_t*)pfd->irq.vfio_irq_ctrl->data) = pfd->irq.efd;
+                if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) == 0) {
+                  return 0;
+                }
+            }
+            ERR( "Error creating/registering VFIO irq resources (ret=%d)\n", errno);
+        } else {
+            ERR( "Error retrieving VFIO IRQ info via VFIO_DEVICE_GET_IRQ_INFO (ret=%d)\n", errno);
         }
         ret = -errno;
     }
     return ret;
 }
 #endif
-
-void pre_irq( PCIFX_DEVICE_INTERNAL_T info, int irq_type) {
-    /* NOTE: Processing the irq (isr) in user space may bring the risk to miss an irq during processing. While */
-    /*       the uio and vfio driver disable the irq for legacy interrupts when arising we need to explicitly  */
-    /*       disable it for vfio MSI interrupts before. See post_irq() for enabling after processing.          */
-#ifdef VFIO_SUPPORT
-    struct vfio_fd* pfd = (struct vfio_fd*)info->userdevice->userparam;
-
-    if ( (irq_type == eCIFX_IRQ_TYPE_VFIO) && (pfd->irq.vfio_irq_ctrl->index == VFIO_PCI_MSI_IRQ_INDEX) ) {
-        cifXTKitDisableHWInterrupt( info->devinstance);
-    }
-#endif
-}
 
 void post_irq( PCIFX_DEVICE_INTERNAL_T info, int irq_type) {
     if (irq_type != eCIFX_IRQ_TYPE_GPIO) {
@@ -464,11 +451,11 @@ void post_irq( PCIFX_DEVICE_INTERNAL_T info, int irq_type) {
             unmask_vfio_irq(info);
         }
 #endif
-        /* do we have access to the global register block? */
-        if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
-            cifXTKitEnableHWInterrupt( info->devinstance);
-        } else {
-            if (irq_type == eCIFX_IRQ_TYPE_UIO) {
+        if (irq_type == eCIFX_IRQ_TYPE_UIO) {
+            /* do we have access to the global register block? */
+            if (info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
+              cifXTKitEnableHWInterrupt( info->devinstance);
+            } else {
                 /* we don't have access to the device IRQ control within DPM, */
                 /* so let the kernel module enable the device's system irq    */
                 uint32_t enable_irq = 1;
@@ -504,8 +491,6 @@ static void *netx_irq_thread(void *ptr) {
       ret = check_gpio_irq( info, timeout);
     }
     if (ret == 1) {
-
-      pre_irq( info, irq_type);
 
       ret = cifXTKitISRHandler(info->devinstance, 1);
 
