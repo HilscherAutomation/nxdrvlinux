@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionList.h 15329 2025-11-24 13:34:32Z AMinor $:
+  $Id: cifXFunctionList.h 15453 2025-12-18 06:57:16Z AMinor $:
 
   Description:
     cifX toolkit function list.
@@ -18,10 +18,10 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #ifndef CIFX_FUNCTION_LIST__H
 #define CIFX_FUNCTION_LIST__H
 
+#include "OS_Includes.h"
 #include "cifXUser.h"
 #include "cifXHwif.h"
 #include "cifXHWResources.h"
-#include "OS_Includes.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -172,7 +172,7 @@ typedef int32_t (*PFN_TRANSFER_PACKET)                    (void*                
                                                            uint32_t                 ulTimeout,
                                                            PFN_RECV_PKT_CALLBACK    pfnPktCallback,
                                                            void*                    pvUser);
-typedef int32_t (*PFN_DEV_REMOVECHANNELFILES)             (PCHANNELINSTANCE         ptChannel,
+typedef int     (*PFN_DEV_REMOVECHANNELFILES)             (PCHANNELINSTANCE         ptChannel,
                                                            uint32_t                 ulChannel,
                                                            PFN_TRANSFER_PACKET      pfnTransferPacket,
                                                            PFN_RECV_PKT_CALLBACK    pfnRecvPacket,

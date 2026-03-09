@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctions.c 15335 2025-11-26 09:42:58Z AMinor $:
+  $Id: cifXHWFunctionsHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -78,6 +78,8 @@ static void DEV_ToggleBit(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask)
 /*****************************************************************************/
 static void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBitMask)
 {
+  UNREFERENCED_PARAMETER(ptDevInstance);
+  UNREFERENCED_PARAMETER(ulBitMask);
 #if 0 // TODO
   /* Write 16 Bit handshake */
   HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pulHandshakeBlock;
@@ -99,6 +101,8 @@ static void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBitMask)
 static void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
 {
   uint32_t ulIdx;
+
+  UNREFERENCED_PARAMETER(fReadHostCOS);
 
   ptChannel->tHsCtrl.ulHostFlags = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, *ptChannel->tHsCtrl.pulHostFlags));
 
@@ -141,6 +145,8 @@ static void DEV_ReadHandshakeFlags(PCHANNELINSTANCE ptChannel, int fReadSyncFlag
   /* Lock Handshake Cell and COS flag accesses */
   if (fLockNeeded)
     OS_EnterLock(ptChannel->pvLock);
+
+  UNREFERENCED_PARAMETER(fReadSyncFlags);
 
 #if 0 // TODO
   if ((ptDevInstance->pulHandshakeBlock != NULL) && fReadSyncFlags)
@@ -242,8 +248,12 @@ static int DEV_WaitForSyncState_Irq(PCHANNELINSTANCE ptChannel, uint8_t bState, 
   int             iRet              = 0;
   uint32_t        ulBitMask         = 1 << ptChannel->ulChannelNumber;
   int32_t         lStartTime        = 0;
+#if 0 // TODO
   uint32_t        ulInternalTimeout = ulTimeout;
+#endif
   PDEVICEINSTANCE ptDevInstance     = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+
+  UNREFERENCED_PARAMETER(ulTimeout);
 
   if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
     bActualState = HIL_FLAGS_NOT_EQUAL;
@@ -275,9 +285,10 @@ static int DEV_WaitForSyncState_Irq(PCHANNELINSTANCE ptChannel, uint8_t bState, 
 
     ulCurrentTime = OS_GetMilliSecCounter();
     ulDiffTime    = ulCurrentTime - lStartTime;
-
+#if 0 // TODO
     /* Adjust timeout for next run */
     ulInternalTimeout = ulTimeout - ulDiffTime;
+#endif
 
     /* Check bit state */
     if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
@@ -724,6 +735,8 @@ static void DEV_WriteHandshakeFlags(PCHANNELINSTANCE ptChannel)
 /*****************************************************************************/
 static void DEV_WriteCell(PCHANNELINSTANCE ptChannel, NETX_MAILBOX_BLOCK_T* ptInst, uint32_t ulValue)
 {
+  UNREFERENCED_PARAMETER(ptChannel); /* GCC says, it's unused */
+
   ptInst->tCtl.ulHostFlags = ulValue;
   HWIF_WRITE32(ptChannel->pvDeviceInstance, *ptInst->tCtl.pulHostFlags, ptInst->tCtl.ulHostFlags);
 }
@@ -801,6 +814,8 @@ static int DEV_WaitForMbxState_Irq(PCHANNELINSTANCE ptChannel, NETX_MAILBOX_BLOC
   int32_t  lStartTime        = 0;
   int      iRet              = 0;
   uint32_t ulInternalTimeout = ulTimeout;
+
+  UNREFERENCED_PARAMETER(ptChannel);
 
   ulNetxFlags = ptInst->tCtl.ulNetxFlags & ptInst->tBlock.ulBitmask;
   if (NETX_MBX_COM_STATE_EMPTY == ulState)
@@ -1157,11 +1172,11 @@ int32_t DEV_GetMBXFillLevel(NETX_MAILBOX_BLOCK_T* ptInst)
 
   if (ulReqHsk != ulCnfHsk)
   {
-    uint32_t ulReqIdx = ulReqHsk & ~HIL_HIF_MBX_WRAPAROUND;
-    uint32_t ulCnfIdx = ulCnfHsk & ~HIL_HIF_MBX_WRAPAROUND;
+    int32_t lReqIdx = (int32_t) (ulReqHsk & ~HIL_HIF_MBX_WRAPAROUND);
+    int32_t lCnfIdx = (int32_t) (ulCnfHsk & ~HIL_HIF_MBX_WRAPAROUND);
 
-    if (ulReqIdx != ulCnfIdx)
-      ulLevel = abs(ulReqIdx - ulCnfIdx);
+    if (lReqIdx != lCnfIdx)
+      ulLevel = abs(lReqIdx - lCnfIdx);
     else
       ulLevel = ptInst->tBlock.ulElementCnt;
   }
@@ -2193,6 +2208,8 @@ static int DEV_WaitForLock_Poll(PCHANNELINSTANCE ptChannel, PNETX_IO_BLOCK_T ptI
   uint8_t bActualState;
   int iRet = 0;
 
+  UNREFERENCED_PARAMETER(ptChannel); /* GCC says, it's unused */
+
   bActualState = HWIF_READ8(ptChannel->pvDeviceInstance, *ptInst->tIoCtl.pbStatus);
   bActualState = (bActualState & NETX_IO_STATUS_LOCKSTATE_MSK);
 
@@ -2427,10 +2444,7 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxHifDevFuns =
   NULL,
   NULL,
   NULL,
-#if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
-  DEV_DMAState,
-  DEV_SetupDMABuffers,
-#else
+#ifdef CIFX_TOOLKIT_DMA
   NULL,
   NULL,
 #endif

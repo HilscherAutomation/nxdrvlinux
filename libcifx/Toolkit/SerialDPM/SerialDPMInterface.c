@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: SerialDPMInterface.c 15272 2025-11-05 06:59:14Z AMinor $:
+  $Id: SerialDPMInterface.c 15447 2025-12-17 15:02:22Z AMinor $:
 
   Description:
     Serial DPM Interface
@@ -26,7 +26,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 /*****************************************************************************/
 
 #include "OS_Spi.h"
-#include "cifXHWFunctions.h"
+#include "cifXToolkit.h"
 #include "SerialDPMInterface.h"
 #include "cifXErrors.h"
 

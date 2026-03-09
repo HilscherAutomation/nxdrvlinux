@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkit.c 15355 2025-11-28 09:28:41Z AMinor $:
+  $Id: cifXToolkitHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -1177,6 +1177,8 @@ static int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
 static int HIFcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
 {
   int iRet;
+
+  UNREFERENCED_PARAMETER(fPCIIgnoreGlobalIntFlag);
 
   /* Check if DPM is available, if not, it cannot be our card, that caused the interrupt */
   if (HWIF_READ32(ptDevInstance, *(uint32_t*)ptDevInstance->pbDPM) == CIFX_DPM_INVALID_CONTENT)
