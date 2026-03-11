@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: netX5xx_hboot.c 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: netX5xx_hboot.c 15320 2025-11-21 11:21:08Z AMinor $:
 
   Description:
     cifX Toolkit implementation of the netX100/500 boot functions
@@ -18,6 +18,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 **************************************************************************************/
 
 #include "cifXToolkit.h"
+#include "NetX_RegDefs.h"
 #include "NetX_ROMLoader.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"

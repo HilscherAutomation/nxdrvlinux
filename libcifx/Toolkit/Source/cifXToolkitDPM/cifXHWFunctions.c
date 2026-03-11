@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctions.c 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: cifXHWFunctions.c 15329 2025-11-24 13:34:32Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -41,12 +41,12 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 /*****************************************************************************/
 
 #include "cifXFunctionList.h"
-#include "cifXHWFunctions.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
-#include "Hilcrc32.h"
+#include "cifXHWFunctions.h"
 #include "Hilmd5.h"
 #include "USER_Dependent.h"
+#include "NetX_RegDefs.h"
 
 #include "Hil_Packet.h"
 #include "Hil_ApplicationCmd.h"
@@ -66,7 +66,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 *   \param fOutput      !=0 for output areas
 *   \return Expected handshake bit state                                     */
 /*****************************************************************************/
-CIFX_STATIC uint8_t DEV_GetIOBitstate(PCHANNELINSTANCE ptChannel, PIOINSTANCE ptIOInstance, int fOutput)
+static uint8_t DEV_GetIOBitstate(PCHANNELINSTANCE ptChannel, PIOINSTANCE ptIOInstance, int fOutput)
 {
   uint8_t  bRet        = ptIOInstance->bHandshakeBitState;
   uint8_t* pbIOHskMode = NULL;
@@ -105,7 +105,7 @@ CIFX_STATIC uint8_t DEV_GetIOBitstate(PCHANNELINSTANCE ptChannel, PIOINSTANCE pt
 *   \param ptChannel    Channel instance to change for bit for
 *   \param ulBitMask    Bitmask to eXOR into command bits                    */
 /*****************************************************************************/
-CIFX_STATIC void DEV_ToggleBit(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask)
+static void DEV_ToggleBit(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask)
 {
   ptChannel->usHostFlags ^= (uint16_t)ulBitMask;
 
@@ -124,7 +124,7 @@ CIFX_STATIC void DEV_ToggleBit(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask)
 *   \param ptDevInstance  Device instance
 *   \param ulBitMask      Bitmask to eXOR into command bits                  */
 /*****************************************************************************/
-CIFX_STATIC void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBitMask)
+static void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBitMask)
 {
   /* Write 16 Bit handshake */
   HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pbHandshakeBlock;
@@ -142,7 +142,7 @@ CIFX_STATIC void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBit
 *   \param ptChannel    Channel instance to change for bit for
 *   \param fReadHostCOS !=0 if Application COS should be read                */
 /*****************************************************************************/
-CIFX_STATIC void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
+static void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
 {
   PDEVICEINSTANCE ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
@@ -168,7 +168,7 @@ CIFX_STATIC void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
     {
       ptChannel->ulHostCOSFlags       = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptChannel->ptControlBlock->ulApplicationCOS));
       ptChannel->ulHostCOSFlagsSaved  = ptChannel->ulHostCOSFlags;
-  }
+    }
   }
 }
 
@@ -178,7 +178,7 @@ CIFX_STATIC void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
 *   \param fReadSyncFlags !=0 if sync flags should be updated
 *   \param fLockNeeded    !=0 if flag access lock is needed.                 */
 /*****************************************************************************/
-CIFX_STATIC void DEV_ReadHandshakeFlags(PCHANNELINSTANCE ptChannel, int fReadSyncFlags, int fLockNeeded)
+static void DEV_ReadHandshakeFlags(PCHANNELINSTANCE ptChannel, int fReadSyncFlags, int fLockNeeded)
 {
   uint16_t  usCOSAckBitMask = 0;
   uint32_t  ulNewCOSFlags   = 0;
@@ -389,7 +389,7 @@ static int DEV_WaitForSyncState_Irq(PCHANNELINSTANCE ptChannel, uint8_t bState, 
 *   \param ulTimeout    Maximum time in ms to wait for the desired bit state
 *   \return 0 on error/timeout, 1 on success                                 */
 /*****************************************************************************/
-CIFX_STATIC int DEV_WaitForSyncState(PCHANNELINSTANCE ptChannel, uint8_t bState, uint32_t ulTimeout)
+static int DEV_WaitForSyncState(PCHANNELINSTANCE ptChannel, uint8_t bState, uint32_t ulTimeout)
 {
   if( ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
     return DEV_WaitForSyncState_Irq(ptChannel, bState, ulTimeout);
@@ -580,7 +580,7 @@ static int DEV_WaitForBitState_Irq(PCHANNELINSTANCE ptChannel, uint32_t ulBitNum
 *   \param ulTimeout    Maximum time in ms to wait for the desired bit state
 *   \return 0 on error/timeout, 1 on success                                 */
 /*****************************************************************************/
-CIFX_STATIC int DEV_WaitForBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitNumber, uint8_t bState, uint32_t ulTimeout)
+static int DEV_WaitForBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitNumber, uint8_t bState, uint32_t ulTimeout)
 {
   if( ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
     return DEV_WaitForBitState_Irq(ptChannel, ulBitNumber, bState, ulTimeout);
@@ -593,7 +593,7 @@ CIFX_STATIC int DEV_WaitForBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitNu
 *   \param ptChannel Channel instance to check
 *   \return 1 if channel is ready and running                                */
 /*****************************************************************************/
-CIFX_STATIC int DEV_IsRunning(PCHANNELINSTANCE ptChannel)
+static int DEV_IsRunning(PCHANNELINSTANCE ptChannel)
 {
   int iRet = 0;
 
@@ -619,7 +619,7 @@ CIFX_STATIC int DEV_IsRunning(PCHANNELINSTANCE ptChannel)
 *   \param ptChannel Channel instance to check
 *   \return 1 if channel is ready                                            */
 /*****************************************************************************/
-CIFX_STATIC int DEV_IsReady(PCHANNELINSTANCE ptChannel)
+static int DEV_IsReady(PCHANNELINSTANCE ptChannel)
 {
   int iRet = 0;
 
@@ -650,7 +650,7 @@ CIFX_STATIC int DEV_IsReady(PCHANNELINSTANCE ptChannel)
 *   \param ulTimeout Wait time
 *   \return 1 if channel is NOT ready                                            */
 /*****************************************************************************/
-CIFX_STATIC int DEV_WaitForNotReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
+static int DEV_WaitForNotReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
 {
   /* Poll for Ready bit */
   int      iActualState = 0;
@@ -717,7 +717,7 @@ CIFX_STATIC int DEV_WaitForNotReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ul
 *   \param ulTimeout Wait time
 *   \return 1 if channel is ready                                            */
 /*****************************************************************************/
-CIFX_STATIC int DEV_WaitForReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
+static int DEV_WaitForReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
 {
   /* Poll for Ready bit */
   int      iActualState = 0;
@@ -795,96 +795,10 @@ CIFX_STATIC int DEV_WaitForReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTim
 }
 
 /*****************************************************************************/
-/*! Wait for NOT RUNNING in poll mode
-*   \param ptChannel Channel instance to check
-*   \param ulTimeout Wait time
-*   \return 1 if channel is NOT running                                            */
-/*****************************************************************************/
-CIFX_STATIC int DEV_WaitForNotRunning_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
-{
-  /* Poll for Ready bit */
-  int      iActualState = 1;
-  uint32_t ulDiffTime   = 0L;
-  int32_t  lStartTime   = (int32_t)OS_GetMilliSecCounter();
-
-  /* We not processing a system channel */
-  if(ptChannel->fIsSysDevice)
-    return iActualState;
-
-  /* Check user timeout */
-  if( 0 == ulTimeout)
-  {
-    if( DEV_IsRunning(ptChannel))
-      iActualState = 0;
-  } else
-  {
-    /* User wants to wait */
-    while(DEV_IsRunning(ptChannel))
-    {
-      /* Check for timeout */
-      ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
-
-      if(ulDiffTime > ulTimeout)
-      {
-        iActualState = 0;
-        break;
-      }
-
-      OS_Sleep(1);
-    }
-  }
-
-  return iActualState;
-}
-
-/*****************************************************************************/
-/*! Wait for RUNNING in poll mode
-*   \param ptChannel Channel instance to check
-*   \param ulTimeout Wait time
-*   \return 1 if channel is RUNNING                                            */
-/*****************************************************************************/
-CIFX_STATIC int DEV_WaitForRunning_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
-{
-  /* Poll for Ready bit */
-  int      iActualState = 1;
-  uint32_t ulDiffTime   = 0L;
-  int32_t  lStartTime   = (int32_t)OS_GetMilliSecCounter();
-
-  /* We not processing a system channel, so always return a valid state */
-  if(ptChannel->fIsSysDevice)
-    return iActualState;
-
-  /* Check user timeout */
-  if( 0 == ulTimeout)
-  {
-    /* Just return the actual state */
-    iActualState = DEV_IsRunning(ptChannel);
-  } else
-  {
-    /* User wants to wait */
-    while(!DEV_IsRunning(ptChannel))
-    {
-      /* Check for timeout */
-      ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
-
-      if(ulDiffTime > ulTimeout)
-      {
-        iActualState = 0;
-        break;
-      }
-
-      OS_Sleep(1);
-    }
-  }
-
-  return iActualState;
-}
-
-/*****************************************************************************/
 /*! Writes the saved state of the handshake bits to the given channel
 *   \param ptChannel Channel instance to write bits to                       */
 /*****************************************************************************/
-CIFX_STATIC void DEV_WriteHandshakeFlags(PCHANNELINSTANCE ptChannel)
+static void DEV_WriteHandshakeFlags(PCHANNELINSTANCE ptChannel)
 {
   if(ptChannel->bHandshakeWidth == HIL_HANDSHAKE_SIZE_8BIT)
   {
@@ -904,7 +818,7 @@ CIFX_STATIC void DEV_WriteHandshakeFlags(PCHANNELINSTANCE ptChannel)
 *   \param ulTimeout    Maximum time in ms to wait for an empty mailbox
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_PutPacket(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
+static int32_t DEV_PutPacket(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendPkt, uint32_t ulTimeout)
 {
   int32_t lRet = CIFX_DEV_MAILBOX_FULL;
 
@@ -947,7 +861,7 @@ CIFX_STATIC int32_t DEV_PutPacket(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSen
 *   \param ulTimeout        Maximum time in ms to wait for an empty mailbox
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_GetPacket( PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvPkt, uint32_t ulRecvBufferSize, uint32_t ulTimeout)
+static int32_t DEV_GetPacket( PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvPkt, uint32_t ulRecvBufferSize, uint32_t ulTimeout)
 {
   int32_t       lRet        = CIFX_NO_ERROR;
   uint32_t      ulCopySize  = 0;
@@ -985,72 +899,12 @@ CIFX_STATIC int32_t DEV_GetPacket( PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRe
 }
 
 /*****************************************************************************/
-/*! Exchanges a packet with the device
-*   ATTENTION: This function will poll for receive packet, and will discard
-*              any packets that do not match the send packet. So don't use
-*              it during active data transfers
-*   \param pvChannel        Channel instance to exchange a packet
-*   \param ptSendPkt        Send packet pointer
-*   \param ptRecvPkt        Pointer to place received Packet in
-*   \param ulRecvBufferSize Length of the receive buffer
-*   \param ulTimeout        Maximum time in ms to wait for an empty mailbox
-*   \param pvPktCallback    Packet callback for unhandled receive packets
-*   \param pvUser           User data for callback function
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-CIFX_STATIC int32_t DEV_TransferPacket( void*                  pvChannel,        CIFX_PACKET*  ptSendPkt, CIFX_PACKET* ptRecvPkt,
-                                        uint32_t               ulRecvBufferSize, uint32_t      ulTimeout,
-                                        PFN_RECV_PKT_CALLBACK  pvPktCallback,    void*         pvUser)
-{
-  int32_t          lCount     = 0;
-  int32_t          lRet       = CIFX_NO_ERROR;
-  PCHANNELINSTANCE ptChannel  = (PCHANNELINSTANCE)pvChannel;
-
-  if( (lRet = DEV_PutPacket(ptChannel, ptSendPkt, ulTimeout)) == CIFX_NO_ERROR)
-  {
-    do
-    {
-      if( (lRet = DEV_GetPacket(ptChannel, ptRecvPkt, ulRecvBufferSize, ulTimeout)) == CIFX_NO_ERROR)
-      {
-        /* Check if we got the answer */
-        if(  ((LE32_TO_HOST(ptRecvPkt->tHeader.ulCmd) & ~HIL_MSK_PACKET_ANSWER) == LE32_TO_HOST(ptSendPkt->tHeader.ulCmd))  &&
-             (ptRecvPkt->tHeader.ulSrc   == ptSendPkt->tHeader.ulSrc)    &&
-             (ptRecvPkt->tHeader.ulId    == ptSendPkt->tHeader.ulId)     &&
-             (ptRecvPkt->tHeader.ulSrcId == ptSendPkt->tHeader.ulSrcId)  )
-        {
-          /* We got the answer message */
-          /* lRet = ptRecvPkt->tHeader.ulState; */ /* Do not deliver back this information */
-          break;
-        } else
-        {
-          /* This is not our packet, check if the user wants it */
-          if( NULL != pvPktCallback)
-          {
-            pvPktCallback(ptRecvPkt, pvUser);
-          }
-        }
-        /* Reset error, in case we might drop out of the loop, with no proper answer,
-           returning a "good" state */
-        lRet = CIFX_DEV_GET_TIMEOUT;
-        lCount++;
-      } else
-      {
-        /* Error during packet receive */
-        break;
-      }
-    } while ( lCount < 10);
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
 /*! Checks if the channel is communicating
 *   \param ptChannel Channel instance to check
 *   \param plError   CIFX_NO_ERROR on successful read
 *   \return 1 if channel is communicating                                    */
 /*****************************************************************************/
-CIFX_STATIC int DEV_IsCommunicating(PCHANNELINSTANCE ptChannel, int32_t* plError)
+static int DEV_IsCommunicating(PCHANNELINSTANCE ptChannel, int32_t* plError)
 {
   int iRet = 0;
 
@@ -1087,7 +941,7 @@ CIFX_STATIC int DEV_IsCommunicating(PCHANNELINSTANCE ptChannel, int32_t* plError
 *   \param pulSendPktCnt  Number of packets that can be sent to the device
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_GetMBXState(PCHANNELINSTANCE ptChannel, uint32_t* pulRecvPktCnt, uint32_t* pulSendPktCnt)
+static int32_t DEV_GetMBXState(PCHANNELINSTANCE ptChannel, uint32_t* pulRecvPktCnt, uint32_t* pulSendPktCnt)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -1126,7 +980,7 @@ CIFX_STATIC int32_t DEV_GetMBXState(PCHANNELINSTANCE ptChannel, uint32_t* pulRec
 *                           (informational use only)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulTriggerCmd, uint32_t* pulTriggerValue)
+static int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulTriggerCmd, uint32_t* pulTriggerValue)
 {
   int32_t lRet = CIFX_DEV_NOT_RUNNING;
 
@@ -1175,7 +1029,7 @@ CIFX_STATIC int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulT
 *                           CIFX_HOST_STATE_NOT_READY)
 *   \return CIFX_NO_ERROR on success, or CIFX_DEV_NOT_READY                  */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_GetHostState(PCHANNELINSTANCE ptChannel, uint32_t* pulState)
+static int32_t DEV_GetHostState(PCHANNELINSTANCE ptChannel, uint32_t* pulState)
 {
   /* Don't return any state if card is not ready */
   if(!DEV_IsReady(ptChannel))
@@ -1187,70 +1041,12 @@ CIFX_STATIC int32_t DEV_GetHostState(PCHANNELINSTANCE ptChannel, uint32_t* pulSt
 }
 
 /*****************************************************************************/
-/*! Read/Write Block
-*   \param ptChannel      Channel Instance
-*   \param pvBlock        Pointer to the block to copy
-*   \param ulOffset       Start offset to copy from/to
-*   \param ulBlockLen     Total Length of the Block
-*   \param pvDest         Source/Destination buffer
-*   \param ulDestLen      Length of the Source/Destination Buffer
-*   \param ulCmd          CIFX_CMD_READ_DATA/CIFX_CMD_WRITE_DATA
-*   \param fWriteAllowed  !=0 if Write is allowed to the Block
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-CIFX_STATIC int32_t DEV_ReadWriteBlock(PCHANNELINSTANCE ptChannel, void* pvBlock, uint32_t ulOffset, uint32_t ulBlockLen, void* pvDest, uint32_t ulDestLen, uint32_t ulCmd, int fWriteAllowed)
-{
-  int32_t lRet = CIFX_NO_ERROR;
-
-  if( (ulOffset + ulDestLen) > ulBlockLen)
-    return CIFX_INVALID_ACCESS_SIZE; /* Size too long */
-
-  /* Process the state block area command */
-  switch (ulCmd)
-  {
-    case  CIFX_CMD_WRITE_DATA:
-      if(fWriteAllowed)
-      {
-        /* Write control block */
-        HWIF_WRITEN( ptChannel->pvDeviceInstance,
-                     ((uint8_t*)pvBlock) + ulOffset,
-                      (uint8_t *)pvDest,
-                      ulDestLen);
-      } else
-      {
-        lRet = CIFX_INVALID_COMMAND;
-      }
-      break;
-
-    case CIFX_CMD_READ_DATA:
-      /* It is allowed to read the control block back */
-      HWIF_READN( ptChannel->pvDeviceInstance,
-                  (uint8_t *)pvDest,
-                  ((uint8_t*)pvBlock) + ulOffset,
-                  ulDestLen);
-      break;
-
-    default:
-      /* Unknown command */
-      lRet = CIFX_INVALID_COMMAND;
-      break;
-  } /* end switch */
-
-  /* Always deliver back system errors */
-  if( (CIFX_NO_ERROR == lRet) &&
-      !DEV_IsRunning(ptChannel) )
-    lRet = CIFX_DEV_NOT_RUNNING;
-
-  return lRet;
-}
-
-/*****************************************************************************/
 /*! Returns the state of the given handshake bit/mask
 *   \param ptChannel        Channel instance
 *   \param ulBitMsk         Bitmask to check for
 *   \return HIL_FLAGS_EQUAL/HIL_FLAGS_NOT_EQUAL                              */
 /*****************************************************************************/
-CIFX_STATIC uint8_t DEV_GetHandshakeBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitMsk)
+static uint8_t DEV_GetHandshakeBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitMsk)
 {
   uint8_t  bRet        = HIL_FLAGS_EQUAL;
 
@@ -1268,7 +1064,7 @@ CIFX_STATIC uint8_t DEV_GetHandshakeBitState(PCHANNELINSTANCE ptChannel, uint32_
 /*! Check the COS flags on this device
 *   \param ptDevInstance  Device instance                                    */
 /*****************************************************************************/
-CIFX_STATIC void DEV_CheckCOSFlags(PDEVICEINSTANCE ptDevInstance)
+static void DEV_CheckCOSFlags(PDEVICEINSTANCE ptDevInstance)
 {
   /* Note: We assume, we only get here in polling mode */
   uint32_t ulChannel;
@@ -1420,8 +1216,8 @@ static void DEV_Reset_Finish(PDEVICEINSTANCE ptDevInstance)
   /* Reset is finished, so we can now update our internal states */
   if(ptDevInstance->fIrqEnabled)
   {
-    (void)CIFX_MAKE_TKIT_FUN(cifXTKitISRHandler)(ptDevInstance, 1);
-    CIFX_MAKE_TKIT_FUN(cifXTKitDSRHandler)(ptDevInstance);
+    (void)cifXTKitISRHandler(ptDevInstance, 1);
+    cifXTKitDSRHandler(ptDevInstance);
   } else
   {
     /* Re-Read all handshake flags, as they will have reset */
@@ -1438,7 +1234,6 @@ static void DEV_Reset_Finish(PDEVICEINSTANCE ptDevInstance)
       OS_LeaveLock(ptDevInstance->pptCommChannels[ulIdx]->pvLock);
     }
   }
-
 }
 
 /*****************************************************************************/
@@ -1484,7 +1279,7 @@ static int32_t DEV_Reset_Execute(PDEVICEINSTANCE ptDevInstance, uint8_t bHostFla
 *   \param ulParam   Reset parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam )
+static int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam )
 {
   PDEVICEINSTANCE           ptDevInstance   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   PCHANNELINSTANCE          ptSysDevice     = &ptDevInstance->tSystemDevice;
@@ -1602,7 +1397,7 @@ CIFX_STATIC int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTim
 *   \param ulParam   Reset parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DoSystemBootstart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam)
+static int32_t DEV_DoSystemBootstart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam)
 {
   PDEVICEINSTANCE           ptDevInstance  = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   PCHANNELINSTANCE          ptSysDevice    = &ptDevInstance->tSystemDevice;
@@ -1718,7 +1513,7 @@ CIFX_STATIC int32_t DEV_DoSystemBootstart(PCHANNELINSTANCE ptChannel, uint32_t u
 *   \param ulParam   Reset parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam)
+static int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam)
 {
   PDEVICEINSTANCE           ptDevInstance  = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   PCHANNELINSTANCE          ptSysDevice    = &ptDevInstance->tSystemDevice;
@@ -1907,10 +1702,10 @@ CIFX_STATIC int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTim
 *   \param ulTimeout          Timeout to wait handshake complete
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DoHostCOSChange(PCHANNELINSTANCE ptChannel,
-                                        uint32_t ulSetCOSMask,       uint32_t ulClearCOSMask,
-                                        uint32_t ulPostClearCOSMask, int32_t lSignallingError,
-                                        uint32_t ulTimeout)
+static int32_t DEV_DoHostCOSChange(PCHANNELINSTANCE ptChannel,
+                                   uint32_t ulSetCOSMask,       uint32_t ulClearCOSMask,
+                                   uint32_t ulPostClearCOSMask, int32_t lSignallingError,
+                                   uint32_t ulTimeout)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -1983,7 +1778,7 @@ CIFX_STATIC int32_t DEV_DoHostCOSChange(PCHANNELINSTANCE ptChannel,
 *   \param ulTimeout Timeout to wait for channel to become READY
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DoChannelInit(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
+static int32_t DEV_DoChannelInit(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
 {
   int32_t         lRet        = CIFX_NO_ERROR;
   PDEVICEINSTANCE ptDevInst   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
@@ -2081,12 +1876,12 @@ CIFX_STATIC int32_t DEV_DoChannelInit(PCHANNELINSTANCE ptChannel, uint32_t ulTim
 /*****************************************************************************/
 /*! Set the application ready COS flag
 *   \param ptChannel        Channel instance
-*   \param ulNewState       new state to set (CIFX_HOST_STATE_READY /
+*   \param ulNewState       New state to set (CIFX_HOST_STATE_READY /
 *                           CIFX_HOST_STATE_NOT_READY)
-*   \param ulTimeout        timeout to wait for communication to start/stop
+*   \param ulTimeout        Timeout to wait for communication to start/stop
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_SetHostState(PCHANNELINSTANCE ptChannel, uint32_t ulNewState, uint32_t ulTimeout)
+static int32_t DEV_SetHostState(PCHANNELINSTANCE ptChannel, uint32_t ulNewState, uint32_t ulTimeout)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -2131,7 +1926,7 @@ CIFX_STATIC int32_t DEV_SetHostState(PCHANNELINSTANCE ptChannel, uint32_t ulNewS
       /* Lock flag access */
       OS_EnterLock(ptChannel->pvLock);
 
-      /* Clear the application ready flag */
+      /* Set the application ready flag */
       ptChannel->ulHostCOSFlags |= HIL_APP_COS_APPLICATION_READY;
 
       /* Unlock flag access */
@@ -2163,7 +1958,7 @@ CIFX_STATIC int32_t DEV_SetHostState(PCHANNELINSTANCE ptChannel, uint32_t ulNewS
 *   \param ulTimeout        timeout to wait for communication to start/stop
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_BusState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+static int32_t DEV_BusState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -2279,197 +2074,6 @@ CIFX_STATIC int32_t DEV_BusState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uin
 }
 
 /*****************************************************************************/
-/*! Delete all existing files in a channel, from the file system.
-*   \param ptChannel          Channel instance
-*   \param ulChannel          Channel number
-*   \param pfnTransferPacket  Function used for transferring packets
-*   \param pfnRecvPacket      User callback for unsolicited receive packets
-*   \param pvUser             User parameter passed on callback
-*   \param szExceptFile       File extension to ignore while deleting files
-*   \return always returns 1                                                 */
-/*****************************************************************************/
-CIFX_STATIC int DEV_RemoveChannelFiles(PCHANNELINSTANCE       ptChannel,
-                                       uint32_t               ulChannel,
-                                       PFN_TRANSFER_PACKET    pfnTransferPacket,
-                                       PFN_RECV_PKT_CALLBACK  pfnRecvPacket,
-                                       void*                  pvUser,
-                                       char*                  szExceptFile)
-{
-  /* Try to find file with the extension *.nxm, *.nxf, *.mod and remove it */
-  PDEVICEINSTANCE     ptDevInstance   = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  CIFX_DIRECTORYENTRY tDirectoryEntry;
-  int32_t             lRet            = CIFX_NO_ERROR;
-  int                 fFindFirst      = 1;
-
-  /* Search for all firmware files. If one is found. delete it an start with find first again, */
-  /* because we can't store a directory list in here */
-  do
-  {
-    if ( fFindFirst)
-    {
-       OS_Memset(&tDirectoryEntry, 0, sizeof(tDirectoryEntry));
-
-      /* Search first file */
-      if ( !(CIFX_NO_ERROR == (lRet = CIFX_MAKE_CIFX_FUN(xSysdeviceFindFirstFile)( ptChannel, ulChannel, &tDirectoryEntry, pfnRecvPacket, pvUser))))
-      {
-        /* No more files, or error during find first */
-        break;
-      } else
-      {
-        /* Is this a valid file name */
-        int iStrlen = OS_Strlen(tDirectoryEntry.szFilename);
-        if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-        {
-          if( !((NULL != szExceptFile)                                                          &&
-                (4 == OS_Strlen(szExceptFile))                                                  &&
-                (0 == OS_Strnicmp( szExceptFile, &tDirectoryEntry.szFilename[iStrlen - 4], 4)))   )
-          {
-            /* Delete file and continue with find first file again */
-            (void)CIFX_MAKE_DEV_FUN(DEV_DeleteFile)( ptChannel, ulChannel, tDirectoryEntry.szFilename, pfnTransferPacket, pfnRecvPacket, pvUser);
-          }
-        } else
-        {
-          /* Not a valid file, search next file */
-          fFindFirst = 0;
-        }
-      }
-    } else
-    {
-      /* Search for more files */
-      if ( !(CIFX_NO_ERROR == (lRet = CIFX_MAKE_CIFX_FUN(xSysdeviceFindNextFile)( ptChannel, ulChannel, &tDirectoryEntry, pfnRecvPacket, pvUser))))
-      {
-        /* No more files, or error during find next */
-        break;
-      } else
-      {
-        /* Is this a valid file name */
-        int iStrlen = OS_Strlen(tDirectoryEntry.szFilename);
-        if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-        {
-          /* If firmware file, delete it, else search until all files checked */
-          if( !((NULL != szExceptFile)                                            &&
-                (4 == OS_Strlen(szExceptFile))                                    &&
-                (0 == OS_Strnicmp( szExceptFile, &tDirectoryEntry.szFilename[iStrlen - 4], 4)))   )
-          {
-            /* Delete the file and start with find first again */
-            (void)CIFX_MAKE_DEV_FUN(DEV_DeleteFile)( ptChannel, ulChannel, tDirectoryEntry.szFilename, pfnTransferPacket, pfnRecvPacket, pvUser);
-            fFindFirst = 1;
-          }
-        }
-      }
-    }
-  } while ( CIFX_NO_ERROR == lRet);
-
-  return 1;
-}
-
-/*****************************************************************************/
-/*! Check if we have a firmware file
-*   \param pszFileName      Input file name
-*   \return 1 on success                                                     */
-/*****************************************************************************/
-CIFX_STATIC int DEV_IsFWFile( char* pszFileName)
-{
-  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
-  int fRet    = 0;
-  int iStrlen = OS_Strlen(pszFileName);
-
-  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-  {
-    if ( (0 == OS_Strnicmp( HIL_FILE_EXTENSION_FIRMWARE,     &pszFileName[iStrlen - 4], 4) ) ||
-         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NXM_FIRMWARE, &pszFileName[iStrlen - 4], 4) ) ||
-         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_OPTION,       &pszFileName[iStrlen - 4], 4) ) ||
-         (0 == OS_Strnicmp( ".MOD", &pszFileName[iStrlen - 4], 4) )  )
-    {
-      fRet = 1;
-    }
-  }
-
-  return fRet;
-}
-
-/*****************************************************************************/
-/*! Check if we have a firmware (update) file for netX90 and netX4000
-*   \param pszFileName      Input file name
-*   \return 1 on success                                                     */
-/*****************************************************************************/
-CIFX_STATIC int DEV_IsFWFileNetX90or4000( char* pszFileName)
-{
-  /* Check if we have a .NXI or .NAI extension, or FWUPDATE.ZIP / FWUPDATE.NXS
-     Note: NXE or NAE should be downloaded in update container.
-  */
-  int fRet    = 0;
-  int iStrlen = OS_Strlen(pszFileName);
-
-  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-  {
-    if ( (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NXI_FIRMWARE, &pszFileName[iStrlen - 4], 4) ) ||
-         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NAI_FIRMWARE, &pszFileName[iStrlen - 4], 4) )  )
-    {
-      fRet = 1;
-
-    /* Check for ZIP container */
-    } else if( (iStrlen == OS_Strlen("FWUPDATE.ZIP"))                         &&
-               (0       == OS_Strnicmp( "FWUPDATE.ZIP", &pszFileName[0], iStrlen)) )
-    {
-      fRet = 1;
-
-    /* Check for NXS container */
-    } else if( (iStrlen == OS_Strlen("FWUPDATE.NXS"))                         &&
-               (0       == OS_Strnicmp( "FWUPDATE.NXS", &pszFileName[0], iStrlen)) )
-    {
-      fRet = 1;
-    }
-  }
-
-  return fRet;
-}
-
-/*****************************************************************************/
-/*! Check if we have a NXO file
-*   \param pszFileName      Input file name
-*   \return 1 on success                                                     */
-/*****************************************************************************/
-CIFX_STATIC int DEV_IsNXOFile( char* pszFileName)
-{
-  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
-  int fRet    = 0;
-  int iStrlen = OS_Strlen(pszFileName);
-
-  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-  {
-    if ( 0 == OS_Strnicmp( HIL_FILE_EXTENSION_OPTION, &pszFileName[iStrlen - 4], 4) )
-    {
-      fRet = 1;
-    }
-  }
-
-  return fRet;
-}
-
-/*****************************************************************************/
-/*! Check if we have a NXF file
-*   \param pszFileName      Input file name
-*   \return 1 on success                                                     */
-/*****************************************************************************/
-CIFX_STATIC int DEV_IsNXFFile( char* pszFileName)
-{
-  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
-  int fRet    = 0;
-  int iStrlen = OS_Strlen(pszFileName);
-
-  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
-  {
-    if ( 0 == OS_Strnicmp( HIL_FILE_EXTENSION_FIRMWARE, &pszFileName[iStrlen - 4], 4) )
-    {
-      fRet = 1;
-    }
-  }
-
-  return fRet;
-}
-
-/*****************************************************************************/
 /*! Delete the given file
 *   \param pvChannel          Channel instance
 *   \param ulChannelNumber    Channel number
@@ -2479,10 +2083,10 @@ CIFX_STATIC int DEV_IsNXFFile( char* pszFileName)
 *   \param pvUser             User parameter passed on callback
 *   \return 1 on success                                                     */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DeleteFile(void* pvChannel, uint32_t ulChannelNumber, char* pszFileName,
-                                   PFN_TRANSFER_PACKET    pfnTransferPacket,
-                                   PFN_RECV_PKT_CALLBACK  pfnRecvPacket,
-                                   void*                  pvUser)
+static int32_t DEV_DeleteFile(void* pvChannel, uint32_t ulChannelNumber, char* pszFileName,
+                              PFN_TRANSFER_PACKET    pfnTransferPacket,
+                              PFN_RECV_PKT_CALLBACK  pfnRecvPacket,
+                              void*                  pvUser)
 {
   /* Create delete packet */
   union
@@ -2538,15 +2142,205 @@ CIFX_STATIC int32_t DEV_DeleteFile(void* pvChannel, uint32_t ulChannelNumber, ch
 }
 
 /*****************************************************************************/
+/*! Delete all existing files in a channel, from the file system.
+*   \param ptChannel          Channel instance
+*   \param ulChannel          Channel number
+*   \param pfnTransferPacket  Function used for transferring packets
+*   \param pfnRecvPacket      User callback for unsolicited receive packets
+*   \param pvUser             User parameter passed on callback
+*   \param szExceptFile       File extension to ignore while deleting files
+*   \return always returns 1                                                 */
+/*****************************************************************************/
+static int DEV_RemoveChannelFiles(PCHANNELINSTANCE       ptChannel,
+                                  uint32_t               ulChannel,
+                                  PFN_TRANSFER_PACKET    pfnTransferPacket,
+                                  PFN_RECV_PKT_CALLBACK  pfnRecvPacket,
+                                  void*                  pvUser,
+                                  char*                  szExceptFile)
+{
+  /* Try to find file with the extension *.nxm, *.nxf, *.mod and remove it */
+  CIFX_DIRECTORYENTRY tDirectoryEntry;
+  int32_t             lRet            = CIFX_NO_ERROR;
+  int                 fFindFirst      = 1;
+
+  /* Search for all firmware files. If one is found. delete it an start with find first again, */
+  /* because we can't store a directory list in here */
+  do
+  {
+    if ( fFindFirst)
+    {
+       OS_Memset(&tDirectoryEntry, 0, sizeof(tDirectoryEntry));
+
+      /* Search first file */
+      if ( !(CIFX_NO_ERROR == (lRet = xSysdeviceFindFirstFile(ptChannel, ulChannel, &tDirectoryEntry, pfnRecvPacket, pvUser))))
+      {
+        /* No more files, or error during find first */
+        break;
+      } else
+      {
+        /* Is this a valid file name */
+        int iStrlen = OS_Strlen(tDirectoryEntry.szFilename);
+        if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+        {
+          if( !((NULL != szExceptFile)                                                          &&
+                (4 == OS_Strlen(szExceptFile))                                                  &&
+                (0 == OS_Strnicmp( szExceptFile, &tDirectoryEntry.szFilename[iStrlen - 4], 4)))   )
+          {
+            /* Delete file and continue with find first file again */
+            (void)DEV_DeleteFile(ptChannel, ulChannel, tDirectoryEntry.szFilename, pfnTransferPacket, pfnRecvPacket, pvUser);
+          }
+        } else
+        {
+          /* Not a valid file, search next file */
+          fFindFirst = 0;
+        }
+      }
+    } else
+    {
+      /* Search for more files */
+      if ( !(CIFX_NO_ERROR == (lRet = xSysdeviceFindNextFile(ptChannel, ulChannel, &tDirectoryEntry, pfnRecvPacket, pvUser))))
+      {
+        /* No more files, or error during find next */
+        break;
+      } else
+      {
+        /* Is this a valid file name */
+        int iStrlen = OS_Strlen(tDirectoryEntry.szFilename);
+        if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+        {
+          /* If firmware file, delete it, else search until all files checked */
+          if( !((NULL != szExceptFile)                                            &&
+                (4 == OS_Strlen(szExceptFile))                                    &&
+                (0 == OS_Strnicmp( szExceptFile, &tDirectoryEntry.szFilename[iStrlen - 4], 4)))   )
+          {
+            /* Delete the file and start with find first again */
+            (void)DEV_DeleteFile(ptChannel, ulChannel, tDirectoryEntry.szFilename, pfnTransferPacket, pfnRecvPacket, pvUser);
+            fFindFirst = 1;
+          }
+        }
+      }
+    }
+  } while ( CIFX_NO_ERROR == lRet);
+
+  return 1;
+}
+
+/*****************************************************************************/
+/*! Check if we have a firmware file
+*   \param pszFileName      Input file name
+*   \return 1 on success                                                     */
+/*****************************************************************************/
+static int DEV_IsFWFile( char* pszFileName)
+{
+  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
+  int fRet    = 0;
+  int iStrlen = OS_Strlen(pszFileName);
+
+  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+  {
+    if ( (0 == OS_Strnicmp( HIL_FILE_EXTENSION_FIRMWARE,     &pszFileName[iStrlen - 4], 4) ) ||
+         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NXM_FIRMWARE, &pszFileName[iStrlen - 4], 4) ) ||
+         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_OPTION,       &pszFileName[iStrlen - 4], 4) ) ||
+         (0 == OS_Strnicmp( ".MOD", &pszFileName[iStrlen - 4], 4) )  )
+    {
+      fRet = 1;
+    }
+  }
+
+  return fRet;
+}
+
+/*****************************************************************************/
+/*! Check if we have a firmware (update) file for netX90 and netX4000
+*   \param pszFileName      Input file name
+*   \return 1 on success                                                     */
+/*****************************************************************************/
+static int DEV_IsFWFileNetX90or4000( char* pszFileName)
+{
+  /* Check if we have a .NXI or .NAI extension, or FWUPDATE.ZIP / FWUPDATE.NXS
+     Note: NXE or NAE should be downloaded in update container.
+  */
+  int fRet    = 0;
+  int iStrlen = OS_Strlen(pszFileName);
+
+  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+  {
+    if ( (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NXI_FIRMWARE, &pszFileName[iStrlen - 4], 4) ) ||
+         (0 == OS_Strnicmp( HIL_FILE_EXTENSION_NAI_FIRMWARE, &pszFileName[iStrlen - 4], 4) )  )
+    {
+      fRet = 1;
+
+    /* Check for ZIP container */
+    } else if( (iStrlen == OS_Strlen("FWUPDATE.ZIP"))                         &&
+               (0       == OS_Strnicmp( "FWUPDATE.ZIP", &pszFileName[0], iStrlen)) )
+    {
+      fRet = 1;
+
+    /* Check for NXS container */
+    } else if( (iStrlen == OS_Strlen("FWUPDATE.NXS"))                         &&
+               (0       == OS_Strnicmp( "FWUPDATE.NXS", &pszFileName[0], iStrlen)) )
+    {
+      fRet = 1;
+    }
+  }
+
+  return fRet;
+}
+
+/*****************************************************************************/
+/*! Check if we have a NXO file
+*   \param pszFileName      Input file name
+*   \return 1 on success                                                     */
+/*****************************************************************************/
+int DEV_IsNXOFile( char* pszFileName)
+{
+  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
+  int fRet    = 0;
+  int iStrlen = OS_Strlen(pszFileName);
+
+  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+  {
+    if ( 0 == OS_Strnicmp( HIL_FILE_EXTENSION_OPTION, &pszFileName[iStrlen - 4], 4) )
+    {
+      fRet = 1;
+    }
+  }
+
+  return fRet;
+}
+
+/*****************************************************************************/
+/*! Check if we have a NXF file
+*   \param pszFileName      Input file name
+*   \return 1 on success                                                     */
+/*****************************************************************************/
+int DEV_IsNXFFile( char* pszFileName)
+{
+  /* Check if we have a .NXO, .NXF,.NXM or .MOD extension */
+  int fRet    = 0;
+  int iStrlen = OS_Strlen(pszFileName);
+
+  if( iStrlen >= CIFX_MIN_FILE_NAME_LENGTH)  /* At least x.abc */
+  {
+    if ( 0 == OS_Strnicmp( HIL_FILE_EXTENSION_FIRMWARE, &pszFileName[iStrlen - 4], 4) )
+    {
+      fRet = 1;
+    }
+  }
+
+  return fRet;
+}
+
+/*****************************************************************************/
 /*! Get the firmware transfer type from file name
 *   \param eChipType        netC chip type working on
 *   \param pszFileName      Input file name
 *   \param pulTransferType  Buffer for transfer type
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_GetFWTransferTypeFromFileName( CIFX_TOOLKIT_CHIPTYPE_E eChipType,
-                                                       char*                   pszFileName,
-                                                       uint32_t*               pulTransferType)
+int32_t DEV_GetFWTransferTypeFromFileName(CIFX_TOOLKIT_CHIPTYPE_E eChipType,
+                                          char*                   pszFileName,
+                                          uint32_t*               pulTransferType)
 {
   /* Check if we have a NXF or .NXM / .MOD extension */
   int32_t lRet = CIFX_NO_ERROR;
@@ -2605,11 +2399,11 @@ CIFX_STATIC int32_t DEV_GetFWTransferTypeFromFileName( CIFX_TOOLKIT_CHIPTYPE_E e
 *   \param pvUser             User data for callback functions
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_CheckForDownload( void* pvChannel, uint32_t ulChannelNumber, int* pfDownload,
-                                          char* pszFileName, void* pvFileData, uint32_t ulFileSize,
-                                          PFN_TRANSFER_PACKET   pfnTransferPacket,
-                                          PFN_RECV_PKT_CALLBACK pfnRecvPacket,
-                                          void*                 pvUser)
+static int32_t DEV_CheckForDownload( void* pvChannel, uint32_t ulChannelNumber, int* pfDownload,
+                                     char* pszFileName, void* pvFileData, uint32_t ulFileSize,
+                                     PFN_TRANSFER_PACKET   pfnTransferPacket,
+                                     PFN_RECV_PKT_CALLBACK pfnRecvPacket,
+                                     void*                 pvUser)
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)pvChannel;
@@ -2739,17 +2533,17 @@ CIFX_STATIC int32_t DEV_CheckForDownload( void* pvChannel, uint32_t ulChannelNum
 *   \param pvUser             Callback user parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
-                                           uint32_t              ulChannel,
-                                           char*                 pszFullFileName,
-                                           char*                 pszFileName,
-                                           uint32_t              ulFileLength,
-                                           uint8_t*              pbBuffer,
-                                           uint8_t*              pbLoadState,
-                                           PFN_TRANSFER_PACKET   pfnTransferPacket,
-                                           PFN_PROGRESS_CALLBACK pfnCallback,
-                                           PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
-                                           void*                 pvUser)
+static int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
+                                      uint32_t              ulChannel,
+                                      char*                 pszFullFileName,
+                                      char*                 pszFileName,
+                                      uint32_t              ulFileLength,
+                                      uint8_t*              pbBuffer,
+                                      uint8_t*              pbLoadState,
+                                      PFN_TRANSFER_PACKET   pfnTransferPacket,
+                                      PFN_PROGRESS_CALLBACK pfnCallback,
+                                      PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
+                                      void*                 pvUser)
 {
   PCHANNELINSTANCE ptSysDevice   = &ptDevInstance->tSystemDevice;
   int32_t          lRet          = CIFX_NO_ERROR;
@@ -2772,7 +2566,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
       uint32_t ulTransfertype = HIL_FILE_XFER_MODULE;
 
       /* Check if we have a NXF*/
-      if( CIFX_MAKE_DEV_FUN(DEV_IsNXFFile)(pszFileName) &&
+      if( DEV_IsNXFFile(pszFileName) &&
           (0 != ulChannel) )
       {
         /* Downloading an NXF to a channel other than 0 is not supported */
@@ -2785,7 +2579,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
         }
 
       /* Check if we have an NXO file */
-      } else if( CIFX_MAKE_DEV_FUN(DEV_IsNXOFile)(pszFileName) &&
+      } else if( DEV_IsNXOFile(pszFileName) &&
                  (!ptDevInstance->fModuleLoad))
       {
         /* Downloading an NXO without a running Base OS is not allowed */
@@ -2798,8 +2592,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
       } else
       {
         /* Download the file stored in the buffer */
-        lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(
-                                ptSysDevice,
+        lRet = DEV_DownloadFile(ptSysDevice,
                                 ulChannel,
                                 ptDevInstance->tSystemDevice.tSendMbx.ulSendMailboxLength,
                                 ulTransfertype,
@@ -2829,14 +2622,14 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
           /*-----------------------*/
 
           /* Check if we have a NXF */
-          if ( CIFX_MAKE_DEV_FUN(DEV_IsNXFFile)( pszFileName))
+          if ( DEV_IsNXFFile(pszFileName))
           {
             /* NXF loaded, store information for startup handling */
             *pbLoadState = CIFXTKIT_DOWNLOAD_FIRMWARE | CIFXTKIT_DOWNLOAD_EXECUTED; /* we have a firmware loaded */
           }
 
           /* Check if we have a NXO */
-          if ( CIFX_MAKE_DEV_FUN(DEV_IsNXOFile)( pszFileName))
+          if ( DEV_IsNXOFile(pszFileName))
           {
             /* NXO loaded, store information for startup handling */
             *pbLoadState = CIFXTKIT_DOWNLOAD_MODULE  | CIFXTKIT_DOWNLOAD_EXECUTED;  /* we have a module loaded */
@@ -2869,8 +2662,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
       int      fDownload       = 0;
 
       /* Does the file exist on the hardware, if so, skip the download */
-      if ( CIFX_NO_ERROR != (lRet = CIFX_MAKE_DEV_FUN(DEV_CheckForDownload)(
-                                                          ptSysDevice,
+      if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload( ptSysDevice,
                                                           ulChannel,
                                                           &fDownload,
                                                           pszFileName,
@@ -2896,7 +2688,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
         /* Download not necessary            */
         /*-----------------------------------*/
         /* Store NXO Information for startup */
-        if(CIFX_MAKE_DEV_FUN(DEV_IsNXOFile)(pszFileName))
+        if(DEV_IsNXOFile(pszFileName))
         {
           if( !ptDevInstance->fModuleLoad)
           {
@@ -2923,7 +2715,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
 
             *pbLoadState = CIFXTKIT_DOWNLOAD_MODULE;
           }
-        } else if(CIFX_MAKE_DEV_FUN(DEV_IsNXFFile)(pszFileName))
+        } else if(DEV_IsNXFFile(pszFileName))
         {
           *pbLoadState = CIFXTKIT_DOWNLOAD_FIRMWARE;
         } else
@@ -2937,7 +2729,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
         /* Download is necessary             */
         /*-----------------------------------*/
         /* Check if we have a NXF*/
-        if( CIFX_MAKE_DEV_FUN(DEV_IsNXFFile)(pszFileName))
+        if( DEV_IsNXFFile(pszFileName))
         {
           if (0 != ulChannel)
           {
@@ -2965,7 +2757,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
             /* Remove ALL files */
             for ( ulChNum = 0; ulChNum < CIFX_MAX_NUMBER_OF_CHANNELS; ulChNum++)
             {
-              (void)CIFX_MAKE_DEV_FUN(DEV_RemoveChannelFiles)(ptSysDevice, ulChNum, pfnTransferPacket, NULL, NULL, NULL);
+              (void)DEV_RemoveChannelFiles(ptSysDevice, ulChNum, pfnTransferPacket, NULL, NULL, NULL);
             }
 
             /* We have loaded a new firmware file */
@@ -2973,7 +2765,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
           }
 
          /* Check if we have an NXO file */
-        } else if( CIFX_MAKE_DEV_FUN(DEV_IsNXOFile)(pszFileName))
+        } else if( DEV_IsNXOFile(pszFileName))
         {
           if( !ptDevInstance->fModuleLoad)
           {
@@ -2997,7 +2789,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
             /* Files for a flash based device are always transfered into the FLASH file system */
             /* We have to delete existing files, depending of a NXF/NXO */
             /* Leave NXF file */
-            (void)CIFX_MAKE_DEV_FUN(DEV_RemoveChannelFiles)( ptSysDevice, ulChannel, pfnTransferPacket, NULL, NULL, HIL_FILE_EXTENSION_FIRMWARE);
+            (void)DEV_RemoveChannelFiles( ptSysDevice, ulChannel, pfnTransferPacket, NULL, NULL, HIL_FILE_EXTENSION_FIRMWARE);
 
             /* We have loaded a new module */
             *pbLoadState = CIFXTKIT_DOWNLOAD_MODULE;
@@ -3011,8 +2803,7 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
         if(fDownload)
         {
           /* Download the file stored in the buffer */
-          lRet = CIFX_MAKE_DEV_FUN(DEV_DownloadFile)(
-                                  ptSysDevice,
+          lRet = DEV_DownloadFile(ptSysDevice,
                                   ulChannel,
                                   ptDevInstance->tSystemDevice.tSendMbx.ulSendMailboxLength,
                                   ulTransfertype,
@@ -3069,628 +2860,13 @@ CIFX_STATIC int32_t DEV_ProcessFWDownload( PDEVICEINSTANCE       ptDevInstance,
   return lRet;
 } /*lint !e429 : pbBuffer not freed or returned */
 
-/*****************************************************************************/
-/*! Download a file to the hardware
-*   \param pvChannel          Channel instance the download is performed on
-*   \param ulChannel          Channel number the download is for
-*   \param ulMailboxSize      Size of the mailbox
-*   \param ulTransferType     Type of transfer (see HIL_FILE_XFER_XXX defines)
-*   \param szFileName         Short file name (needed by firmware to create the file by name)
-*   \param ulFileLength       Length of the file to download
-*   \param pvData             File data being downloaded
-*   \param pfnTransferPacket  Function used for transferring packets
-*   \param pfnCallback        User callback for download progress indications
-*   \param pfnRecvPktCallback User callback for unsolicited receive packets
-*   \param pvUser             User parameter passed on callback
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-CIFX_STATIC int32_t DEV_DownloadFile(void*                 pvChannel,
-                                     uint32_t              ulChannel,
-                                     uint32_t              ulMailboxSize,
-                                     uint32_t              ulTransferType,
-                                     char*                 szFileName,
-                                     uint32_t              ulFileLength,
-                                     void*                 pvData,
-                                     PFN_TRANSFER_PACKET   pfnTransferPacket,
-                                     PFN_PROGRESS_CALLBACK pfnCallback,
-                                     PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
-                                     void*                 pvUser)
-{
-  union
-  {
-    CIFX_PACKET                   tPacket;
-    HIL_FILE_DOWNLOAD_REQ_T       tDownloadReq;
-    HIL_FILE_DOWNLOAD_DATA_REQ_T  tDownloadDataReq;
-    HIL_FILE_DOWNLOAD_ABORT_REQ_T tAbortReq;
-  }          uSendPkt;
-  union
-  {
-    CIFX_PACKET                   tPacket;
-    HIL_FILE_DOWNLOAD_CNF_T       tDownloadCnf;
-    HIL_FILE_DOWNLOAD_DATA_CNF_T  tDownloadDataCnf;
-    HIL_FILE_DOWNLOAD_ABORT_CNF_T tAbortCnf;
-  }          uRecvPkt;
-
-  /* Set download state informations */
-  uint32_t   ulMaxDataLength     = ulMailboxSize -  /* Maximum possible user data length */
-                                   (uint32_t)sizeof(HIL_FILE_DOWNLOAD_DATA_REQ_T);
-
-  char*      pbCopyPtr           = NULL;
-  uint32_t   ulCopySize          = 0;
-  uint32_t   ulSendLen           = 0;
-  uint32_t   ulTransferedLength  = 0;
-  uint8_t*   pabActData          = NULL;
-  uint32_t   ulCRC               = 0;
-  uint32_t   ulBlockNumber       = 0;
-  uint32_t   ulState             = HIL_FILE_DOWNLOAD_REQ;
-  uint32_t   ulCmdDataState      = HIL_PACKET_SEQ_NONE;
-  int        fStopDownload       = 0;
-  int32_t    lRetAbort           = CIFX_NO_ERROR;
-  int32_t    lRet                = CIFX_NO_ERROR;
-  uint32_t   ulCurrentId         = 0;
-  uint32_t   ulSrc               = OS_GetMilliSecCounter(); /* Early versions used pvChannel as ulSrc,
-                                                               but this won't work on 64 Bit machines.
-                                                               As we need something unique we use the current system time */
-  uint32_t   ulTransferTimeout   = CIFX_TO_SEND_PACKET;
-
-  OS_Memset(&uSendPkt, 0, sizeof(uSendPkt));
-  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
-
-  /* Check parameters */
-  if( NULL == pvData)
-    return CIFX_INVALID_POINTER;
-
-  if( 0 == ulFileLength)
-    return CIFX_INVALID_PARAMETER;
-
-  pabActData = (uint8_t*)pvData;
-
-  /* Performce download */
-  do
-  {
-    switch (ulState)
-    {
-      /* Send download request */
-      case HIL_FILE_DOWNLOAD_REQ:
-      {
-        /* Validate filename length to fit mailbox/packet */
-        uint32_t ulFileNameLength = HIL_MIN(((uint32_t)OS_Strlen(szFileName) + 1),
-                                            (ulMailboxSize - (uint32_t)sizeof(HIL_FILE_DOWNLOAD_REQ_T))); /*lint !e666 : function call OS_Strlen() */
-
-        /* Insert packet data */
-        ++ulCurrentId;
-        uSendPkt.tDownloadReq.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-        uSendPkt.tDownloadReq.tHead.ulSrc    = HOST_TO_LE32(ulSrc);
-        uSendPkt.tDownloadReq.tHead.ulDestId = HOST_TO_LE32(0);
-        uSendPkt.tDownloadReq.tHead.ulSrcId  = HOST_TO_LE32(0);
-        uSendPkt.tDownloadReq.tHead.ulLen    = HOST_TO_LE32((uint32_t)(sizeof(HIL_FILE_DOWNLOAD_REQ_DATA_T) +
-                                                                       ulFileNameLength));
-        uSendPkt.tDownloadReq.tHead.ulId     = HOST_TO_LE32(ulCurrentId);
-        uSendPkt.tDownloadReq.tHead.ulSta    = HOST_TO_LE32(0);
-        uSendPkt.tDownloadReq.tHead.ulCmd    = HOST_TO_LE32(HIL_FILE_DOWNLOAD_REQ);
-        uSendPkt.tDownloadReq.tHead.ulExt    = HOST_TO_LE32(ulCmdDataState);
-        uSendPkt.tDownloadReq.tHead.ulRout   = HOST_TO_LE32(0);
-
-        /* Insert command data (extended data) */
-        uSendPkt.tDownloadReq.tData.ulFileLength     = HOST_TO_LE32(ulFileLength);
-        uSendPkt.tDownloadReq.tData.ulMaxBlockSize   = HOST_TO_LE32(ulMaxDataLength);
-        uSendPkt.tDownloadReq.tData.ulXferType       = HOST_TO_LE32(ulTransferType);
-        uSendPkt.tDownloadReq.tData.ulChannelNo      = HOST_TO_LE32(ulChannel);
-        uSendPkt.tDownloadReq.tData.usFileNameLength = HOST_TO_LE16((uint16_t)ulFileNameLength);
-
-        /* Setup copy buffer and copy size */
-        pbCopyPtr   = ((char*)(&uSendPkt.tPacket.abData[0])) + sizeof(uSendPkt.tDownloadReq.tData);
-        ulCopySize  = HIL_MIN((sizeof(uSendPkt.tPacket.abData) - sizeof(uSendPkt.tDownloadReq.tData)), uSendPkt.tDownloadReq.tData.usFileNameLength);
-
-        /* Insert file name */
-        (void)OS_Strncpy( pbCopyPtr, szFileName, ulCopySize);
-
-        /* Usually a file system is used for file storage, but there are configurations
-         * that use RAW FLASH instead (e.g. netX90 usecase A/B). Deleting a file inside
-         * the file system is usually quite quick, but erasing a FLASH area can take a
-         * considerable amount of time (depending on the area size and the erase time
-         * of the FLASH chip). That's why we try to calculate the necessary timeout
-         * value for a successful first download packet. If the netX requires less time,
-         * the function will return sooner. The following assumptions are made here:
-         * Erase sector size: 4096, Erase sector time: 150ms.
-         */
-
-        /* Transfer packet */
-        lRet = pfnTransferPacket(pvChannel,
-                                 &uSendPkt.tPacket,
-                                 &uRecvPkt.tPacket,
-                                 (uint32_t)sizeof(uRecvPkt.tPacket),
-                                 ulTransferTimeout + ((ulFileLength / 4096) * 150),
-                                 pfnRecvPktCallback,
-                                 pvUser);
-
-        if( (CIFX_NO_ERROR  != lRet)                                 ||
-            (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST((int32_t)uRecvPkt.tDownloadCnf.tHead.ulSta))) )
-        {
-          /* Error during first packet, end download */
-          /* Send progress notification */
-          if(pfnCallback)
-            pfnCallback(ulTransferedLength, ulFileLength, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-          /* Send abort request on unusable data */
-          ulState = HIL_FILE_DOWNLOAD_ABORT_REQ;
-        } else if( LE32_TO_HOST(uRecvPkt.tDownloadCnf.tData.ulMaxBlockSize) == 0)
-        {
-          /* Error in device information, stop download (Device returned illegal block size */
-          lRet = CIFX_INVALID_ACCESS_SIZE;
-
-          /* Send progress notification */
-          if(pfnCallback)
-            pfnCallback(ulTransferedLength, ulFileLength, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-          /* Send abort request on unusable data */
-          ulState = HIL_FILE_DOWNLOAD_ABORT_REQ;
-        } else
-        {
-          /* Everything went ok, so start transmitting file data now */
-          /* Get download packet size from the device confirmation.
-             If the devices packet size is smaller than our size, use the length from the device.
-             Otherwise use our length. */
-          if( ulMaxDataLength > LE32_TO_HOST(uRecvPkt.tDownloadCnf.tData.ulMaxBlockSize))
-            ulMaxDataLength = LE32_TO_HOST(uRecvPkt.tDownloadCnf.tData.ulMaxBlockSize);
-
-          /* Check if the file fits into one packet or if we have to send multiple packets */
-          ulSendLen = ulMaxDataLength;
-          if(ulFileLength <= ulSendLen)
-          {
-            /* We have only one packet to send */
-            ulSendLen       = ulFileLength;
-            ulCmdDataState  = HIL_PACKET_SEQ_NONE;
-          } else
-          {
-            /* We have to send multiple packets */
-            ulCmdDataState  = HIL_PACKET_SEQ_FIRST;
-          }
-
-          /* Goto next state */
-          ulState = HIL_FILE_DOWNLOAD_DATA_REQ;
-        }
-      }
-      break;
-
-      /* Data download packets */
-      case HIL_FILE_DOWNLOAD_DATA_REQ:
-      {
-        ++ulCurrentId;
-        uSendPkt.tDownloadDataReq.tHead.ulDest     = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-        uSendPkt.tDownloadDataReq.tHead.ulSrc      = HOST_TO_LE32(ulSrc);
-        uSendPkt.tDownloadDataReq.tHead.ulCmd      = HOST_TO_LE32(HIL_FILE_DOWNLOAD_DATA_REQ);
-        uSendPkt.tDownloadDataReq.tHead.ulId       = HOST_TO_LE32(ulCurrentId);
-        uSendPkt.tDownloadDataReq.tHead.ulExt      = HOST_TO_LE32(ulCmdDataState);
-
-        /* Copy file data to packet */
-        OS_Memcpy( &uSendPkt.tDownloadDataReq.tData + 1, pabActData, ulSendLen);
-
-        /* Adjust packet length */
-        uSendPkt.tDownloadDataReq.tHead.ulLen      = HOST_TO_LE32((uint32_t)(sizeof(HIL_FILE_DOWNLOAD_DATA_REQ_DATA_T) +
-                                                                             ulSendLen));
-
-        /* Create continued CRC */
-        ulCRC = CreateCRC32( ulCRC, pabActData, ulSendLen);
-        uSendPkt.tDownloadDataReq.tData.ulChksum   = HOST_TO_LE32(ulCRC);
-        uSendPkt.tDownloadDataReq.tData.ulBlockNo  = HOST_TO_LE32(ulBlockNumber);
-        ++ulBlockNumber;
-
-        /* Transfer packet */
-        lRet = pfnTransferPacket(pvChannel,
-                                &uSendPkt.tPacket,
-                                &uRecvPkt.tPacket,
-                                (uint32_t)sizeof(uRecvPkt.tPacket),
-                                ulTransferTimeout,
-                                pfnRecvPktCallback,
-                                pvUser);
-
-        if( (CIFX_NO_ERROR  != lRet)                                   ||
-            (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST((int32_t)(uRecvPkt.tDownloadDataCnf.tHead.ulSta)))) )
-        {
-          /* Driver error during transfer packet, end download */
-          /* Always try to send an abort request */
-          if(pfnCallback)
-            pfnCallback(ulTransferedLength, ulFileLength, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-          ulState = HIL_FILE_DOWNLOAD_ABORT_REQ;
-        } else
-        {
-          /* Add send size to transferred size */
-          ulTransferedLength += ulSendLen;
-
-          /* Indicate progress, if user wants a notification */
-          if(pfnCallback)
-            pfnCallback(ulTransferedLength, ulFileLength, pvUser,
-                        (ulTransferedLength == ulFileLength) ? CIFX_CALLBACK_FINISHED : CIFX_CALLBACK_ACTIVE,
-                        lRet);
-
-          /* Check if we are done with the download */
-          if( (HIL_PACKET_SEQ_LAST == ulCmdDataState) ||
-              (HIL_PACKET_SEQ_NONE == ulCmdDataState) )
-          {
-            /* No more packets to send, end download */
-            fStopDownload = 1;
-          } else
-          {
-            /* Move data pointer to next data */
-            pabActData += ulSendLen;
-
-            /* Calculate next message length */
-            if ( ulFileLength <= (ulSendLen + ulTransferedLength))
-            {
-              /* Set the send length to rest of data,
-                 This will be the last packet */
-              ulSendLen = ulFileLength - ulTransferedLength;
-              ulCmdDataState = HIL_PACKET_SEQ_LAST;
-
-              /* ATTENTION: Check the transfer type */
-              if ( HIL_FILE_XFER_MODULE == ulTransferType)
-              {
-                /* Module loading will relocate the module with the last packet.
-                   So the confirmation packet takes longer, depending on the
-                   file size (and contained firmware).
-                   Measurements showed that for every 100kB the module needs
-                   one additional second for relocation */
-                ulTransferTimeout += (ulFileLength / (100 * 1024)) * 1000;
-              }
-            } else
-            {
-              ulCmdDataState = HIL_PACKET_SEQ_MIDDLE;
-            }
-
-            /* Goto next state */
-            ulState = HIL_FILE_DOWNLOAD_DATA_REQ;
-          }
-        }
-      }
-      break;
-
-      /* Abort active download */
-      case HIL_FILE_DOWNLOAD_ABORT_REQ:
-      {
-        ++ulCurrentId;
-        uSendPkt.tAbortReq.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-        uSendPkt.tAbortReq.tHead.ulSrc    = HOST_TO_LE32(ulSrc);
-        uSendPkt.tAbortReq.tHead.ulDestId = HOST_TO_LE32(0);
-        uSendPkt.tAbortReq.tHead.ulSrcId  = HOST_TO_LE32(0);
-        uSendPkt.tAbortReq.tHead.ulLen    = HOST_TO_LE32(0);
-        uSendPkt.tAbortReq.tHead.ulId     = HOST_TO_LE32(ulCurrentId);
-        uSendPkt.tAbortReq.tHead.ulSta    = HOST_TO_LE32(0);
-        uSendPkt.tAbortReq.tHead.ulCmd    = HOST_TO_LE32(HIL_FILE_DOWNLOAD_ABORT_REQ);
-        uSendPkt.tAbortReq.tHead.ulExt    = HOST_TO_LE32(HIL_PACKET_SEQ_NONE);
-        uSendPkt.tAbortReq.tHead.ulRout   = HOST_TO_LE32(0);
-
-        /* Transfer packet */
-        lRetAbort = pfnTransferPacket(pvChannel,
-                                      &uSendPkt.tPacket,
-                                      &uRecvPkt.tPacket,
-                                      (uint32_t)sizeof(uRecvPkt.tPacket),
-                                      ulTransferTimeout,
-                                      pfnRecvPktCallback,
-                                      pvUser);
-
-        if( lRetAbort == CIFX_NO_ERROR)
-        {
-          /* Return packet state if function succeeded */
-          lRetAbort = LE32_TO_HOST((int32_t)uRecvPkt.tAbortCnf.tHead.ulSta);
-        }
-
-        /* End download */
-        fStopDownload = 1;
-      }
-      break;
-
-      default:
-        /* unknown, leave command */
-        lRet = CIFX_FUNCTION_FAILED;
-
-        /* End download */
-        fStopDownload = 1;
-        break;
-    }
-
-  } while(!fStopDownload);
-
-  /* Always return lRet first, then abort error */
-  if( CIFX_NO_ERROR != lRet)
-    return lRet;
-  else if( CIFX_NO_ERROR != lRetAbort)
-    return lRetAbort;
-  else
-    return CIFX_NO_ERROR;
-} /*lint !e429 : pvData not freed or returned */
-
-/*****************************************************************************/
-/*! Uploads a file from the hardware. It is required to list the files
-* on the hardware, to know the file length for creating the buffer.
-*   \param pvChannel          Channel instance the upload is performed on
-*   \param ulChannel          Channel number the upload made is for
-*   \param ulMailboxSize      Size of the mailbox
-*   \param ulTransferType     Type of transfer (see HIL_FILE_XFER_XXX defines)
-*   \param szFileName         Short file name
-*   \param pulDataBufferLen   Length of the provided buffer, returned length of data
-*   \param pvData             Buffer for storing upload. This buffer must be allocated by the caller.
-*   \param pfnTransferPacket  Function used for transferring packets
-*   \param pfnCallback        User callback for upload progress indications
-*   \param pfnRecvPktCallback User callback for unsolicited receive packets
-*   \param pvUser             User parameter passed on callback
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-CIFX_STATIC int32_t DEV_UploadFile(void*                   pvChannel,
-                                   uint32_t                ulChannel,
-                                   uint32_t                ulMailboxSize,
-                                   uint32_t                ulTransferType,
-                                   char*                   szFileName,
-                                   uint32_t*               pulDataBufferLen,
-                                   void*                   pvData,
-                                   PFN_TRANSFER_PACKET     pfnTransferPacket,
-                                   PFN_PROGRESS_CALLBACK   pfnCallback,
-                                   PFN_RECV_PKT_CALLBACK   pfnRecvPktCallback,
-                                   void*                   pvUser)
-{
-  /* Usually one brace should be enough, but GNU wants to have a second brace
-     to initialize the structure. On GCC 4.0.3 the whole structure is initialized
-     as described in ISOC90 */
-  union
-  {
-    CIFX_PACKET                   tPacket;
-    HIL_FILE_UPLOAD_REQ_T         tUploadReq;
-    HIL_FILE_UPLOAD_DATA_REQ_T    tUploadDataReq;
-    HIL_FILE_DOWNLOAD_ABORT_REQ_T tAbortReq;
-  }                             uSendPkt;
-
-  union
-  {
-    CIFX_PACKET                   tPacket;
-    HIL_FILE_UPLOAD_CNF_T         tUploadCnf;
-    HIL_FILE_UPLOAD_DATA_CNF_T    tUploadDataCnf;
-  }                             uRecvPkt;
-
-  char*                         pbCopyPtr         = NULL;
-  uint32_t                      ulCopySize        = 0;
-  uint32_t                      ulFileLength      = 0;
-  uint16_t                      usFilenameLen     = (uint16_t)(OS_Strlen(szFileName) + 1); /*Firmware expects length including terminating NULL */
-  uint32_t                      ulBlockSize       = ulMailboxSize -
-                                                    (uint32_t)sizeof(uRecvPkt.tUploadDataCnf); /* maximum size of each file block */
-  int                           fSendAbort        = 0;
-  int32_t                       lRetAbort         = CIFX_NO_ERROR;
-  int32_t                       lRet              = CIFX_NO_ERROR;
-  uint32_t                      ulCurrentId       = 0;
-  uint32_t                      ulSrc             = OS_GetMilliSecCounter(); /* Early versions used pvChannel as ulSrc,
-                                                                                but this won't work on 64 Bit machines.
-                                                                                As we need something unique we use the current system time */
-
-  OS_Memset(&uSendPkt, 0, sizeof(uSendPkt));
-  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
-
-  /* Check parameters */
-  if( (NULL == pvData) || (NULL == pulDataBufferLen) )
-    return CIFX_INVALID_POINTER;
-
-  if( ulMailboxSize < HIL_DPM_SYSTEM_MAILBOX_MIN_SIZE)
-    return CIFX_DEV_MAILBOX_TOO_SHORT;
-
-  ++ulCurrentId;
-  uSendPkt.tUploadReq.tHead.ulDest             = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-  uSendPkt.tUploadReq.tHead.ulSrc              = HOST_TO_LE32(ulSrc);
-  uSendPkt.tUploadReq.tHead.ulDestId           = HOST_TO_LE32(0);
-  uSendPkt.tUploadReq.tHead.ulSrcId            = HOST_TO_LE32(0);
-  uSendPkt.tUploadReq.tHead.ulLen              = HOST_TO_LE32((uint32_t)(sizeof(uSendPkt.tUploadReq.tData) + usFilenameLen));
-  uSendPkt.tUploadReq.tHead.ulId               = HOST_TO_LE32(ulCurrentId);
-  uSendPkt.tUploadReq.tHead.ulSta              = HOST_TO_LE32(0);
-  uSendPkt.tUploadReq.tHead.ulCmd              = HOST_TO_LE32(HIL_FILE_UPLOAD_REQ);
-  uSendPkt.tUploadReq.tHead.ulExt              = HOST_TO_LE32(HIL_PACKET_SEQ_NONE);
-  uSendPkt.tUploadReq.tHead.ulRout             = HOST_TO_LE32(0);
-
-  uSendPkt.tUploadReq.tData.usFileNameLength   = HOST_TO_LE16(usFilenameLen);
-  uSendPkt.tUploadReq.tData.ulXferType         = HOST_TO_LE32(ulTransferType);
-  uSendPkt.tUploadReq.tData.ulMaxBlockSize     = HOST_TO_LE32(ulBlockSize);
-  uSendPkt.tUploadReq.tData.ulChannelNo        = HOST_TO_LE32(ulChannel);
-
-  /* Setup copy buffer and copy size */
-  pbCopyPtr   = ((char*)(&uSendPkt.tPacket.abData[0])) + sizeof(uSendPkt.tUploadReq.tData);
-  ulCopySize  = HIL_MIN((sizeof(uSendPkt.tPacket.abData) - sizeof(uSendPkt.tUploadReq.tData)), uSendPkt.tUploadReq.tData.usFileNameLength);
-
-  (void)OS_Strncpy( pbCopyPtr, szFileName, ulCopySize);
-
-  lRet = pfnTransferPacket(pvChannel,
-                           &uSendPkt.tPacket,
-                           &uRecvPkt.tPacket,
-                           (uint32_t)sizeof(uRecvPkt.tPacket),
-                           CIFX_TO_SEND_PACKET,
-                           pfnRecvPktCallback,
-                           pvUser);
-
-  /* Read file length */
-  ulFileLength = LE32_TO_HOST(uRecvPkt.tUploadCnf.tData.ulFileLength);
-
-  /* ATTENTION: We have to send an "Abort" to the system if:                              */
-  /*  1. Command or File Error occured                                                    */
-  /*  2. If the file exists but the length is 0                                           */
-  /* In both cases, it is possible the system has activated a data transfer and waits     */
-  /* on data requests commands.                                                           */
-  /* It is necessary to send a "Abort" command, otherwise the next file access will fail  */
-  /* with an error "COMMAND_ACTIVE".                                                      */
-
-  if( (CIFX_NO_ERROR  != lRet)                                                      ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tPacket.tHeader.ulState)))   ||
-      (0              == ulFileLength)                                              )
-  {
-    /* Set return of read file length to 0 */
-    *pulDataBufferLen = 0;
-
-    /* Send progress notification */
-    if(pfnCallback)
-      pfnCallback( 0, 0, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-    /* Execute an abort command */
-    fSendAbort = 1;
-  } else
-  {
-    /* Check file length against user buffer length */
-    if(ulFileLength > *pulDataBufferLen)
-    {
-      fSendAbort = 1;
-      lRet = CIFX_INVALID_BUFFERSIZE;
-    } else
-    {
-      uint32_t  ulCRC              = 0;
-      uint8_t*  pbData             = (uint8_t*)pvData; /* pointer to return buffer */
-      uint32_t  ulTransferredBytes = 0;
-      uint32_t  ulTotalBytes       = ulFileLength;
-
-      /* Set return of read file length to 0 */
-      *pulDataBufferLen = 0;
-
-      /* Create upload data packet */
-      ++ulCurrentId;
-      OS_Memset( &uSendPkt.tUploadDataReq, 0, sizeof(uSendPkt.tUploadDataReq));
-      uSendPkt.tUploadDataReq.tHead.ulDest     = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-      uSendPkt.tUploadDataReq.tHead.ulSrc      = HOST_TO_LE32(ulSrc);
-      uSendPkt.tUploadDataReq.tHead.ulDestId   = HOST_TO_LE32(0);
-      uSendPkt.tUploadDataReq.tHead.ulSrcId    = HOST_TO_LE32(0);
-      uSendPkt.tUploadDataReq.tHead.ulLen      = HOST_TO_LE32(0);
-      uSendPkt.tUploadDataReq.tHead.ulId       = HOST_TO_LE32(ulCurrentId);
-      uSendPkt.tUploadDataReq.tHead.ulSta      = HOST_TO_LE32(0);
-      uSendPkt.tUploadDataReq.tHead.ulCmd      = HOST_TO_LE32(HIL_FILE_UPLOAD_DATA_REQ);
-      uSendPkt.tUploadDataReq.tHead.ulExt      = HOST_TO_LE32(HIL_PACKET_SEQ_NONE);
-      uSendPkt.tUploadDataReq.tHead.ulRout     = HOST_TO_LE32(0);
-
-      /* Adjust block size to the size of the system */
-      if( LE32_TO_HOST(uRecvPkt.tUploadCnf.tData.ulMaxBlockSize) < ulBlockSize)
-         ulBlockSize = LE32_TO_HOST(uRecvPkt.tUploadCnf.tData.ulMaxBlockSize);
-
-      /* Check size we have to send */
-      /* If this is only one packet, set extension to NONE */
-      uSendPkt.tUploadDataReq.tHead.ulExt = HOST_TO_LE32(HIL_PACKET_SEQ_FIRST);
-      if( ulTotalBytes <= ulBlockSize)
-        uSendPkt.tUploadDataReq.tHead.ulExt = HOST_TO_LE32(HIL_PACKET_SEQ_NONE);    /* We can send all in one packet */
-
-      /* Perform upload */
-      while( (ulFileLength > 0) && (CIFX_NO_ERROR == lRet) )
-      {
-        /* Send and receive data */
-        lRet = pfnTransferPacket(pvChannel,
-                                 &uSendPkt.tPacket,
-                                 &uRecvPkt.tPacket,
-                                 (uint32_t)sizeof(uRecvPkt.tPacket),
-                                 CIFX_TO_SEND_PACKET,
-                                 pfnRecvPktCallback,
-                                 pvUser);
-        /* Check for errors */
-        if( (CIFX_NO_ERROR  != lRet)                                ||
-            (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tPacket.tHeader.ulState))) )
-        {
-          /* This is a packet error from the hardware */
-          /* - Inform application */
-          /* - Leave upload and send abort */
-          if(pfnCallback)
-            pfnCallback(ulTransferredBytes, ulTotalBytes, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-          fSendAbort = 1;
-          break;
-        } else
-        {
-          uint32_t  ulCurrentDataLen = LE32_TO_HOST(uRecvPkt.tUploadDataCnf.tHead.ulLen) -
-                                                    (uint32_t)sizeof(uRecvPkt.tUploadDataCnf.tData);
-          uint8_t*  pbRecvData       = (uint8_t*)(&uRecvPkt.tUploadDataCnf.tData + 1);
-          uint32_t  ulPacketCrc      = LE32_TO_HOST(uRecvPkt.tUploadDataCnf.tData.ulChksum);
-
-          /* Create own checksum and compare with it */
-          ulCRC = CreateCRC32( ulCRC, pbRecvData, ulCurrentDataLen);
-
-          if(ulCRC != ulPacketCrc)
-          {
-            /* Abort, as a CRC32 error occurred */
-            lRet = CIFX_FILE_CHECKSUM_ERROR;
-
-            /* Send progress notification */
-            if(pfnCallback)
-              pfnCallback(ulTransferredBytes, ulTotalBytes, pvUser, CIFX_CALLBACK_FINISHED, lRet);
-
-            fSendAbort = 1;
-            break;
-          } else
-          {
-            /* Next packet */
-            ++ulCurrentId;
-            uSendPkt.tUploadDataReq.tHead.ulId = HOST_TO_LE32(ulCurrentId);
-
-            /* Calculate outstanding size */
-            ulFileLength        -= ulCurrentDataLen;
-            OS_Memcpy(pbData, pbRecvData, ulCurrentDataLen);
-            pbData              += ulCurrentDataLen;
-            ulTransferredBytes  += ulCurrentDataLen;
-            *pulDataBufferLen   = ulTransferredBytes;
-
-            /* Send progress notification */
-            if(pfnCallback)
-              pfnCallback(ulTransferredBytes, ulTotalBytes, pvUser,
-                          (ulTransferredBytes == ulTotalBytes)? CIFX_CALLBACK_FINISHED : CIFX_CALLBACK_ACTIVE,
-                          lRet);
-
-            /* Calculate next packet length and packet extension */
-            if(ulFileLength != 0)
-            {
-              if(ulFileLength <= ulBlockSize)
-                uSendPkt.tUploadDataReq.tHead.ulExt = HOST_TO_LE32(HIL_PACKET_SEQ_LAST);
-              else
-                uSendPkt.tUploadDataReq.tHead.ulExt = HOST_TO_LE32(HIL_PACKET_SEQ_MIDDLE);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /* If anything failed during upload, send an abort request */
-  if( fSendAbort)
-  {
-    ++ulCurrentId;
-    uSendPkt.tAbortReq.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-    uSendPkt.tAbortReq.tHead.ulSrc    = HOST_TO_LE32(ulSrc);
-    uSendPkt.tAbortReq.tHead.ulDestId = HOST_TO_LE32(0);
-    uSendPkt.tAbortReq.tHead.ulSrcId  = HOST_TO_LE32(0);
-    uSendPkt.tAbortReq.tHead.ulLen    = HOST_TO_LE32(0);
-    uSendPkt.tAbortReq.tHead.ulId     = HOST_TO_LE32(ulCurrentId);
-    uSendPkt.tAbortReq.tHead.ulSta    = HOST_TO_LE32(0);
-    uSendPkt.tAbortReq.tHead.ulCmd    = HOST_TO_LE32(HIL_FILE_UPLOAD_ABORT_REQ);
-    uSendPkt.tAbortReq.tHead.ulExt    = HOST_TO_LE32(HIL_PACKET_SEQ_NONE);
-    uSendPkt.tAbortReq.tHead.ulRout   = HOST_TO_LE32(0);
-
-    /* Transfer packet */
-    lRetAbort = pfnTransferPacket(pvChannel,
-                                  &uSendPkt.tPacket,
-                                  &uRecvPkt.tPacket,
-                                  (uint32_t)sizeof(uRecvPkt.tPacket),
-                                  CIFX_TO_SEND_PACKET,
-                                  pfnRecvPktCallback,
-                                  pvUser);
-
-    if( lRetAbort == CIFX_NO_ERROR)
-    {
-      /* Return packet state if function succeeded */
-      lRetAbort = LE32_TO_HOST((int32_t)uRecvPkt.tPacket.tHeader.ulState);
-    }
-  }
-
-  /* Always return lRet first, then abort error */
-  if( CIFX_NO_ERROR != lRet)
-    return lRet;
-  else if( CIFX_NO_ERROR != lRetAbort)
-    return lRetAbort;
-  else
-    return CIFX_NO_ERROR;
-}
-
 #ifdef CIFX_TOOLKIT_DMA
 /*****************************************************************************/
 /*! Setup DMA buffers
 *   \param ptChannel   Channel instance
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_SetupDMABuffers( PCHANNELINSTANCE ptChannel)
+static int32_t DEV_SetupDMABuffers( PCHANNELINSTANCE ptChannel)
 {
   int32_t                   lRet            = CIFX_NO_ERROR;
   uint32_t                  ulChannelNumber = 0;
@@ -3768,7 +2944,7 @@ CIFX_STATIC int32_t DEV_SetupDMABuffers( PCHANNELINSTANCE ptChannel)
 *   \param pulState         Buffer to store actual state
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t DEV_DMAState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uint32_t* pulState)
+static int32_t DEV_DMAState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uint32_t* pulState)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
@@ -3842,7 +3018,6 @@ CIFX_STATIC int32_t DEV_DMAState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uin
 }
 #endif
 
-#ifdef CIFX_TOOLKIT_FUNCTION_LIST
 /*****************************************************************************/
 /*! Local structure for cifX DEV function pointers                           */
 /*****************************************************************************/
@@ -3851,7 +3026,7 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxDpmDevFuns =
   DEV_WriteHandshakeFlags,
   DEV_ReadHostFlags,
   DEV_ReadHandshakeFlags,
-  NULL,
+  DEV_GetIOBitstate,
   DEV_WaitForBitState,
   NULL,
   NULL,
@@ -3870,13 +3045,10 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxDpmDevFuns =
   DEV_IsCommunicating,
   DEV_WaitForReady_Poll,
   DEV_WaitForNotReady_Poll,
-  DEV_WaitForRunning_Poll,
-  DEV_WaitForNotRunning_Poll,
   NULL,
   DEV_TriggerWatchdog,
   DEV_GetHostState,
   DEV_SetHostState,
-  DEV_ReadWriteBlock,
   DEV_DoChannelInit,
   DEV_DoSystemStart,
   DEV_DoSystemBootstart,
@@ -3888,13 +3060,7 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxDpmDevFuns =
   DEV_RemoveChannelFiles,
   DEV_DeleteFile,
   DEV_CheckForDownload,
-  DEV_IsFWFile,
-  DEV_IsNXFFile,
-  DEV_IsNXOFile,
-  DEV_GetFWTransferTypeFromFileName,
   DEV_ProcessFWDownload,
-  DEV_DownloadFile,
-  DEV_UploadFile,
 #ifdef CIFX_TOOLKIT_DMA
   DEV_DMAState,
   DEV_SetupDMABuffers,
@@ -3905,8 +3071,6 @@ PCIFX_DEV_FUNCTION_LIST_T cifXTkitGetDpmDevFunctionList(void)
 {
   return &s_tCifxDpmDevFuns;
 }
-
-#endif
 
 /*****************************************************************************/
 /*! \}                                                                       */

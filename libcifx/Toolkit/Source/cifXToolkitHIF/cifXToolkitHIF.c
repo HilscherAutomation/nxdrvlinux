@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkit.c 15207 2025-08-12 09:42:01Z AMinor $:
+  $Id: cifXToolkitHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -46,6 +46,8 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
+#include "cifXHWFunctions.h"
+#include "cifXHWFunctionsWrapper.h"
 #include "USER_Dependent.h"
 
 #include "Hil_Packet.h"
@@ -312,12 +314,12 @@ static int32_t cifXCreateChannelPdInstance(PDEVICEINSTANCE ptDevInstance,
   {
     /*TODO: workaround for netX900 MPW (use tunnel of dpm0 config to map host registers into dpm)
             -> delete later on final chip */
-    ptChannelInst->tIoArea.tTlbCtl.pulTlbHostStatus = &(((HIL_HIF_CHIP_CONTROL_CHANNEL_PDPM_T*)(ptDevInstance->pvGlobalRegisters))->tHostIrq.ulIrqLatchReset);
+    ptChannelInst->tIoArea.tTlbCtl.pulTlbHostStatus = &(((HIL_HIF_CHIP_CONTROL_CHANNEL_PDPM_T*)(ptDevInstance->pvGlobalRegisters))->tHostIrq.ulIrqMaskSet);
     ptChannelInst->tIoArea.tTlbCtl.pulTlbNetxStatus = &(((HIL_HIF_CHIP_CONTROL_CHANNEL_PDPM_T*)(ptDevInstance->pvGlobalRegisters))->tHostIrq.ulIrqPending);
   }
   else
   {
-    ptChannelInst->tIoArea.tTlbCtl.pulTlbHostStatus = &ptGlobalRegisters->tHostIrq.ulIrqLatchReset;
+    ptChannelInst->tIoArea.tTlbCtl.pulTlbHostStatus = &ptGlobalRegisters->tHostIrq.ulIrqMaskSet;
     ptChannelInst->tIoArea.tTlbCtl.pulTlbNetxStatus = &ptGlobalRegisters->tHostIrq.ulIrqPending;
   }
 
@@ -412,11 +414,11 @@ static int32_t cifXCreateChannelInstance(PDEVICEINSTANCE ptDevInstance)
     if (CIFX_NO_ERROR == lRet)
       lRet = cifXCreateChannelPdInstance(ptDevInstance, HIL_HIF_DIRECTION_OUT);
 
-    CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)(ptChannelInst, 1);
-    CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptChannelInst, 0, 0);
+    DEV_ReadHostFlags(ptChannelInst, 1);
+    DEV_ReadHandshakeFlags(ptChannelInst, 0, 0);
 
     /* Check READY again including COS flag handling, because we have to handle the COS flags */
-    if(CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)(ptChannelInst, 20))
+    if(DEV_WaitForReady_Poll(ptChannelInst, 20))
     {
       int32_t lTempError = CIFX_NO_ERROR;
       if ( CIFX_NO_ERROR != (lTempError = cifXReadFirmwareIdent( ptDevInstance,
@@ -617,14 +619,14 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
     ptSystemDevice->fIsSysDevice                    = 1;
 
     /* Read actual Host state */
-    CIFX_MAKE_DEV_FUN(DEV_ReadHostFlags)(ptSystemDevice, 1);
-    CIFX_MAKE_DEV_FUN(DEV_ReadHandshakeFlags)(ptSystemDevice, 1, 0);
+    DEV_ReadHostFlags(ptSystemDevice, 1);
+    DEV_ReadHandshakeFlags(ptSystemDevice, 1, 0);
 
     /*--------------------------------------------
       Check if READY is available
     --------------------------------------------*/
     /* Check if system channel is READY before executing additional functions on it */
-    if (!CIFX_MAKE_DEV_FUN(DEV_WaitForReady_Poll)(ptSystemDevice, CIFX_TO_FIRMWARE_START))
+    if (!DEV_WaitForReady_Poll(ptSystemDevice, CIFX_TO_FIRMWARE_START))
     {
       lRet = CIFX_DEV_NOT_READY;
 
@@ -844,7 +846,7 @@ static int32_t cifXCheckCachedBufferEnable(PDEVICEINSTANCE ptDevInstance)
   return lRet;
 }
 
-#ifdef CIFX_TOOLKIT_DMA
+#if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
 /*****************************************************************************/
 /*! Check for DMA enable
 *   \param ptDevInstance Instance to start up
@@ -883,7 +885,7 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         if(ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
         {
           /* This channel has DMA activated, setup DMA buffers */
-          (void)CIFX_MAKE_DEV_FUN(DEV_SetupDMABuffers)( ptChannel);
+          (void)DEV_SetupDMABuffers( ptChannel);
         }
       }
     }
@@ -902,10 +904,10 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         /* TODO: Check DMA capability of the channel */
 
         /* This channel has DMA activated, setup DMA buffers */
-        (void)CIFX_MAKE_DEV_FUN(DEV_SetupDMABuffers)( ptChannel);
+        (void)DEV_SetupDMABuffers( ptChannel);
 
         /* Activate DMA on all channels which are available */
-        if ( CIFX_NO_ERROR != CIFX_MAKE_DEV_FUN(DEV_DMAState)( ptChannel, CIFX_DMA_STATE_ON, &ulTemp))
+        if ( CIFX_NO_ERROR != DEV_DMAState( ptChannel, CIFX_DMA_STATE_ON, &ulTemp))
         {
           if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
@@ -930,7 +932,7 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         if(ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
         {
           /* This channel has DMA active, switch OFF */
-          (void)CIFX_MAKE_DEV_FUN(DEV_DMAState)( ptChannel, CIFX_DMA_STATE_OFF, &ulTemp);
+          (void)DEV_DMAState( ptChannel, CIFX_DMA_STATE_OFF, &ulTemp);
         }
       }
     }
@@ -996,7 +998,7 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
   }
 #endif
 
-#ifdef CIFX_TOOLKIT_DMA
+#if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
   if(CIFX_NO_ERROR == lRet)
   {
     /* Check DMA enable */
@@ -1035,6 +1037,9 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
   int32_t          lRet           = CIFX_NO_ERROR;
   uint32_t         ulIdx          = 0;
   PCHANNELINSTANCE ptSystemDevice = &ptDevInstance->tSystemDevice;
+
+  if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
+    return CIFX_DEV_DPM_LAYOUT_UNKNOWN;
 
   if (ptDevInstance->ulCommChannelCount > 0)
   {
@@ -1119,13 +1124,13 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
   return lRet;
 }
 
-#ifdef CIFX_TOOLKIT_DMA
+#if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
 /*****************************************************************************/
 /*! Check DMA buffer configuration.
 *   \param ptDevInstance Holding the DMA buffer configuration
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
+static int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t  lRet = CIFX_NO_ERROR;
   uint32_t ulBufferIdx;
@@ -1169,9 +1174,11 @@ CIFX_STATIC int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
 *   \return CIFX_TKIT_IRQ_DSR_REQUESTED/CIFX_TKIT_IRQ_HANDLED on success
 *           CIFX_TKIT_IRQ_OTHERDEVICE if the IRQ is not from the device      */
 /*****************************************************************************/
-CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
+static int HIFcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
 {
   int iRet;
+
+  UNREFERENCED_PARAMETER(fPCIIgnoreGlobalIntFlag);
 
   /* Check if DPM is available, if not, it cannot be our card, that caused the interrupt */
   if (HWIF_READ32(ptDevInstance, *(uint32_t*)ptDevInstance->pbDPM) == CIFX_DPM_INVALID_CONTENT)
@@ -1191,8 +1198,12 @@ CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnore
   } else
   {
     /* We are working in interrupt mode */
-    int                  iIrqToDsrBuffer  = ptDevInstance->iIrqToDsrBuffer;
-    IRQ_TO_DSR_BUFFER_T* ptIsrToDsrBuffer = &ptDevInstance->atIrqToDsrBuffer[iIrqToDsrBuffer];
+    int                             iIrqToDsrBuffer   = ptDevInstance->iIrqToDsrBuffer;
+    IRQ_TO_DSR_BUFFER_T*            ptIsrToDsrBuffer  = &ptDevInstance->atIrqToDsrBuffer[iIrqToDsrBuffer];
+    HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
+        (HIL_HIF_CHIP_CONTROL_CHANNEL_T*) ptDevInstance->pvGlobalRegisters;
+
+    uint32_t ulIrqStatus = LE32_TO_HOST(HWIF_READ32(ptDevInstance, *ptDevInstance->pptCommChannels[0]->tIoArea.tTlbCtl.pulTlbNetxStatus));
 
     /* on a DPM module every handshake cell can be read individually,
        on a PCI module the complete handshake register block must be read sequentially. */
@@ -1204,9 +1215,14 @@ CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnore
       ptIsrToDsrBuffer->fValid = 1;
 
       /* IO input and output use the same TLB status/control register.
-       * First acknowledge the interrupte, then read the handshake cells. */
-      ptIsrToDsrBuffer->ulTlbStatus = HWIF_READ32(ptDevInstance, *ptDevInstance->pptCommChannels[0]->tIoArea.tTlbCtl.pulTlbNetxStatus);
-      HWIF_WRITE32(ptDevInstance, *ptDevInstance->pptCommChannels[0]->tIoArea.tTlbCtl.pulTlbHostStatus, ptIsrToDsrBuffer->ulTlbStatus);
+       * First acknowledge the interrupts, then read the handshake cells. */
+      ptIsrToDsrBuffer->ulTlbStatus = ulIrqStatus;
+
+      /* acknowledge HSC IRQs via sms_hsc_irq_clr register */
+      HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHandshakeIrq.ulIrqClr, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x000000ff);
+
+      /* disable IO-Buffer IRQs if set */
+      HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x0000ff00);
 
       /* Read the complete handshake block on DPM hardwares to make sure illegally activated
        * handshake cells don't cause interrupts. */
@@ -1222,8 +1238,6 @@ CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnore
     {
       /* PCI card */
 
-      uint32_t ulIrqStatus = HWIF_READ32(ptDevInstance, *ptDevInstance->pptCommChannels[0]->tIoArea.tTlbCtl.pulTlbNetxStatus);
-
       /* First check if we have generated this interrupt. */
       if (0 == ulIrqStatus)
       {
@@ -1236,9 +1250,14 @@ CIFX_STATIC int cifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnore
         ptIsrToDsrBuffer->fValid = 1;
 
         /* IO input and output use the same TLB status/control register.
-         * First acknowledge the interrupte, then read the handshake cells. */
+         * First acknowledge the interrupts, then read the handshake cells. */
         ptIsrToDsrBuffer->ulTlbStatus = ulIrqStatus;
-        HWIF_WRITE32(ptDevInstance, *ptDevInstance->pptCommChannels[0]->tIoArea.tTlbCtl.pulTlbHostStatus, ptIsrToDsrBuffer->ulTlbStatus);
+
+        /* acknowledge HSC IRQs via sms_hsc_irq_clr register */
+        HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHandshakeIrq.ulIrqClr, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x000000ff);
+
+        /* disable IO-Buffer IRQs if set */
+        HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x0000ff00);
 
         /* Read the complete handshake block on DPM hardwares to make sure illegally activated
          * handshake cells don't cause interrupts. */
@@ -1268,13 +1287,11 @@ static void ProcessInputAreas(PCHANNELINSTANCE ptChannel, IRQ_TO_DSR_BUFFER_T* p
   /* Check IO - Input Areas */
   for (ulIdx = 0; ulIdx < ptChannel->tIoArea.ulIOInputAreas; ++ulIdx)
   {
-    /* Remember last known netX flags */
-    ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus ^=
-      (ptIsrToDsrBuffer->ulTlbStatus & ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tBlock.ulBitmask);
-
-    /* Check IO - Input Area */
-    if (ptIsrToDsrBuffer->ulTlbStatus & ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tBlock.ulBitmask)
+    if (0 != (ptIsrToDsrBuffer->ulTlbStatus &
+              ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tBlock.ulBitmask) &&
+        0 == ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.bIrqState)
     {
+      ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.bIrqState = 1;
       if (NULL != ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.pfnCallback)
       {
         ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.pfnCallback(
@@ -1323,7 +1340,7 @@ static void ProcessOutputAreas(PCHANNELINSTANCE ptChannel)
 /*! Deferred interrupt handler
 *   \param ptDevInstance Instance the DSR is requested for                   */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
+static void HIFcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
 {
   if (!ptDevInstance->fResetActive)
   {
@@ -1331,7 +1348,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
     PCHANNELINSTANCE      ptChannel = &ptDevInstance->tSystemDevice;
     uint32_t              ulChannel = 0;
     int                   iIrqToDsrBuffer = 0;
-    IRQ_TO_DSR_BUFFER_T* ptIsrToDsrBuffer = NULL;
+    IRQ_TO_DSR_BUFFER_T*  ptIsrToDsrBuffer = NULL;
 
 #ifdef CIFX_TOOLKIT_ENABLE_DSR_LOCK
     /* Lock against ISR */
@@ -1485,6 +1502,8 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
             }
           }
 
+          /* Store current TlbStatus and reset the changes. */
+          ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus = ptIsrToDsrBuffer->ulTlbStatus;
           ProcessInputAreas(ptChannel, ptIsrToDsrBuffer);
           ProcessOutputAreas(ptChannel);
 
@@ -1495,7 +1514,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
           if ((ulOldNetxFlags & (HIL_HIF_MBX_IDX_MASK | HIL_HIF_MBX_WRAPAROUND)) !=
             (ptChannel->tFromHostMbx.tCom.tCtl.ulNetxFlags & (HIL_HIF_MBX_IDX_MASK | HIL_HIF_MBX_WRAPAROUND)))
           {
-            uint32_t ulFillLevel = CIFX_MAKE_DEV_FUN(DEV_GetMBXFillLevel)(&ptChannel->tFromHostMbx.tCom);
+            uint32_t ulFillLevel = DEV_GetMBXFillLevel(&ptChannel->tFromHostMbx.tCom);
             if (ulFillLevel < ptChannel->tFromHostMbx.tCom.tBlock.ulElementCnt)
             {
               if (NULL != ptChannel->tFromHostMbx.tCom.tCtl.pfnCallback)
@@ -1516,7 +1535,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
 
           if (ulOldNetxFlags != ptChannel->tToHostMbx.tCom.tCtl.ulNetxFlags)
           {
-            uint32_t ulFillLevel = CIFX_MAKE_DEV_FUN(DEV_GetMBXFillLevel)(&ptChannel->tToHostMbx.tCom);
+            uint32_t ulFillLevel = DEV_GetMBXFillLevel(&ptChannel->tToHostMbx.tCom);
             if (ulFillLevel > 0)
             {
               if (NULL != ptChannel->tToHostMbx.tCom.tCtl.pfnCallback)
@@ -1572,7 +1591,7 @@ CIFX_STATIC void cifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
 /*! Physically Enable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void HIFcifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
       (HIL_HIF_CHIP_CONTROL_CHANNEL_T*)ptDevInstance->pvGlobalRegisters;
@@ -1583,23 +1602,11 @@ CIFX_STATIC void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 /*! Physically Disable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void HIFcifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
       (HIL_HIF_CHIP_CONTROL_CHANNEL_T*)ptDevInstance->pvGlobalRegisters;
   HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, 0x0000FFFF);
-}
-
-/*****************************************************************************/
-/*! Disable Interrupt Latching Registers
-*   \param ptDevInstance Device instance                                     */
-/*****************************************************************************/
-CIFX_STATIC void cifXTKitDisableHWInterruptLatch(PDEVICEINSTANCE ptDevInstance)
-{
-  HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
-      (HIL_HIF_CHIP_CONTROL_CHANNEL_T*)ptDevInstance->pvGlobalRegisters;
-  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqIsEdge, 0x00000000);
-  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqLatchReset, 0xFFFFFFFF);
 }
 
 /*****************************************************************************/
@@ -1608,7 +1615,7 @@ CIFX_STATIC void cifXTKitDisableHWInterruptLatch(PDEVICEINSTANCE ptDevInstance)
 *                        the DPM)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
+static int32_t HIFcifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t lRet;
 
@@ -1619,11 +1626,9 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
   /* Disable interrupts during startup phase. Just in case the user has set this flag! */
   ptDevInstance->fIrqEnabled = 0;
 
-#ifdef CIFX_TOOLKIT_FUNCTION_LIST
   ptDevInstance->ptTkitFun = cifXTkitGetHifTkitFunctionList();
   ptDevInstance->ptCifxFun = cifXTkitGetHifApiFunctionList();
   ptDevInstance->ptDevFun  = cifXTkitGetHifDevFunctionList();
-#endif
 
 #ifdef CIFX_TOOLKIT_HWIF
   /* Validate hardware access function pointers != NULL */
@@ -1632,7 +1637,7 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
     return CIFX_INVALID_PARAMETER;
 #endif /* CIFX_TOOLKIT_HWIF */
 
-#ifdef CIFX_TOOLKIT_DMA
+#if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
   /* Check DMA handling just for PCI hardware */
   if( ptDevInstance->fPCICard)
   {
@@ -1675,17 +1680,13 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
       if(0 != (ptDevInstance->fIrqEnabled))
       {
         /* Perform a dummy interrupt cycle to get handshake flags in Sync for proper operation */
-        if(CIFX_TKIT_IRQ_DSR_REQUESTED == cifXTKitISRHandler(ptDevInstance, 1))
-          cifXTKitDSRHandler(ptDevInstance);
+        if(CIFX_TKIT_IRQ_DSR_REQUESTED == HIFcifXTKitISRHandler(ptDevInstance, 1))
+          HIFcifXTKitDSRHandler(ptDevInstance);
 
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
         OS_EnableInterrupts(ptDevInstance->pvOSDependent);
-        cifXTKitEnableHWInterrupt(ptDevInstance);
+        HIFcifXTKitEnableHWInterrupt(ptDevInstance);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
-      } else
-      {
-        /* Disable IRQ latching if polling mode is used */
-        cifXTKitDisableHWInterruptLatch(ptDevInstance);
       }
     }
 
@@ -1703,7 +1704,7 @@ CIFX_STATIC int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 *                         any references to the device are open
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
+static int32_t HIFcifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 {
   int32_t  lRet   = CIFX_INVALID_BOARD;
   int      fFound = 0;
@@ -1732,7 +1733,7 @@ CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
     if(ptDevInstance->fIrqEnabled)
     {
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
-      cifXTKitDisableHWInterrupt(ptDevInstance);
+      HIFcifXTKitDisableHWInterrupt(ptDevInstance);
       OS_DisableInterrupts(ptDevInstance->pvOSDependent);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
 
@@ -1784,51 +1785,57 @@ CIFX_STATIC int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 /*****************************************************************************/
 /*! Un-Initializes the cifX Toolkit                                          */
 /*****************************************************************************/
-CIFX_STATIC void cifXTKitDeinit( void)
+static void HIFcifXTKitDeinit( void)
 {
-  uint32_t ulIdx = 0;
+  int32_t lIdx = 0;
 
   if(g_pvTkitLock)
   {
     OS_EnterLock(g_pvTkitLock);
   }
 
-  for(ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
+  /* g_ulDeviceCount is decremented inside cifXStopDevice() */
+  for(lIdx = g_ulDeviceCount-1; lIdx >= 0; lIdx--)
   {
-    (void)cifXStopDevice(g_pptDevices[ulIdx]);
+    (void)cifXStopDevice(g_pptDevices[lIdx]);
   }
 
-  if(g_pptDevices)
+  if (0 == g_ulDeviceCount)
   {
-    OS_Memfree(g_pptDevices);
-    g_pptDevices    = NULL;
-  }
-  g_ulDeviceCount = 0;
+    if(g_pptDevices)
+    {
+      OS_Memfree(g_pptDevices);
+      g_pptDevices    = NULL;
+    }
 
-  if(g_pvTkitLock)
+    if(g_pvTkitLock)
+    {
+      OS_LeaveLock(g_pvTkitLock);
+      OS_DeleteLock(g_pvTkitLock);
+      g_pvTkitLock = NULL;
+    }
+
+    /* Uninitialize OS functions */
+    OS_Deinit();
+
+    g_tDriverInfo.fInitialized = 0;
+    g_tDriverInfo.ulOpenCount  = 0;
+  } else
   {
     OS_LeaveLock(g_pvTkitLock);
-    OS_DeleteLock(g_pvTkitLock);
-    g_pvTkitLock = NULL;
   }
-
-  /* Uninitialize OS functions */
-  OS_Deinit();
-
-  g_tDriverInfo.fInitialized = 0;
-  g_tDriverInfo.ulOpenCount  = 0;
 }
 
 /*****************************************************************************/
 /*! Initializes the cifX Toolkit
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-CIFX_STATIC int32_t cifXTKitInit(void)
+static int32_t HIFcifXTKitInit(void)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
   /* Uninitialize toolkit, just in case it was not correctly closed before */
-  cifXTKitDeinit();
+  HIFcifXTKitDeinit();
 
   /* Initialize OS functions */
   lRet = OS_Init();
@@ -1853,21 +1860,19 @@ CIFX_STATIC int32_t cifXTKitInit(void)
   return lRet;
 }
 
-#ifdef CIFX_TOOLKIT_FUNCTION_LIST
-
 /*****************************************************************************/
 /*! Local structure for cifX Toolkit function pointers                       */
 /*****************************************************************************/
 static CIFX_TKIT_FUNCTION_LIST_T s_tCifxHifTkitFuns =
 {
-  cifXTKitInit,
-  cifXTKitDeinit,
-  cifXTKitAddDevice,
-  cifXTKitRemoveDevice,
-  cifXTKitEnableHWInterrupt,
-  cifXTKitDisableHWInterrupt,
-  cifXTKitISRHandler,
-  cifXTKitDSRHandler,
+  HIFcifXTKitInit,
+  HIFcifXTKitDeinit,
+  HIFcifXTKitAddDevice,
+  HIFcifXTKitRemoveDevice,
+  HIFcifXTKitEnableHWInterrupt,
+  HIFcifXTKitDisableHWInterrupt,
+  HIFcifXTKitISRHandler,
+  HIFcifXTKitDSRHandler,
   NULL,
 };
 
@@ -1875,8 +1880,6 @@ PCIFX_TKIT_FUNCTION_LIST_T cifXTkitGetHifTkitFunctionList(void)
 {
   return &s_tCifxHifTkitFuns;
 }
-
-#endif
 
 /*****************************************************************************/
 /*! \}                                                                       */

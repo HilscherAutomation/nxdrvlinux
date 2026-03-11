@@ -20,7 +20,7 @@
 #include "NetX_RegDefs.h"
 #include "cifXEndianess.h"
 
-#include "intapi2pointer.h"
+#include "cifXHWFunctionsWrapper.h"
 
 /* off set of global IRQ status/control in DPM */
 #define IRQ_CFG_REG_OFFSET 0xfff0

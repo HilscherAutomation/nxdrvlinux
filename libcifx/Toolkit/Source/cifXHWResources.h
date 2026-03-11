@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWResources.h 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: cifXHWResources.h 15330 2025-11-25 07:05:46Z AMinor $:
 
   Description:
     cifX toolkit hw resources.
@@ -19,10 +19,13 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #define CIFX_HWRESOURCES__H
 
 #include "OS_Dependent.h"
+#include "cifXDMA.h"
 #include "cifXUser.h"
+#include "cifXErrors.h"
 
 #include "Hil_DualPortMemory.h"
 #include "Hil_HostInterface.h"
+#include "Hil_SystemCmd.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -60,6 +63,20 @@ extern "C"
 /* Defines for sync handling */
 #define NETX_HSK_SYNCH_FLAG_POS       1 /*!< Position of the sync flahs in the HSK channel */
 #define NETX_NUM_OF_SYNCH_FLAGS       4 /*!< Number of supported sync flags */
+
+#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
+#define CHECK_POINTER(param) if ((void*)NULL == param) return CIFX_INVALID_POINTER;
+#define CHECK_DRIVERHANDLE(handle) if (&g_tDriverInfo != handle) return CIFX_INVALID_HANDLE;
+#define CHECK_SYSDEVICEHANDLE(handle) if (CIFX_NO_ERROR != CheckSysdeviceHandle(handle)) return CIFX_INVALID_HANDLE;
+#define CHECK_CHANNELHANDLE(handle) if (CIFX_NO_ERROR != CheckChannelHandle(handle)) return CIFX_INVALID_HANDLE;
+int32_t CheckSysdeviceHandle(CIFXHANDLE hChannel);
+int32_t CheckChannelHandle (CIFXHANDLE hChannel);
+#else
+#define CHECK_POINTER(param)
+#define CHECK_DRIVERHANDLE(handle) UNREFERENCED_PARAMETER(handle)
+#define CHECK_SYSDEVICEHANDLE(handle)
+#define CHECK_CHANNELHANDLE(handle)
+#endif
 
 /*****************************************************************************/
 /*! Enumeration for different netX chip types                                */
@@ -243,7 +260,6 @@ typedef struct NETX_TLB_CTL_Ttag
 {
   volatile uint32_t*  pulTlbHostStatus;
   volatile uint32_t*  pulTlbNetxStatus;
-  uint32_t            ulTlbHostStatus;
   uint32_t            ulTlbNetxStatus;
 } NETX_TLB_CTL_T, PNETX_TLB_CTL_T;
 
@@ -269,6 +285,7 @@ typedef struct NETX_IO_CTL_Ttag
   volatile uint8_t*   pbAction;
   volatile uint8_t*   pbStatus;
   uint8_t             bAction;
+  uint8_t             bIrqState;
   uint32_t            ulNotifyEvent;
   PFN_NOTIFY_CALLBACK pfnCallback;
   void*               pvUser;
@@ -328,6 +345,186 @@ typedef union NETX_MAILBOX_AREA_Utag
   NETX_BLOCK_T          tSys;
   NETX_MAILBOX_BLOCK_T  tCom;
 } NETX_MAILBOX_AREA_U, *PNETX_MAILBOX_AREA_U;
+
+
+/*****************************************************************************/
+/*! Structure defining a channel instance. Includes elements from DPM and
+ *  HIF channel instances.                                                   */
+/*****************************************************************************/
+typedef struct CHANNELINSTANCEtag
+{
+  void*                 pvDeviceInstance;                 /*!< Pointer to the device instance belonging to this channel   */
+
+  void*                 pvInitMutex;                      /*!< Device is currently initializing, e.g. while doing a reset */
+
+  uint8_t*              pbDPMChannelStart;                /*!< virtual start address of channel block          */
+  uint32_t              ulDPMChannelLength;               /*!< length of channel block                         */
+  uint32_t              ulChannelNumber;                  /*!< Number of the Channel                           */
+
+  void*                 pvLock;                           /*!< Lock for synchronizing interrupt accesses to flags   */
+  uint32_t              ulOpenCount;                      /*!< Number of open device function called for channel    */
+  int                   fIsSysDevice;                     /*!< !=0 if the channel instance belong to a systemdevice */
+
+  HIL_FW_IDENTIFICATION_T tFirmwareIdent;                 /*!< Firmware Identification                         */
+
+  NETX_COM_STATE_T      tComState;                        /*!< defining resources for com-state notification */
+
+  CACHED_MEMORY_AREA_T  tCachedIOInputArea;               /*!< Information about cached IO input memory area */
+  CACHED_MEMORY_AREA_T  tCachedIOOutputArea;              /*!< Information about cached IO input memory area */
+
+#if DPM_SUPPORT
+  /* DPM related structures */
+  int                   fIsChannel;                       /*!< !=0 this is a real channel                           */
+  uint32_t              ulBlockID;                        /*!< Block ID                                        */
+
+  NETX_TX_MAILBOX_T     tSendMbx;                         /*!< Send mailbox administration structure   */
+  NETX_RX_MAILBOX_T     tRecvMbx;                         /*!< Receive mailbox administration structure*/
+
+  uint16_t              usHostFlags;                      /*!< Copy of the last actual command flags   */
+  uint16_t              usNetxFlags;                      /*!< Copy of the last read status flags      */
+
+  uint32_t              ulDeviceCOSFlags;                 /*!< Device COS flags (copy, updated when COS Handshake is recognized) */
+  uint32_t              ulDeviceCOSFlagsChanged;          /*!< Bitmask of changed bits since last COS Handshake                  */
+  uint32_t              ulHostCOSFlags;                   /*!< Host COS flags (copy)                      */
+  uint32_t              ulHostCOSFlagsSaved;              /*!< Actual written Host COS flags              */
+
+  HIL_DPM_CONTROL_BLOCK_T*          ptControlBlock;       /*!< Pointer to channel's control block         */
+  uint8_t                           bControlBlockBit;     /*!< Handshake bit associated with control block*/
+  uint32_t                          ulControlBlockSize;   /*!< Size of the control block in bytes         */
+
+  HIL_DPM_COMMON_STATUS_BLOCK_T*    ptCommonStatusBlock;  /*!< Pointer to channel's common status block   */
+  uint8_t                           bCommonStatusBit;     /*!< Handshake bit associated with Common status block*/
+  uint32_t                          ulCommonStatusSize;   /*!< Size of the common status block in bytes   */
+
+  HIL_DPM_EXTENDED_STATUS_BLOCK_T*  ptExtendedStatusBlock;/*!< Pointer to channel's extended status block */
+  uint8_t                           bExtendedStatusBit;   /*!< Handshake bit associated with Extended status block*/
+  uint32_t                          ulExtendedStatusSize; /*!< Size of the extended status block in bytes */
+
+  HIL_DPM_HANDSHAKE_CELL_T*         ptHandshakeCell;      /*!< pointer to channels handshake cell   */
+  uint8_t                           bHandshakeWidth;      /*!< Width of the handshake cell          */
+
+  void*                 ahHandshakeBitEvents[HIL_DPM_HANDSHAKE_PAIRS]; /*!< Event handle for each handshake bit pair. (used in interrupt mode) */
+
+  PIOINSTANCE*          pptIOInputAreas;                  /*!< Input Areas array for this channel   */
+  uint32_t              ulIOInputAreas;                   /*!< Number of Input areas                */
+
+  PIOINSTANCE*          pptIOOutputAreas;                 /*!< Output Areas array for this channel  */
+  uint32_t              ulIOOutputAreas;                  /*!< Number of Output areas               */
+
+  PUSERINSTANCE*        pptUserAreas;                     /*!< User areas for this channel          */
+  uint32_t              ulUserAreas;                      /*!< Number of user areas                 */
+
+  NETX_SYNC_DATA_T      tSynch;                           /*!< Sync handling                        */
+#endif
+
+#if HIF_SUPPORT
+  /* HIF related structures */
+  NETX_MAILBOX_AREA_U   tFromHostMbx;                     /*!< Send mailbox administration structure   */
+  NETX_MAILBOX_AREA_U   tToHostMbx;                       /*!< Receive mailbox administration structure*/
+
+  HIL_HIF_COMMUNICATION_STATUS_BLOCK_T* ptCommunicationStatusBlock;  /*!< Pointer to channel's communication status block   */
+
+  NETX_HS_CTL_T         tHsCtrl;
+
+  void*                 apvHsBitEvent[HIL_HIF_HSC_MAX];   /*!< Event handles for each handshake bit pair (used in interrupt mode) */
+
+  NETX_IO_AREA_T        tIoArea;                          /*!< Input/Output areas */
+#endif
+
+} CHANNELINSTANCE, *PCHANNELINSTANCE;
+
+/*****************************************************************************/
+/*! Structure for ISR and DSR handling                                       */
+/*****************************************************************************/
+typedef struct IRQ_TO_DSR_BUFFER_Ttag
+{
+#if DPM_SUPPORT
+  HIL_DPM_HANDSHAKE_ARRAY_T tHandshakeBuffer;
+#endif
+#if HIF_SUPPORT
+  uint32_t                  aulHsk[HIL_HIF_HSC_MAX];
+  uint32_t                  ulTlbStatus;
+#endif
+  int                       fValid;
+} IRQ_TO_DSR_BUFFER_T;
+
+/*****************************************************************************/
+/*! Structure defining a physical device passed to the toolkit. Passing it,
+ *  will create all logical device associated with this instance. Includes
+ *  elements from DPM and HIF device instances.                              */
+/*****************************************************************************/
+typedef struct DEVICEINSTANCEtag
+{
+  struct CIFX_API_FUNCTION_LIST_Ttag*   ptCifxFun;  /*!< Function pointer to CIFX API functions                   */
+  struct CIFX_DEV_FUNCTION_LIST_Ttag*   ptDevFun;   /*!< Function pointer to DEV API functions                    */
+  struct CIFX_TKIT_FUNCTION_LIST_Ttag*  ptTkitFun;  /*!< Function pointer to TKIT API functions                   */
+
+  uint32_t                  ulPhysicalAddress;      /*!< Physical address of the cifX card                        */
+  uint32_t                  ulIrqNumber;            /*!< IRQ number assigned to card                              */
+  int                       fIrqEnabled;            /*!< !=0 if the IRQ is used on this device                    */
+
+  int                       fPCICard;               /*!< !=0 if the card is a PCI card (netX directly connected to PCI)
+                                                         ,this will reset the netX if eDeviceType is AUTODETECT or RAMBASE */
+
+  CIFX_TOOLKIT_DEVICETYPE_E eDeviceType;            /*!< Type of the device. If set to AUTODETECT it will be updated during
+                                                         cifXAddDevice                                                       */
+  void*                     pvOSDependent;          /*!< OS dependent pointer to device identification (used for PCI read/write request).
+                                                         This parameter must allow the OS/User to identify the card and access it's PCI registers */
+  uint8_t*                  pbDPM;                  /*!< Virtual/usable pointer to the cards DPM              */
+  uint32_t                  ulDPMSize;              /*!< Size of the cards DPM                                */
+  uint8_t                   bDPMLayout;             /*!< Layout of the DPM                                    */
+  CIFX_TOOLKIT_CHIPTYPE_E   eChipType;              /*!< Type of chip */
+
+  char                      szName[CIFx_MAX_INFO_NAME_LENTH]; /*!< Default name of the card, must be inserted by user */
+  char                      szAlias[CIFx_MAX_INFO_NAME_LENTH];/*!< Alias name of the card, must be inserted by user   */
+
+  int32_t                   lInitError;             /*!< Initialization error of the card                         */
+
+  void*                     pvGlobalRegisters;      /*!< Pointer to the global host registers (only available on PCI)  */
+  uint32_t                  ulSerialNumber;         /*!< Serial number of the card (read on startup)        */
+  uint32_t                  ulDeviceNumber;         /*!< Device number of the card (read on startup)        */
+  uint32_t                  ulSlotNumber;           /*!< Slot number on card (read on startup)              */
+
+#if DPM_SUPPORT
+  int                       fModuleLoad;            /*!< This devices works with modules */
+  PFN_CIFXTK_NOTIFY         pfnNotify;              /*!< Function to notify user of different states in the toolkit, to allow
+                                                         memory controller reconfiguration, etc. */
+  uint8_t*                  pbHandshakeBlock;       /*!< Pointer to start of Handshake block (NULL if no handshake block was found */
+#endif
+
+#if HIF_SUPPORT
+  uint32_t*                 pulHandshakeBlock;      /*!< Pointer to start of Handshake block (NULL if no handshake block was found */
+#endif
+
+  int                       iIrqToDsrBuffer;        /*!< IRQ to DSR Buffer number to use               */
+  IRQ_TO_DSR_BUFFER_T       atIrqToDsrBuffer[2];    /*!< IRQ to DSR Buffers                            */
+  uint32_t                  ulIrqCounter;           /*!< Number of interrupts processed on this device */
+
+  CHANNELINSTANCE           tSystemDevice;          /*!< Every card has at least one SystemDevice             */
+  uint32_t                  ulCommChannelCount;     /*!< Number of fount communication channels on the card   */
+  CHANNELINSTANCE**         pptCommChannels;        /*!< Array of all found channels                          */
+
+#ifdef CIFX_TOOLKIT_DMA
+  uint32_t                  ulDMABufferCount;                     /*!< Number of available DMA buffers  */
+  CIFX_DMABUFFER_T          atDmaBuffers[CIFX_DMA_BUFFER_COUNT];  /*!< DMA buffer definition for the device */
+#endif
+
+  int                       fCachedMemAccess;                     /*!< Cached memory access to DMA buffer         */
+
+  /* Synch handling */
+  CIFX_SYNCH_DATA_T         tSyncData;              /*!< Synchronization structure */
+
+  int                       fResetActive;           /*!< !=0 if a reset is pending on device (DEV_DoSystemStart) */
+
+  /* Extended memory (additional target memory) */
+  uint8_t*                  pbExtendedMemory;       /*!< Virtual/usable pointer to an extended memory area       */
+  uint32_t                  ulExtendedMemorySize;   /*!< Size of the extended memory area                        */
+
+#ifdef CIFX_TOOLKIT_HWIF
+  PFN_HWIF_MEMCPY           pfnHwIfRead;            /*!< Definable hardware read function                        */
+  PFN_HWIF_MEMCPY           pfnHwIfWrite;           /*!< Definable hardware read function                        */
+#endif /* CIFX_TOOLKIT_HWIF */
+} DEVICEINSTANCE, *PDEVICEINSTANCE;
 
 /*****************************************************************************/
 /*! \}                                                                       */

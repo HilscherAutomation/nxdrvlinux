@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHwif.c 15171 2025-08-05 08:18:45Z AMinor $:
+  $Id: cifXHwif.c 15320 2025-11-21 11:21:08Z AMinor $:
 
   Description:
     cifX API Hardware interface handling functions
@@ -15,7 +15,6 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
     2025-07-09  Created
 
 **************************************************************************************/
-#include "cifXHWFunctions.h"
 #include "cifXFunctionList.h"
 #include "cifXHwif.h"
 

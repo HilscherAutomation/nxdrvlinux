@@ -328,7 +328,7 @@ typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_SYSTEM_INFO_BLOCKtag
   uint8_t   bHwRevision;                                   /*!< 0x2A Hardware revision index */
   uint8_t   bHwCompatibility;                              /*!< 0x2B Hardware compatibility index */
   uint8_t   bDevIdNumber;                                  /*!< 0x2C Device identification number (rotary switch) */
-  uint8_t   bReserved;                                     /*!< 0x2D Reserved byte */
+  uint8_t   bHifLayout;                                    /*!< 0x2D HIF: Host Interface Layout identifier, DPM: Reserved (0) */
   uint16_t  usReserved;                                    /*!< 0x2E:0x2F Reserved */
 } __CIFx_PACKED_POST SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK;
 
@@ -336,11 +336,7 @@ typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_SYSTEM_INFO_BLOCKtag
 #define CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE  16
 typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_CHANNEL_INFO_BLOCKtag
 {
-#ifdef HIF_SUPPORT
-  uint8_t  abInfoBlock[CIFX_MAX_NUMBER_OF_HIF_CHANNEL_DEFINITION][CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE];
-#else
   uint8_t  abInfoBlock[CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION][CIFX_SYSTEM_CHANNEL_DEFAULT_INFO_BLOCK_SIZE];
-#endif
 } __CIFx_PACKED_POST SYSTEM_CHANNEL_CHANNEL_INFO_BLOCK;
 
 /* System Channel: System Control Block */
@@ -586,6 +582,7 @@ int32_t APIENTRY xChannelRegisterNotification  ( CIFXHANDLE  hChannel, uint32_t 
 int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE  hChannel, uint32_t ulNotification);
 int32_t APIENTRY xChannelSyncState             ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t ulTimeout, uint32_t* pulErrorCount);
 /***************************************************************************/
+
 
 /***************************************************************************
 * API Functionpointer definitions
