@@ -16,7 +16,7 @@ deregister_and_unbind() {
         # remove previously registered pci device ids
         echo ${device%:*} ${device#*:} | sudo tee /sys/bus/pci/drivers/vfio-pci/remove_id > /dev/null 2>&1
 
-        # unbind the devices which are were detected
+        # unbind the devices which were detected
         while IFS= read -r line; do
             bus_id=$(echo $line |cut -d " " -f 1)
             if [ -n "${bus_id}" ]; then
@@ -31,12 +31,17 @@ deregister_and_unbind() {
 
 usage() {
 cat <<EOF 1>&2
-Usage: $0 [OPTION] ..."
+Usage: $0 [OPTION]"
 
-  -l {vendor:device_id}  List of device to (de-)register at the vfio-pci driver.
-  -f                     The script will abort if the uio_netx module is compiled with PCI support. Set '-f' to register device anyway."
-                         Note that this may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' recommended.
-  -d                     Deregister and unbind devices given via '-l'.
+  If called with no arguments the script will try to register all found Hilscher*) PCI devices to vfio-pci driver.
+
+  -l {vendor:device_id}  Space separated list of devices to (de-)register at the vfio-pci driver.
+  -f                     The script will abort if the uio_netx module is compiled with PCI support. Set '-f' to register device(s) anyway."
+                         Devices already assigned to uio_netx will be ignored. Unlink this binding by unloading uio_netx.
+                         To eliminate those conflicts it's recommended to disable PCI support when compiling uio_netx via 'DISABLE_PCI_SUPPORT'.
+  -d                     Deregister and unbind devices given via '-l' or all Hilscher devices.
+
+  *) Hilscher devices (PCI vendor id:PCI device id): ${device_ids}
 
 Example:
 
@@ -74,8 +79,8 @@ fi
 
 # check if uio_netx is compiled with PCI support
 if modinfo uio_netx | grep -q "ignore_pci_devices"; then
-    echo -e "\nuio_netx kernel module compiled with PCI support! This may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' (recommended) or run with '-f'."
     if [ "${force_register}" == "0" ]; then
+        echo -e "\nuio_netx kernel module compiled with PCI support! This may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' (recommended) or run with '-f'."
         exit 1
     fi
 fi
