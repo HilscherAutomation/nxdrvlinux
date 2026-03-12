@@ -18,7 +18,7 @@ case "$1" in
   "build")
   if [ -e "${buildfolder}/uio_netx.c" ]; then
     build_param=""
-    if [ "${USE_VFIO_DRIVER}" != "0"  ]; then
+    if [ "${USE_VFIO_DRIVER}" == "1"  ]; then
       echo "Compile kernel module uio_netx.ko (PCI support disabled)"
       build_param="${build_param} DISABLE_PCI_SUPPORT=1"
       # DMA support is not supported in case PCI is disabled
