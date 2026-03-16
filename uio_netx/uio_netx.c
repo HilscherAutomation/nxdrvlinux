@@ -907,10 +907,16 @@ static int __devinit netx_dt_probe(struct platform_device *pd)
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0))
+static void netx_dt_remove(struct platform_device *pd)
+#else
 static int netx_dt_remove(struct platform_device *pd)
+#endif
 {
 	unmap_custom_cards( &pd->dev);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 	return 0;
+#endif
 }
 
 /****************************************************
