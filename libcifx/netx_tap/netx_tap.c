@@ -35,6 +35,7 @@
 #include "DrvEth_GCI_API.h"
 #include "cifXUser.h"
 #include "cifXErrors.h"
+#include "cifXFunctionList.h"
 #include "cifXHWFunctions.h"
 #include "netx_tap.h"
 #include "cifxlinux_internal.h"
