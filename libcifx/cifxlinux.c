@@ -2183,49 +2183,65 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
   char link_path[CIFX_MAX_FILE_NAME_LENGTH];
   char* driver;
 
+#if !defined(VFIO_SUPPORT) && defined(CIFX_NO_PCIACCESS_LIB)
+  (void)dev_type;
+  (void)dev_num;
+  DBG("Skipping found PCI device '%s' as PCI support is disabled (see CIFX_NO_PCIACCESS_LIB/VFIO_SUPPORT)!\n", pci_path);
+  return ret;
+#endif
+
   snprintf( dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/driver", pci_path);
   /* on success result provides the assigend driver */
-  if (get_link_base_name( dev_type_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &driver) == 0) {
+  if ((ret = get_link_base_name( dev_type_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &driver)) == 0) {
+    int ret = -EINVAL;
+
     /* netx=uio_netx driver */
     if (strcmp(driver, "netx") == 0) {
 #ifndef CIFX_NO_PCIACCESS_LIB
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/uio/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "uio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as uio_netx based\n", dev_type_path);
+        DBG("Identified device '%s' as uio_netx based\n", pci_path);
         *dev_type = eCIFX_DEVICE_TYPE_UIO;
         return 0;
       } else {
-        ERR("Error extracting uio device number of '%s'\n", dev_type_path);
+        ERR("Error extracting uio device number of '%s'\n", pci_path);
       }
 #else
-#ifndef VFIO_SUPPORT
-      (void)dev_type;
-      (void)dev_num;
-#endif
-      ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!\n", pci_path);
+      DBG("Skipping found uio_netx based PCI device '%s' as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!\n", pci_path);
 #endif
       return ret;
     }
-#ifdef VFIO_SUPPORT
+
     if (strcmp(driver, "vfio-pci") == 0) {
+#ifdef VFIO_SUPPORT
 #ifdef VFIO_CDEV
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as vfio based (cdev)\n", dev_type_path);
+        DBG("Identified device '%s' as vfio based (cdev)\n", pci_path);
         *dev_type = eCIFX_DEVICE_TYPE_VFIO;
         ret = 0;
         return 0;
       }
 #endif
       /* assume its a non-cdev interface */
-      DBG("Identified device '%s' as vfio based (legacy)\n", dev_type_path);
+      DBG("Identified device '%s' as vfio based (legacy)\n", pci_path);
       *dev_type = eCIFX_DEVICE_TYPE_VFIO;
       *dev_num = -1; /* mark it as legacy interface */
       return 0;
-    }
+#else //VFIO_SUPPORT
+      DBG("Skipping found vfio-pci based PCI device '%s' as it is not supported since library is compiled without VFIO_SUPPORT!\n", pci_path);
+      return ret;
 #endif
+    }
+    /* assigned driver not supported (not expected) */
+    ERR("Skipping found PCI device '%s' as assigned driver '%s' is not supported!\n", pci_path, driver);
   } else {
-    /* assigned driver not supported */
+    if (ret == -ENOENT) {
+        /* no driver assigned to device */
+        DBG("Skipping found device '%s' as no driver is assigned!\n", pci_path);
+    } else {
+        ERR("Error while retrieving driver information for PCI device '%s' (ret=%d)!\n", pci_path, ret);
+    }
   }
   return ret;
 }
