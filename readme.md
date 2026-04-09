@@ -152,6 +152,8 @@ For kernel version <6.2. iommufd (cdev interface) is not supported. In this case
 
 The following sections show how to assign the uio or vfio driver to a device during runtime. For persistant setup (after reboot) please chose an adequate or a combination of the common methods (udev rule, '/etc/modules/', '/etc/blacklist'...).
 
+As the netX912 runs only with the vfio-pci driver an example [udev rule](templates/udev/80-udev-netx900-vfio.rules) for a persistant assignment is provided.
+
 #### <a id="VFIO-Driver"></a>2.1.1.1 VFIO Driver
 The vfio-pci driver is a generic driver for PCI devices. To motivate the driver to take control over a specific PCI device, the device need to be bind to the driver.
 For background information about VFIO framework refer to the [kernel's VFIO API documentation](https://docs.kernel.org/driver-api/vfio.html).
