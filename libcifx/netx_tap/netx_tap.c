@@ -344,14 +344,14 @@ static void cifxeth_delete_device( NETX_ETH_DEV_T* internal_dev)
 {
   if(NULL != internal_dev)
   {
-    if (0 != internal_dev->eth_to_cifx_thread) {
-      internal_dev->stop_to_cifx = 1;
-      pthread_join( internal_dev->eth_to_cifx_thread, NULL);
-    }
-
     if (0 != internal_dev->cifx_to_eth_thread) {
       internal_dev->stop_to_eth = 1;
       pthread_join( internal_dev->cifx_to_eth_thread, NULL);
+    }
+
+    if (0 != internal_dev->eth_to_cifx_thread) {
+      internal_dev->stop_to_cifx = 1;
+      pthread_join( internal_dev->eth_to_cifx_thread, NULL);
     }
 
     if (internal_dev->cifx_channel != NULL)
