@@ -1,6 +1,23 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.6.0
+-----------------
+  - Separated function xSysdeviceExtendedMemory for DPM and HIF and return CIFX_FUNCTION_NOT_AVAILABLE for HIF
+  - Removed BootStart function for HIF interface
+  - Overwrite function xDriverMemoryPointer() in SPM driver (use CIFX_TOOLKIT_USE_CUSTOM_DRV_FUNCS)
+
+  V2.8.5.0
+-----------------
+  - Add Synchronization Support for netX9x2
+  - Fixed issue of clearing of HS flags (ready bit) before system reset (netX9x2)
+  - Fixed issue in DEV_TransferPacket(), where the provided packet buffer was too small
+  - Add check for "BOOT" cookie for devices with HIF layout
+  - Remove channel initialization functionality from xChannelReset() for devices with HIF layout
+  - Remove xChannelBusState() functionality for devices with HIF layout
+  - Remove xChannelConfigLock() functionality for devices with HIF layout
+  - Remove xChannelExtendedStatusBlock() functionality for devices with HIF layout
+
   V2.8.4.0
 -----------------
   - Fix build issues when using Waf build environment
@@ -8,19 +25,19 @@ cifX-Toolkit Version History:
   V2.8.3.0
 -----------------
   - Added wrapper layer for cifX API
-  - IO-Read should always be possible without error (netX900)
+  - IO-Read should always be possible without error (netX9x2)
   - Call OS_Spi* functions with pvOSDependent instead of pvDevInstance
   - Fix NULL pointer access in xChannelIORead()
   - Fixed compiler warnings when using CIFX_TOOLKIT_BIGENDIAN
 
   V2.8.2.0
 -----------------
-  - Switch to level triggered interrupt handling (netX900)
+  - Switch to level triggered interrupt handling (netX9x2)
 
   V2.8.1.0
 -----------------
   - Calculate download timeout value instead of using a constant one
-  - Add support for new HIF layout (for netX900 based devices)
+  - Add support for new HIF layout (for netX9x2 based devices)
 
   V2.8.0.2
 -----------------
@@ -85,7 +102,7 @@ cifX-Toolkit Version History:
 -----------------
   - xDriverEnumBoards() now returns CIFX_NO_MORE_ENTRIES, if actual board count is exceeded
   - Fix CIFX_DMA_STATE_GETSTATE define in DEV_DMAState()
-  
+
   V2.4.0.0
 -----------------
   - Fixed Firmware update via xSysdeviceResetEx() if executed on APP CPU
@@ -194,14 +211,14 @@ V1.1.5.0
  - DEV_WaitForBitstate_Poll / DEV_WaitForSynchState_Poll may wait one additional cycle before returning
  - netX51/52 RAM Based device support
    ATTENTION: DPM Timings might need to be adjusted in eCIFX_TOOLKIT_EVENT_PRE_BOOTLOADER notification callback,
-              as RDY signal is not activated by ROM loader. If the host has strict timings (e.g. NXPCA-PCI), the 
+              as RDY signal is not activated by ROM loader. If the host has strict timings (e.g. NXPCA-PCI), the
               DPM won't be readable.
-              
+
               Sample code:
                 case eCIFX_TOOLKIT_EVENT_PRE_BOOTLOADER:
                   if(eCHIP_TYPE_NETX51 == ptDevInst->eChipType)
                   {
-                    /* netX51 has a timing configuration without rdy/busy, so we need to adjust it here, to be able to access 
+                    /* netX51 has a timing configuration without rdy/busy, so we need to adjust it here, to be able to access
                        memory starting at offset 0x100 */
                     NETX51_DPM_CONFIG_AREA_T* ptDpmConfig = (NETX51_DPM_CONFIG_AREA_T*)ptDevInst->pbDPM;
 
@@ -271,7 +288,7 @@ V1.0.1.0
  - xSysdeviceReset is now locked against ISR/DSR or Cyclic Thread. Earlier versions
    may write invalid handshake flags during a system start if the cyclic thread or IRQ
    accesses the flags during this time.
- - Downloading loadable modules (.NXO) may fail on larger files due to the last 
+ - Downloading loadable modules (.NXO) may fail on larger files due to the last
    confirmation packet taking longer than expected
 
 V1.0.0.0
@@ -282,17 +299,17 @@ V1.0.0.0
  - Fixed GCC compiler warning (deferencing pointer breaks strict-aliasing rules)
  - If start of Firmware fails (e.g. wrong HW options) the card will not
    be rejected by toolkit. It will be used as a card with a system device only.
- - xChannelPLCMemoryPointer may not working correctly due to an invalid parameter 
+ - xChannelPLCMemoryPointer may not working correctly due to an invalid parameter
    passed to OS_MapUserPointer / UnmapUserPointer
  - GetMDRequest may fail depending on the implementation of OS_Strncpy
  - xChannelPLCActivateRead / Write did not lock access to handshake flags
  - cifXHandleWarmstart() using same buffer for send/receive in TransferPacket() fixed
  - DEV_DeleteFile(), OS_Strncpy() size of copied data must include the necessary 0 character
  - DEV_Download() uses twice the packet timeout (=10s) for the last packet if modules are loaded
- 
+
 V0.10.1.0
 --------------------------
- - Interrupt mode may miss first interrupt after initialization, due to readout 
+ - Interrupt mode may miss first interrupt after initialization, due to readout
    of sync handshake flags
 
 V0.10.0.0
@@ -310,7 +327,7 @@ B0.953
 09.02.2010
  - ISA card handling improved by adding an aditional DEV_ReadHandshakeFlags()
    in cifXCreateChannels()
- 
+
 B0.952
 --------------------------
 25.01.2010
@@ -341,7 +358,7 @@ B0.945
 31.08.2009
  - cifXStartModule() fixed if no channel is available during first start
  - HilPCIDefs.h included
- - cifXHWFunctions(), TRUE/FALSE definition replaced with 1/0  
+ - cifXHWFunctions(), TRUE/FALSE definition replaced with 1/0
  - cifXDownload(), CIFX_BUFFER_TOO_SHORT fixed by using now the max. packet size for confirmation packets
 
 B0.944
@@ -357,7 +374,7 @@ B0.943
 --------------------------
 28.04.2009
  - Module download improved for comX
-   
+
 B0.942
 --------------------------
 13.02.2009
@@ -368,7 +385,7 @@ B0.941
 --------------------------
 30.01.2009
  - Big Endian Host support added via CIFX_TOOLKIT_BIGENDIAN define
- - New parameter (eDeviceType) added to device instance to allow 
+ - New parameter (eDeviceType) added to device instance to allow
    DPM cards (e.g. NXHX500/50) to only use RAM (like cifX does).
    Previous versions always expected a serial flash on DPM based devices
  - New parameter (eChipType) added to device instance, so functions like
@@ -408,13 +425,13 @@ B0.930 (under Development)
  - OS_MapUserPointer() and OS_UnmapUserPointer() now have a new parameter pvOSDependent
 
 07.05.2008
- - Signalling interrupts from DSR changed, so that systems 
+ - Signalling interrupts from DSR changed, so that systems
    that may get interrupted during DSR are working
  - DSRhandler changed to signal netX Handshake bit changes (since previous irq)
    instead of Host/Netx flag differences. This allows DEV_WaitForBitstate_Irq
- 
+
 06.05.2008
- - xDriverErrorDescripton did not return error description, 
+ - xDriverErrorDescripton did not return error description,
    due to internal array size miscalculation29.04.2008
  - DOWNLOAD_MODE_LICENSECODE added
 28.04.2008
@@ -424,7 +441,7 @@ B0.923 (under Development)
 --------------------------
 02.04.2008
  - Wait functions in cifXHWFunctions reviewed
- - xChannelReset(CIFX_CHANNEL_INIT) will only check if the 
+ - xChannelReset(CIFX_CHANNEL_INIT) will only check if the
    channel becomes READY. Checking for RUNNING removed.
  - cifXStopDevice(), deletion of the system device interrupt events included
 21.02.2008
@@ -434,7 +451,7 @@ V0.922 (under Development)
 --------------------------
 04.09.2007
  - Setup program:
-   - Bug fix, which solves the Warmstart.dat files deletion if more than 
+   - Bug fix, which solves the Warmstart.dat files deletion if more than
      two cards are using it, included (this fix was lost in V0.921)
    - Firmware name and version now shows "-- not available --" for .mod files
    PROFINET slave parameters:
@@ -454,7 +471,7 @@ V0.921 (under Development)
  - cifX Test crashed, if no device was selected in dialog
 03.05.2007
  - On DPM based devices a the driver always creates a communication channel. Even without a firmware.
-   This can lead into blue screen if such a channel is access from a user application. 
+   This can lead into blue screen if such a channel is access from a user application.
 26.04.2007
  - Function xChannelBusState() now checks the
    COMMUNICATION-Flag if a timeout is given.
@@ -474,12 +491,12 @@ V0.921 (under Development)
  - Download mode now choosen by the file extension
  - New 2nd stage bootloader detection and handling included
 18.04.2007
- - API functions for 
+ - API functions for
    * xSysdeviceUpload/Download, xSysdeviceFileFindFirst/FindNext
-   * xChannelUpload/Download, xChannelFileFindFirst/FindNext 
+   * xChannelUpload/Download, xChannelFileFindFirst/FindNext
    extended by two new parameters, to be able to deliver unhandled
    receive packets during these functions
- - Definitions for CIFX_COLDSTART and CIFX_WARMSTART changed 
+ - Definitions for CIFX_COLDSTART and CIFX_WARMSTART changed
    to CIFX_SYSTEMSTART and CIFX_CHANNELINIT
  - New COS-Flag handling included
  - Function xChannelBusState() included
@@ -517,7 +534,7 @@ V0.920 (under Development)
  - DEV_ReadHandshakeFlag did check the COS flags wrong
  - DEV_TriggerWatchdog illegally returned CIFX_DEV_NOT_RUNNING even if the device was running
  - DEV_IsCommunicating did not set CIFX_DEV_NO_COMFLAG correctly
- - USER_GetInterruptsEnable added, to give the user the possibility to enable interrupts on a 
+ - USER_GetInterruptsEnable added, to give the user the possibility to enable interrupts on a
    per device base
 
 
@@ -526,7 +543,7 @@ V0.912 (09.01.2007)
  - Function bodies for
    xChannelGetSendPacket
    xChannelConfigLock
-   xChannelReset 
+   xChannelReset
    included
 - Internal version number set to V0.912
 
@@ -544,16 +561,16 @@ V0.910 (19.10.2006)
 
 V0.903 (13.10.2006)
 -------------------
-- DEV_WaitForBitState_Poll's timeout changed. 
+- DEV_WaitForBitState_Poll's timeout changed.
   - Starttime was read inside poll loop
   - Starttime read into unsigned long, for overflow detection
     a long variable is needed
 
-- DEV_ReadHandshakeFlags() wrong HCF_NETX_COS_ACK flag fixed 
+- DEV_ReadHandshakeFlags() wrong HCF_NETX_COS_ACK flag fixed
 
 - Fixed bit state waiting timeout for timer overflows
 
-- Warmstart handling included  
+- Warmstart handling included
 
 - OS_MapUserPointer/OS_UnmapUserPointer added for DPM mapping to application
 
@@ -566,7 +583,7 @@ V0.902 (06.10.2006)
 
 - Host Handshake Flags did not update COS flags
 
-- Host Handshake Flags are now read earlier, to 
+- Host Handshake Flags are now read earlier, to
   allow Ready check on Firmware read packets
 
 - Calculation of the mailbox size for system channel

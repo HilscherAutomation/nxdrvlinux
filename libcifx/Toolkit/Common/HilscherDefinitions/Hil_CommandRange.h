@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_CommandRange.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_CommandRange.h $: *//*!
 
   \file Hil_CommandRange.h
 
@@ -149,13 +149,13 @@ enum HIL_COMMAND_Etag
       EXAMPLETASK3_CMD_TEST_REQ                           = 0x00001742,
       EXAMPLETASK3_CMD_TEST_CNF                           = 0x00001743,
 
-  /** Ethernet/IP Encapsulation task service commands */
+  /** EtherNet/IP Encapsulation task service commands */
   EIP_ENCAP_PACKET_COMMAND_START                      = 0x00001800,
 
   /** EtherCAT service commands (Part 1) */
   ECAT_PACKET_COMMAND_START                           = 0x00001900,
 
-  /** Ethernet/IP Object task service commands */
+  /** EtherNet/IP Object task service commands */
   EIP_OBJECT_PACKET_COMMAND_START                     = 0x00001A00,
 
   /** EtherCAT service commands (Part 2) */
@@ -358,10 +358,10 @@ enum HIL_COMMAND_Etag
   /** TBD */
   SERCOSIII_SL_AP_PACKET_COMMAND_START                = 0x00003500,
 
-  /** Ethernet/IP APS (Slave/Adapter) task service commands */
+  /** EtherNet/IP APS (Slave/Adapter) task service commands */
   EIP_APS_PACKET_COMMAND_START                        = 0x00003600,
 
-  /** Ethernet/IP APM (Master/Scanner) task service commands */
+  /** EtherNet/IP APM (Master/Scanner) task service commands */
   EIP_APM_PACKET_COMMAND_START                        = 0x00003700,
 
   /** DeviceNet FAL task service commands */
@@ -499,7 +499,7 @@ enum HIL_COMMAND_Etag
   /** RFC1006 task commands */
   RFC1006_STACK_PACKET_COMMAND_START                  = 0x00006400,
 
-  /** Ethernet/IP DLR task commands */
+  /** EtherNet/IP DLR task commands */
   EIP_DLR_PACKET_COMMAND_START                        = 0x00006500,
 
   /** SERCOS III Slave NRT task commands */
@@ -646,7 +646,7 @@ enum HIL_COMMAND_Etag
   /** ECMv4 API - AP */
   ECM_AP_COMMAND_START                                = 0x00009F00,
 
-  /** Ethernet/IP Class1 task service commands */
+  /** EtherNet/IP Class1 task service commands */
   EIP_CL1_PACKET_COMMAND_START                        = 0x0000A000,
 
   /** PLS AP task service commands */

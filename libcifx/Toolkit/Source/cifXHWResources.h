@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWResources.h 15330 2025-11-25 07:05:46Z AMinor $:
+  $Id: cifXHWResources.h 15529 2026-04-10 13:00:47Z RHornung $:
 
   Description:
     cifX toolkit hw resources.
@@ -58,6 +58,7 @@ extern "C"
 
 /* Defines for IO areas */
 #define NETX_IO_STATUS_LOCKSTATE_MSK  0x30
+#define NETX_IO_STATUS_BALANCECNT_MSK 0x0E
 #define NETX_IO_STATUS_TOGGLEBIT_MSK  0x01
 
 /* Defines for sync handling */
@@ -160,6 +161,11 @@ typedef struct NETX_SYNC_DATA_Ttag
 {
   PFN_NOTIFY_CALLBACK           pfnCallback;              /*!< Notification callback     */
   void*                         pvUser;                   /*!< User pointer for callback */
+#if HIF_SUPPORT
+  uint32_t                      ulBitmask;                /*!< Bitmask of sync irq       */
+  uint32_t                      ulNotifyEvent;            /*!< Event that is signalled via callback */
+  void*                         pvEvent;
+#endif
 } NETX_SYNC_DATA_T;
 
 /*****************************************************************************/
@@ -278,6 +284,17 @@ typedef struct NETX_HS_CTL_Ttag
 } NETX_HS_CTL_T, PNETX_HS_CTL_T;
 
 /*****************************************************************************/
+/*! Structure for IO statistics                                              */
+/*****************************************************************************/
+typedef struct NETX_IO_STAT_Ttag
+{
+  uint32_t ulExchangeCnt;
+  uint32_t ulErrCnt;
+  uint32_t ulMissDataCnt;
+  uint32_t ulNoUpateCnt;
+}NETX_IO_STAT_T, PNETX_IO_STAT_T;
+
+/*****************************************************************************/
 /*! Structure for IO control/handling                                        */
 /*****************************************************************************/
 typedef struct NETX_IO_CTL_Ttag
@@ -314,6 +331,7 @@ typedef struct NETX_IO_BLOCK_Ttag
 {
   NETX_BLOCK_T    tBlock;
   NETX_IO_CTL_T   tIoCtl;
+  NETX_IO_STAT_T  tStat;
 } NETX_IO_BLOCK_T, *PNETX_IO_BLOCK_T;
 
 /*****************************************************************************/
@@ -429,6 +447,7 @@ typedef struct CHANNELINSTANCEtag
   void*                 apvHsBitEvent[HIL_HIF_HSC_MAX];   /*!< Event handles for each handshake bit pair (used in interrupt mode) */
 
   NETX_IO_AREA_T        tIoArea;                          /*!< Input/Output areas */
+  NETX_SYNC_DATA_T      atSynch[NETX_NUM_OF_SYNCH_FLAGS]; /*!< Sync handling                        */
 #endif
 
 } CHANNELINSTANCE, *PCHANNELINSTANCE;
@@ -490,6 +509,10 @@ typedef struct DEVICEINSTANCEtag
   PFN_CIFXTK_NOTIFY         pfnNotify;              /*!< Function to notify user of different states in the toolkit, to allow
                                                          memory controller reconfiguration, etc. */
   uint8_t*                  pbHandshakeBlock;       /*!< Pointer to start of Handshake block (NULL if no handshake block was found */
+
+  /* Synch handling */
+  CIFX_SYNCH_DATA_T         tSyncData;              /*!< Synchronization structure */
+
 #endif
 
 #if HIF_SUPPORT
@@ -511,8 +534,6 @@ typedef struct DEVICEINSTANCEtag
 
   int                       fCachedMemAccess;                     /*!< Cached memory access to DMA buffer         */
 
-  /* Synch handling */
-  CIFX_SYNCH_DATA_T         tSyncData;              /*!< Synchronization structure */
 
   int                       fResetActive;           /*!< !=0 if a reset is pending on device (DEV_DoSystemStart) */
 

@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_DualPortMemory.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_DualPortMemory.h $: *//*!
 
   \file Hil_DualPortMemory.h
 
@@ -13,8 +13,7 @@
 
 #include <stdint.h>
 #include "Hil_Compiler.h"
-#include "Hil_SharedDefines.h"
-#include "Hil_Types.h"
+#include "Hil_HostInterfaceDefines.h"
 
 #ifdef __HIL_PRAGMA_PACK_ENABLE
   #pragma __HIL_PRAGMA_PACK_1(HIL_DUALPORTMEMORY)
@@ -611,25 +610,11 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_DPM_8K_DPM_COMM_CHANNEL_Tt
 /* System Change of State flags as bit number */
 #define HIL_SYS_COS_DEFAULT_MEMORY_BIT_NO                   31
 
-/* System Status */
-#define HIL_SYS_STATUS_UNDEFINED                            0x00000000
-#define HIL_SYS_STATUS_OK                                   0x00000001
-#define HIL_SYS_STATUS_IDPM                                 0x00400000
-#define HIL_SYS_STATUS_APP                                  0x00800000
-#define HIL_SYS_STATUS_BOOTMEDIUM_MASK                      0x0F000000
-#define HIL_SYS_STATUS_BOOTMEDIUM_RAM                       0x00000000
-#define HIL_SYS_STATUS_BOOTMEDIUM_SERFLASH                  0x01000000
-#define HIL_SYS_STATUS_BOOTMEDIUM_PARFLASH                  0x02000000
-#define HIL_SYS_STATUS_NO_SYSVOLUME                         0x20000000
-#define HIL_SYS_STATUS_SYSVOLUME_FFS                        0x40000000  /*!< _FFS = Flash File System */
-#define HIL_SYS_STATUS_NXO_SUPPORTED                        0x80000000
 
 /* System Status definition */
 #define HIL_SYS_STATE_UNDEFINED                             0
 #define HIL_SYS_STATE_OK                                    1
 
-/* System Error definitions */
-#define HIL_SYS_ERROR_SUCCESS                               0
 
 /* System Status */
 #define HIL_SYS_STATE_RESET                                 0x000000F0
@@ -703,26 +688,6 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_DPM_8K_DPM_COMM_CHANNEL_Tt
 #define HIL_SYS_NOT_INITIALIZED                             0x00000011
 #define HIL_SYS_MEM_ALLOC                                   0x00000012
 
-/* System Hardware Features */
-/* Extended Memory */
-#define HIL_SYSTEM_EXTMEM_TYPE_MSK                          0x0000000F
-#define HIL_SYSTEM_EXTMEM_TYPE_NONE                         0x00000000
-#define HIL_SYSTEM_EXTMEM_TYPE_MRAM_128K                    0x00000001
-
-#define HIL_SYSTEM_EXTMEM_ACCESS_MSK                        0x000000C0
-#define HIL_SYSTEM_EXTMEM_ACCESS_NONE                       0x00000000
-#define HIL_SYSTEM_EXTMEM_ACCESS_EXTERNAL                   0x00000040
-#define HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL                   0x00000080
-#define HIL_SYSTEM_EXTMEM_ACCESS_BOTH                       0x000000C0
-
-/* RTC */
-#define HIL_SYSTEM_HW_RTC_MSK                               0x00000700
-#define HIL_SYSTEM_HW_RTC_TYPE_MSK                          0x00000300
-#define HIL_SYSTEM_HW_RTC_TYPE_NONE                         0x00000000
-#define HIL_SYSTEM_HW_RTC_TYPE_INTERNAL                     0x00000100
-#define HIL_SYSTEM_HW_RTC_TYPE_EXTERNAL                     0x00000200
-#define HIL_SYSTEM_HW_RTC_TYPE_EMULATED                     0x00000300
-#define HIL_SYSTEM_HW_RTC_STATE                             0x00000400
 
 /*--------------------------------------------*/
 /* SYSTEM INFORMATION BLOCK                   */

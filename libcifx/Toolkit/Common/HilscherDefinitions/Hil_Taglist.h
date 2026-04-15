@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_Taglist.h $: *//**
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_Taglist.h $: *//**
 
   \file Hil_Taglist.h
 
@@ -1415,7 +1415,7 @@ typedef struct
   Desc: Configures CIP Product Information to be used by firmware.
 
   Help: With this tag you set various parameters to define a CIP device
-        (Ethernet/IP, DeviceNet, CompoNet).
+        (EtherNet/IP, DeviceNet, CompoNet).
 
         Except for 'Product Name', all of these parameters are used by a
         connection originator to identify the device with certainty.
@@ -2206,11 +2206,11 @@ typedef struct
 
 /**************************************************************************************
   Tag:  HIL_TAG_EIP_DEVICEID
-  Name: Ethernet/IP Product Information
+  Name: EtherNet/IP Product Information
   Desc: Configures CIP Product Information to be used by firmware.
 
   Help: With this tag you set various parameters to define a CIP device
-        (Ethernet/IP, DeviceNet, CompoNet).
+        (EtherNet/IP, DeviceNet, CompoNet).
 
         Except for 'Product Name', all of these parameters are used by a
         connection originator to identify the device with certainty.
@@ -2268,7 +2268,7 @@ typedef struct
 /**************************************************************************************
   Tag:  HIL_TAG_EIP_DLR_PROTOCOL
   Name: DLR Protocol
-  Desc: Configures use of the Ethernet/IP DLR protocol.
+  Desc: Configures use of the EtherNet/IP DLR protocol.
 
   Help: This tag enables or disables the DLR (Device Level Ring) protocol.
 **************************************************************************************/
@@ -2292,7 +2292,7 @@ typedef struct
 
 /**************************************************************************************
   Tag:  HIL_TAG_EIP_RESOURCES
-  Name: Ethernet/IP resources configuration
+  Name: EtherNet/IP resources configuration
   Desc: This taglist entry allows for static tailoring of the EtherNet/IP stack’s resource limits.
 
   Help: See Tag list editor
@@ -2396,7 +2396,7 @@ typedef struct
 
 /**************************************************************************************
   Tag:  HIL_TAG_EIP_TIMESYNC_ENABLE_DISABLE
-  Name: EtherNet/Ip CIPSync support enable/disable
+  Name: EtherNet/IP CIPSync support enable/disable
   Desc: Controls support for Time Sync (CIPSync). Disabling will allow the memory to be used for other means.
 
   Help: See Tag list editor

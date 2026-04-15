@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctions.c 15405 2025-12-12 07:33:32Z AMinor $:
+  $Id: cifXFunctions.c 15554 2026-06-12 13:59:57Z MNoll $:
 
   Description:
     cifX API function implementation
@@ -621,6 +621,125 @@ static int32_t APIENTRY DPMxSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd,
 }
 
 /*****************************************************************************/
+/*! Get/Return a memory pointer to an extended board memory if available
+*   \param hSysdevice   Handle to system device
+*   \param ulCmd        Command for get/free
+*   \param ptExtMemInfo Pointer to a user buffer to return the information
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+static int32_t APIENTRY DPMxSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
+{
+  PCHANNELINSTANCE            ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
+  PDEVICEINSTANCE             ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
+  HIL_HIF_SYSTEM_CHANNEL_T*   ptSysChannel  = NULL;
+  int32_t                     lRet          = CIFX_NO_ERROR;
+
+  CHECK_SYSDEVICEHANDLE(hSysdevice);
+  CHECK_POINTER(ptExtMemInfo);
+
+  ptSysChannel = (HIL_HIF_SYSTEM_CHANNEL_T*)ptSysDevice->pbDPMChannelStart;
+
+  if(0 == g_tDriverInfo.ulOpenCount)
+    return CIFX_DRV_NOT_OPENED;
+
+  switch(ulCmd)
+  {
+    case CIFX_GET_EXTENDED_MEMORY_POINTER:
+      {
+        void* pvMemoryPtr = NULL;
+
+        if( (NULL == ptDevInstance->pbExtendedMemory)    ||
+            (0    == ptDevInstance->ulExtendedMemorySize))
+        {
+          lRet = CIFX_MEMORY_MAPPING_FAILED;
+        }else
+        {
+          ptExtMemInfo->pvMemoryID    = NULL;
+          ptExtMemInfo->pvMemoryPtr   = NULL;
+          ptExtMemInfo->ulMemorySize  = 0;
+          ptExtMemInfo->ulMemoryType  = 0;
+
+          /* Return global memory information */
+          if(NULL == (ptExtMemInfo->pvMemoryID = OS_MapUserPointer(ptDevInstance->pbExtendedMemory,
+                                                                   ptDevInstance->ulExtendedMemorySize,
+                                                                   &pvMemoryPtr,
+                                                                   ptDevInstance->pvOSDependent,
+                                                                   0)))
+          {
+            lRet = CIFX_MEMORY_MAPPING_FAILED;
+          } else
+          {
+            uint32_t ulHWFeatures;
+
+            /* The location of the ulSystemError is different in DPM and HIF. Use the
+             * correct structure according to the layout information retrieved. */
+            if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
+              ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures));
+            else
+              ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ((HIL_HIF_SYSTEM_CHANNEL_T*)ptSysChannel)->tSystemState.ulHWFeatures));
+
+            ptExtMemInfo->pvMemoryPtr  = pvMemoryPtr;
+            ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize;
+            ptExtMemInfo->ulMemoryType = ulHWFeatures & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
+
+            if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
+              ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
+            else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
+              ptExtMemInfo->ulMemorySize = 0;
+          }
+        }
+      }
+      break;
+
+    case CIFX_FREE_EXTENDED_MEMORY_POINTER:
+      {
+        /* Clear user area */
+        if(!OS_UnmapUserPointer(ptExtMemInfo->pvMemoryID, ptDevInstance->pvOSDependent))
+        {
+          lRet = CIFX_INVALID_HANDLE;
+        } else
+        {
+          ptExtMemInfo->pvMemoryID    = NULL;
+          ptExtMemInfo->pvMemoryPtr   = NULL;
+          ptExtMemInfo->ulMemorySize  = 0;
+          ptExtMemInfo->ulMemoryType  = 0;
+        }
+      }
+      break;
+
+    case CIFX_GET_EXTENDED_MEMORY_INFO:
+      {
+        uint32_t ulHWFeatures;
+
+        /* The location of the ulSystemError is different in DPM and HIF. Use the
+          * correct structure according to the layout information retrieved. */
+        if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
+          ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures));
+        else
+          ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ((HIL_HIF_SYSTEM_CHANNEL_T*)ptSysChannel)->tSystemState.ulHWFeatures));
+
+        ptExtMemInfo->pvMemoryID    = NULL;
+        ptExtMemInfo->pvMemoryPtr   = NULL;
+        ptExtMemInfo->ulMemorySize  = ptDevInstance->ulExtendedMemorySize;
+        ptExtMemInfo->ulMemoryType  = ulHWFeatures & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
+
+        if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
+          ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
+        else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
+          ptExtMemInfo->ulMemorySize = 0;
+      }
+      break;
+
+    default:
+      lRet = CIFX_INVALID_COMMAND;
+      break;
+  } /* end switch */
+
+  return lRet;
+}
+
+
+/*****************************************************************************/
 /*! Download a file (Firmware, Configuration, etc) to the device
 *   \param hChannel           Handle to the channel
 *   \param ulMode             Download mode (DOWNLOAD_MODE_FIRMWARE, etc)
@@ -936,6 +1055,30 @@ static int32_t APIENTRY DPMxChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, u
     default:
         lRet = CIFX_INVALID_COMMAND;
       break;
+  }
+
+  return lRet;
+}
+
+/*****************************************************************************/
+/*! Wait for IO events
+*   \param hChannel         Channel handle acquired by xChannelOpen
+*   \param ulEvents         Events to wait for
+*   \param pulActiveEvents  Buffer for actually set events
+*   \param ulTimeout        Timeout in ms to wait for
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+static int32_t APIENTRY DPMxChannelIOWaitEvent(CIFXHANDLE hChannel, uint32_t ulEvents, uint32_t* pulActiveEvents, uint32_t ulTimeout)
+{
+  int32_t          lRet      = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+
+  CHECK_CHANNELHANDLE(hChannel);
+  CHECK_POINTER(pulActiveEvents);
+
+  if (!DEV_WaitForIoBitState(ptChannel, ulEvents, pulActiveEvents, ulTimeout))
+  {
+    lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
   }
 
   return lRet;
@@ -2655,7 +2798,7 @@ static CIFX_API_FUNCTION_LIST_T s_tCifxDpmApiFuns =
   xSysdeviceReset,
   xSysdeviceResetEx,
   xSysdeviceBootstart,
-  xSysdeviceExtendedMemory,
+  DPMxSysdeviceExtendedMemory,
   xChannelOpen,
   xChannelClose,
   xChannelFindFirstFile,
@@ -2674,6 +2817,7 @@ static CIFX_API_FUNCTION_LIST_T s_tCifxDpmApiFuns =
   xChannelBusState,
   DPMxChannelDMAState,
   DPMxChannelIOInfo,
+  DPMxChannelIOWaitEvent,
   DPMxChannelIORead,
   DPMxChannelIOWrite,
   DPMxChannelIOReadSendData,

@@ -13,8 +13,7 @@
 
 #include <stdint.h>
 #include "Hil_Compiler.h"
-#include "Hil_SharedDefines.h"
-#include "Hil_Types.h"
+#include "Hil_HostInterfaceDefines.h"
 
 #ifdef __HIL_PRAGMA_PACK_ENABLE
   #pragma __HIL_PRAGMA_PACK_1(HIL_HOSTINTERFACE)
@@ -37,13 +36,6 @@
   /*===========================================================================*/
   /*\/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ */
 
-
-  /* HIF LAYOUT definitions */
-  #define HIL_HIF_LAYOUT_NA                   0                /*!< unknown Layout / variable HIF structure */
-  #define HIL_HIF_LAYOUT_16K                  1                /*!< 16k byte HIF Layout */
-  #define HIL_HIF_LAYOUT_32K                  2                /*!< 32k byte HIF Layout */
-  #define HIL_HIF_LAYOUT_64K                  3                /*!< 64k byte HIF Layout */
-  #define HIL_HIF_LAYOUT_256K                 4                /*!< 256k byte HIF Layout */
 
   /* Communication Channel Mailbox Count */
   #define HIL_HIF_LAYOUT_16K_MBX_CNT        (1)
@@ -138,13 +130,13 @@
   typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_HIF_SYSTEM_STATUS_BLOCK_Ttag
   {
     uint32_t  ulSystemStatus;                                      /*!< 0x00 Actual system state */
-    uint32_t  ulSystemError;                                       /*!< 0x08 Actual system error */
-    uint32_t  ulBootError;                                         /*!< 0x0C Bootup error (only set by 2nd Stage Bootloader) */
-    uint32_t  ulTimeSinceStart;                                    /*!< 0x10 time since start in seconds */
-    uint16_t  usCpuLoad;                                           /*!< 0x14 cpu load in 0,01% units (10000 => 100%) */
-    uint16_t  usReserved;                                          /*!< 0x16 Reserved */
-    uint32_t  ulHWFeatures;                                        /*!< 0x04 Hardware Features   */
-    uint8_t   abReserved[24];                                      /*!< 0x16 Reserved */
+    uint32_t  ulSystemError;                                       /*!< 0x04 Actual system error */
+    uint32_t  ulBootError;                                         /*!< 0x08 Bootup error (only set by 2nd Stage Bootloader) */
+    uint32_t  ulTimeSinceStart;                                    /*!< 0x0c time since start in seconds */
+    uint16_t  usCpuLoad;                                           /*!< 0x10 cpu load in 0,01% units (10000 => 100%) */
+    uint16_t  usReserved;                                          /*!< 0x12 Reserved */
+    uint32_t  ulHWFeatures;                                        /*!< 0x14 Hardware Features   */
+    uint8_t   abReserved[24];                                      /*!< 0x18 Reserved */
   } HIL_HIF_SYSTEM_STATUS_BLOCK_T;
 
   /*****************************************************************************/
@@ -163,8 +155,6 @@
 
   #define HIL_HIF_COMM_STATE_DMA                                  0x0100
   #define HIL_HIF_COMM_STATE_BUS_ON                               0x0200
-  #define HIL_HIF_COMM_STATE_CONFIG_LOCK                          0x0400
-  #define HIL_HIF_COMM_STATE_APP_READY                            0x0800
 
   typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_HIF_COMMUNICATION_STATUS_BLOCK_Ttag
   {

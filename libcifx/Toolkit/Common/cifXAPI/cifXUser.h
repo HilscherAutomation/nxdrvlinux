@@ -12,6 +12,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
   Changes:
     Date        Description
     -----------------------------------------------------------------------------------
+    2026-04-02  Added new function xChannelIOWaitEvent()
     2025-08-05  Added defines for new HIF layout
     2022-06-14  Added CIFX_IO_AREA_MASK definition
     2019-03-26  Added timeout definition for firmware update
@@ -251,11 +252,25 @@ typedef struct CIFX_NOTIFY_COM_STATE_Ttag
 #define CIFX_NOTIFY_PD0_OUT                   5
 #define CIFX_NOTIFY_PD1_OUT                   6
 #define CIFX_NOTIFY_SYNC                      7
+#define CIFX_NOTIFY_SYNC0                     CIFX_NOTIFY_SYNC
 #define CIFX_NOTIFY_COM_STATE                 8
 #define CIFX_NOTIFY_PD2_IN                    9
 #define CIFX_NOTIFY_PD3_IN                    10
 #define CIFX_NOTIFY_PD2_OUT                   11
 #define CIFX_NOTIFY_PD3_OUT                   12
+#define CIFX_NOTIFY_SYNC1                     13
+
+
+#define CIFX_EVENT_RX_DATA_RECEIVED_PD0       0x00000001
+#define CIFX_EVENT_RX_DATA_RECEIVED_PD1       0x00000002
+#define CIFX_EVENT_RX_DATA_RECEIVED_PD2       0x00000004
+#define CIFX_EVENT_RX_DATA_RECEIVED_PD3       0x00000008
+#define CIFX_EVENT_READY_FOR_TX_DATA_PD0      0x00000100
+#define CIFX_EVENT_READY_FOR_TX_DATA_PD1      0x00000200
+#define CIFX_EVENT_READY_FOR_TX_DATA_PD2      0x00000400
+#define CIFX_EVENT_READY_FOR_TX_DATA_PD3      0x00000800
+#define CIFX_EVENT_TIMED_LATCH                0x00010000
+#define CIFX_EVENT_TIMED_ACTIVATION           0x00020000
 
 /* Extended memory commands */
 #define CIFX_GET_EXTENDED_MEMORY_INFO         1
@@ -562,6 +577,7 @@ int32_t APIENTRY xChannelHostState           ( CIFXHANDLE  hChannel, uint32_t ul
 int32_t APIENTRY xChannelBusState            ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout);
 int32_t APIENTRY xChannelDMAState            ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState);
 
+int32_t APIENTRY xChannelIOWaitEvent         ( CIFXHANDLE  hChannel, uint32_t ulEvents,     uint32_t* pulActiveEvents, uint32_t ulTimeout);
 int32_t APIENTRY xChannelIOInfo              ( CIFXHANDLE  hChannel, uint32_t ulCmd,        uint32_t ulAreaNumber, uint32_t ulSize, void* pvData);
 int32_t APIENTRY xChannelIORead              ( CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset,     uint32_t ulDataLen, void* pvData, uint32_t ulTimeout);
 int32_t APIENTRY xChannelIOWrite             ( CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset,     uint32_t ulDataLen, void* pvData, uint32_t ulTimeout);
@@ -643,6 +659,7 @@ typedef int32_t (APIENTRY *PFN_XCHANNELHOSTSTATE)          ( CIFXHANDLE  hChanne
 typedef int32_t (APIENTRY *PFN_XCHANNELBUSSTATE)           ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout);
 typedef int32_t (APIENTRY *PFN_XCHANNELDMASTATE)           ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState);
 
+typedef int32_t (APIENTRY *PFN_XCHANNELIOWAITEVENT)        ( CIFXHANDLE  hChannel, uint32_t ulEvents,     uint32_t* pulActiveEvents, uint32_t ulTimeout);
 typedef int32_t (APIENTRY *PFN_XCHANNELIOINFO)             ( CIFXHANDLE  hChannel, uint32_t ulCmd,        uint32_t ulAreaNumber, uint32_t ulSize,    void* pvData);
 typedef int32_t (APIENTRY *PFN_XCHANNELIOREAD)             ( CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset,     uint32_t ulDataLen, void* pvData, uint32_t ulTimeout);
 typedef int32_t (APIENTRY *PFN_XCHANNELIOWRITE)            ( CIFXHANDLE  hChannel, uint32_t ulAreaNumber, uint32_t ulOffset,     uint32_t ulDataLen, void* pvData, uint32_t ulTimeout);

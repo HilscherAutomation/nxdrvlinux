@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctionsHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
+  $Id: cifXHWFunctionsHIF.c 15566 2026-06-18 06:56:55Z RHornung $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -71,27 +71,6 @@ static void DEV_ToggleBit(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask)
   HWIF_WRITE32(ptChannel->pvDeviceInstance, *ptChannel->tHsCtrl.pulHostFlags, ptChannel->tHsCtrl.ulHostFlags);
 }
 
-/*****************************************************************************/
-/*! Toggles the given sync bit
-*   \param ptDevInstance  Device instance
-*   \param ulBitMask      Bitmask to eXOR into command bits                  */
-/*****************************************************************************/
-static void DEV_ToggleSyncBit(PDEVICEINSTANCE ptDevInstance, uint32_t ulBitMask)
-{
-  UNREFERENCED_PARAMETER(ptDevInstance);
-  UNREFERENCED_PARAMETER(ulBitMask);
-#if 0 // TODO
-  /* Write 16 Bit handshake */
-  HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pulHandshakeBlock;
-
-  OS_EnterLock(ptDevInstance->tSyncData.pvLock);
-
-  ptDevInstance->tSyncData.usHSyncFlags ^= (uint16_t)ulBitMask;
-  HWIF_WRITE16(ptDevInstance, ptHandshakeBlock->atHsk[1].t16Bit.ulHostFlags, HOST_TO_LE16(ptDevInstance->tSyncData.usHSyncFlags));
-
-  OS_LeaveLock(ptDevInstance->tSyncData.pvLock);
-#endif
-}
 
 /*****************************************************************************/
 /*! Reads the actual state of the host handshake bits for the given channel
@@ -122,16 +101,6 @@ static void DEV_ReadHostFlags(PCHANNELINSTANCE ptChannel, int fReadHostCOS)
           HWIF_READ8(ptChannel->pvDeviceInstance, *ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.pbStatus) & NETX_IO_STATUS_TOGGLEBIT_MSK;
     }
   }
-
-#if 0 // TODO
-  /* Also read host sync flags, as they might not be set to zero on flash based devices */
-  if( (ptDevInstance->pulHandshakeBlock != NULL) &&
-      (ptChannel->fIsSysDevice) )
-  {
-    HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pulHandshakeBlock;
-    ptDevInstance->tSyncData.usHSyncFlags       = LE16_TO_HOST(HWIF_READ16(ptChannel->pvDeviceInstance, ptHandshakeBlock->atHsk[1].t16Bit.ulHostFlags));
-  }
-#endif
 }
 
 /*****************************************************************************/
@@ -148,14 +117,6 @@ static void DEV_ReadHandshakeFlags(PCHANNELINSTANCE ptChannel, int fReadSyncFlag
 
   UNREFERENCED_PARAMETER(fReadSyncFlags);
 
-#if 0 // TODO
-  if ((ptDevInstance->pulHandshakeBlock != NULL) && fReadSyncFlags)
-  {
-    HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pulHandshakeBlock;
-    ptDevInstance->tSyncData.usNSyncFlags = LE16_TO_HOST(HWIF_READ16(ptDevInstance, ptHandshakeBlock->atHsk[1].t16Bit.ulNetxFlags));
-  }
-#endif
-
   ptChannel->tHsCtrl.ulNetxFlags = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, *ptChannel->tHsCtrl.pulNetxFlags));
 
   if (!ptChannel->fIsSysDevice)
@@ -168,166 +129,6 @@ static void DEV_ReadHandshakeFlags(PCHANNELINSTANCE ptChannel, int fReadSyncFlag
   /* Unlock Handshake Cell and COS flag accesses */
   if (fLockNeeded)
     OS_LeaveLock(ptChannel->pvLock);
-}
-
-/*****************************************************************************/
-/*! Waits for Sync state on the channel (polling mode)
-*   \param ptChannel    Channel instance to wait for bitstate
-*   \param bState       State the handshake bit should be in after returning
-*                       from this function
-*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
-*   \return 0 on error/timeout, 1 on success                                 */
-/*****************************************************************************/
-static int DEV_WaitForSyncState_Poll(PCHANNELINSTANCE ptChannel, uint8_t bState, uint32_t ulTimeout)
-{
-  uint8_t         bActualState;
-  int             iRet          = 0;
-  uint32_t        ulBitMask     = 1 << ptChannel->ulChannelNumber;
-  int32_t         lStartTime    = 0;
-  PDEVICEINSTANCE ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-
-  DEV_ReadHandshakeFlags(ptChannel, 1, 1);
-
-  if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
-    bActualState = HIL_FLAGS_NOT_EQUAL;
-  else
-    bActualState = HIL_FLAGS_EQUAL;
-
-  /* The desired state is already there, so just return true */
-  if(bActualState == bState)
-    return 1;
-
-  /* If no timeout is given, don't try to wait for the Bit change */
-  if(0 == ulTimeout)
-    return 0;
-
-  lStartTime = (int32_t)OS_GetMilliSecCounter();
-
-  /* Poll for desired bit state */
-  while(bActualState != bState)
-  {
-    uint32_t ulDiffTime  = 0L;
-
-    DEV_ReadHandshakeFlags(ptChannel, 1, 1);
-
-    if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
-      bActualState = HIL_FLAGS_NOT_EQUAL;
-    else
-      bActualState = HIL_FLAGS_EQUAL;
-
-    if(bActualState == bState)
-    {
-      iRet = 1;
-      break;
-    }
-
-    /* Check for timeout */
-    ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
-    if ( ulDiffTime > ulTimeout)
-    {
-      break;
-    }
-
-    OS_Sleep(0);
-  }
-
-  return iRet;
-}
-
-/*****************************************************************************/
-/*! Waits for sync state on the channel (irq mode)
-*   \param ptChannel    Channel instance to wait for bitstate
-*   \param bState       State the handshake bit should be in after returning
-*                       from this function
-*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
-*   \return 0 on error/timeout, 1 on success                                 */
-/*****************************************************************************/
-static int DEV_WaitForSyncState_Irq(PCHANNELINSTANCE ptChannel, uint8_t bState, uint32_t ulTimeout)
-{
-  uint8_t         bActualState;
-  int             iRet              = 0;
-  uint32_t        ulBitMask         = 1 << ptChannel->ulChannelNumber;
-  int32_t         lStartTime        = 0;
-#if 0 // TODO
-  uint32_t        ulInternalTimeout = ulTimeout;
-#endif
-  PDEVICEINSTANCE ptDevInstance     = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-
-  UNREFERENCED_PARAMETER(ulTimeout);
-
-  if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
-    bActualState = HIL_FLAGS_NOT_EQUAL;
-  else
-    bActualState = HIL_FLAGS_EQUAL;
-
-  /* The desired state is already there, so just return true */
-  if(bActualState == bState)
-    return 1;
-
-  /* If no timeout is given, don't try to wait for the Bit change */
-  if(0 == ulTimeout)
-    return 0;
-
-  /* Just wait for the Interrupt event to be signalled. This bit was toggled if the interrupt
-     is executed, so we don't need to check bit state afterwards.*/
-
-  lStartTime = (int32_t)OS_GetMilliSecCounter();
-
-  do
-  {
-    uint32_t ulCurrentTime;
-    uint32_t ulDiffTime;
-
-#if 0 // TODO
-    /* Wait for DSR to signal Handshake bit change event */
-    (void)OS_WaitEvent(ptDevInstance->tSyncData.ahSyncBitEvents[ptChannel->ulChannelNumber], ulInternalTimeout);
-#endif
-
-    ulCurrentTime = OS_GetMilliSecCounter();
-    ulDiffTime    = ulCurrentTime - lStartTime;
-#if 0 // TODO
-    /* Adjust timeout for next run */
-    ulInternalTimeout = ulTimeout - ulDiffTime;
-#endif
-
-    /* Check bit state */
-    if((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulBitMask)
-      bActualState = HIL_FLAGS_NOT_EQUAL;
-    else
-      bActualState = HIL_FLAGS_EQUAL;
-
-    if(bActualState == bState)
-    {
-      iRet = 1;
-      break;
-    }
-
-    if( ulDiffTime >= ulTimeout)
-    {
-      /* Timeout expired */
-      break;
-    }
-
-  } while(iRet == 0);
-
-  return iRet;
-}
-
-/*****************************************************************************/
-/*! Waits for sync state
-*   (IRQ/Polling Wrapper function)
-*   \param ptChannel    Channel instance to wait for bitstate
-*   \param bState       State the handshake bit should be in after returning
-*                       from this function
-*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
-*   \return 0 on error/timeout, 1 on success                                 */
-/*****************************************************************************/
-static int DEV_WaitForSyncState(PCHANNELINSTANCE ptChannel, uint8_t bState, uint32_t ulTimeout)
-{
-  if( ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
-    return DEV_WaitForSyncState_Irq(ptChannel, bState, ulTimeout);
-  else
-    return DEV_WaitForSyncState_Poll(ptChannel, bState, ulTimeout);
 }
 
 /*****************************************************************************/
@@ -674,7 +475,8 @@ static int DEV_WaitForReady_Poll(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
       HWIF_READN(ptDevInstance, szCookie, ptDevInstance->pbDPM, 4);
 
       /* We need to check for a valid cookie */
-      if (0 == OS_Strcmp(szCookie, CIFX_DPMSIGNATURE_FW_STR))
+      if ((0 == OS_Strcmp(szCookie,  CIFX_DPMSIGNATURE_BSL_STR)) ||
+          (0 == OS_Strcmp( szCookie, CIFX_DPMSIGNATURE_FW_STR)) )
       {
         /* Check if firmware is READY because we need the DPM Layout */
         if( (LE32_TO_HOST(HWIF_READ32(ptDevInstance, *ptChannel->tHsCtrl.pulNetxFlags)) != CIFX_DPM_INVALID_CONTENT) &&
@@ -968,14 +770,8 @@ static int32_t DEV_PutPacketCom(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendP
       ptSendPkt,
       LE32_TO_HOST(ptSendPkt->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE);
 
-    /* Lock flag access */
-    OS_EnterLock(ptChannel->pvLock);
-
     /* Signal new packet */
     DEV_WriteCell(ptChannel, &ptChannel->tFromHostMbx.tCom, ulHostFlags);
-
-    /* Unlock flag access */
-    OS_LeaveLock(ptChannel->pvLock);
 
     lRet = CIFX_NO_ERROR;
   }
@@ -1091,14 +887,8 @@ static int32_t DEV_GetPacketCom(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvP
   }
   HWIF_READN(ptChannel->pvDeviceInstance, ptRecvPkt, ptPacket, ulCopySize);
 
-  /* Lock flag access */
-  OS_EnterLock(ptChannel->pvLock);
-
   /* Signal read packet done */
   DEV_WriteCell(ptChannel, &ptChannel->tToHostMbx.tCom, ulHostFlags);
-
-  /* Unlock flag access */
-  OS_LeaveLock(ptChannel->pvLock);
 
   return lRet;
 }
@@ -1301,16 +1091,12 @@ static int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulTrigge
 }
 
 /*****************************************************************************/
-/*! Mark device to be in reset state and clear device internal structure for
-*   reset preparation
+/*! Clear local HS flags.
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-static void DEV_Reset_Prepare(PDEVICEINSTANCE ptDevInstance)
+static void DEV_Reset_FlagsClear(PDEVICEINSTANCE ptDevInstance)
 {
   uint32_t ulIdx = 0;
-
-  /* Reset is now active and DSR will ignore all incoming interrupts from now on */
-  ptDevInstance->fResetActive = 1;
 
   /* Zero out all internal flags */
   OS_EnterLock(ptDevInstance->tSystemDevice.pvLock);
@@ -1318,25 +1104,22 @@ static void DEV_Reset_Prepare(PDEVICEINSTANCE ptDevInstance)
   ptDevInstance->tSystemDevice.tHsCtrl.ulNetxFlags = 0;
   OS_LeaveLock(ptDevInstance->tSystemDevice.pvLock);
 
-  for ( ulIdx = 0; ulIdx < ptDevInstance->ulCommChannelCount; ulIdx++)
+  for (ulIdx = 0; ulIdx < ptDevInstance->ulCommChannelCount; ulIdx++)
   {
     OS_EnterLock(ptDevInstance->pptCommChannels[ulIdx]->pvLock);
-    ptDevInstance->pptCommChannels[ulIdx]->tHsCtrl.ulHostFlags      = 0;
-    ptDevInstance->pptCommChannels[ulIdx]->tHsCtrl.ulNetxFlags      = 0;
+    ptDevInstance->pptCommChannels[ulIdx]->tHsCtrl.ulHostFlags = 0;
+    ptDevInstance->pptCommChannels[ulIdx]->tHsCtrl.ulNetxFlags = 0;
     OS_LeaveLock(ptDevInstance->pptCommChannels[ulIdx]->pvLock);
   }
 }
 
 /*****************************************************************************/
-/*! After reset, re-read the device flags to continue communication
+/*! Restore local HS flags.
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-static void DEV_Reset_Finish(PDEVICEINSTANCE ptDevInstance)
+static void DEV_Reset_FlagsRestore(PDEVICEINSTANCE ptDevInstance)
 {
   uint32_t ulIdx = 0;
-
-  /* Reset not active anymore */
-  ptDevInstance->fResetActive = 0;
 
   /* Reset is finished, so we can now update our internal states */
   if(ptDevInstance->fIrqEnabled)
@@ -1371,7 +1154,7 @@ static void DEV_Reset_Finish(PDEVICEINSTANCE ptDevInstance)
 static int32_t DEV_Reset_Execute(PDEVICEINSTANCE ptDevInstance, uint32_t ulParam, uint8_t fWaitOnDevice)
 {
   HIL_FIRMWARE_RESET_REQ_T tSendPkt;
-  HIL_FIRMWARE_RESET_CNF_T tRecvPkt;
+  CIFX_PACKET              tRecvPkt;
   int32_t lRet = CIFX_NO_ERROR;
 
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
@@ -1394,7 +1177,7 @@ static int32_t DEV_Reset_Execute(PDEVICEINSTANCE ptDevInstance, uint32_t ulParam
                             NULL);
 
   if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
+      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHeader.ulState))) )
   {
     if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
     {
@@ -1462,8 +1245,7 @@ static int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
 
     } else
     {
-      /* Prepare reset */
-      DEV_Reset_Prepare(ptDevInstance);
+      ptDevInstance->fResetActive = 1; /* DSR ignores all interrupts now */
 
       /* Perform the Reset */
       lRet = DEV_Reset_Execute(ptDevInstance, ulResetParam, 1);
@@ -1483,6 +1265,9 @@ static int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
       /* Now wait for the card to come back */
       if(CIFX_NO_ERROR == lRet)
       {
+        /* Clear HS flags */
+        DEV_Reset_FlagsClear(ptDevInstance);
+
         /* now wait for card to become READY */
         if( !DEV_WaitForReady_Poll( ptSysDevice, ( 0 == ulTimeout) ? CIFX_TO_WAIT_HW : ulTimeout) )
         {
@@ -1496,8 +1281,10 @@ static int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
           }
         }
 
-        /* Re-read device handshake flags */
-        DEV_Reset_Finish(ptDevInstance);
+        /* Restore HS flags */
+        DEV_Reset_FlagsRestore(ptDevInstance);
+
+        ptDevInstance->fResetActive = 0;
       }
 
       /* it is not possible to distinguish between success and failure since do not know the correct state after reset */
@@ -1535,106 +1322,10 @@ static int32_t DEV_DoSystemStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
 /*****************************************************************************/
 static int32_t DEV_DoSystemBootstart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout, uint32_t ulParam)
 {
-  PDEVICEINSTANCE             ptDevInstance  = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  PCHANNELINSTANCE            ptSysDevice    = &ptDevInstance->tSystemDevice;
-  HIL_HIF_SYSTEM_CHANNEL_T* ptSysChannel   = (HIL_HIF_SYSTEM_CHANNEL_T*)ptSysDevice->pbDPMChannelStart;
-  uint32_t                    ulSystemStatus = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulSystemStatus));
-  int32_t                     lRet           = CIFX_NO_ERROR;
-
-  /* Card was running before, so wait for running flag to vanish */
-  if(!DEV_IsReady(ptSysDevice))
-    return CIFX_DEV_NOT_READY;
-
-  if(!OS_WaitMutex(ptSysDevice->pvInitMutex, CIFX_TO_WAIT_COS_CMD))
-  {
-    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-    {
-      USER_Trace(ptDevInstance,
-                CIFX_TRACE_LEVEL_ERROR,
-                "DEV_DoSystemBootstart(): Error locking access to device!");
-    }
-
-    lRet = CIFX_DRV_INIT_STATE_ERROR;
-  } else
-  {
-    uint32_t ulResetParam = HIL_RESET_MODE_BOOTSTART | (ulParam & (HIL_RESET_PARAM_MSK|HIL_RESET_FLAG_MSK));
-
-    if ( HIL_SYS_STATUS_IDPM == (HIL_SYS_STATUS_IDPM & ulSystemStatus) &&
-         HIL_SYS_STATUS_APP  == (HIL_SYS_STATUS_APP  & ulSystemStatus) )
-    {
-      /* If we're running with an enabled IDPM and APP CPU, no reset will be executed.
-       * We just signal the reset state to the COM CPU by using the HIL_FIRMWARE_RESET_REQ. */
-
-      /* Activate the Reset (including BOOTSTART bit) */
-      /* ATTENTION: Do not wait on the device, because the reset will be handled by the secure enclave, */
-      /*            and therefore the APP CPU has to signal its readiness to the secure enclave. */
-      lRet = DEV_Reset_Execute(ptDevInstance, ulResetParam, 0);
-
-    } else
-    {
-      /* Prepare reset */
-      DEV_Reset_Prepare(ptDevInstance);
-
-      /* Perform the Reset (including BOOTSTART bit) */
-      lRet = DEV_Reset_Execute(ptDevInstance, (uint8_t)(HSF_RESET | HSF_BOOTSTART), 1);
-
-      if (CIFX_NO_ERROR != lRet)
-      {
-        ptDevInstance->fResetActive = 0;
-
-        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-        {
-          USER_Trace(ptDevInstance,
-                    CIFX_TRACE_LEVEL_ERROR,
-                    "DEV_DoSystemBootstart(): Error waiting for device to leave READY state!");
-        }
-      }
-
-      /* Now wait for the card to come back */
-      if(CIFX_NO_ERROR == lRet)
-      {
-        /* now wait for card to become READY */
-        if( !DEV_WaitForReady_Poll( ptSysDevice, ( 0 == ulTimeout) ? CIFX_TO_WAIT_HW : ulTimeout) )
-        {
-          lRet = CIFX_DEV_NOT_READY;
-
-          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-          {
-            USER_Trace(ptDevInstance,
-                      CIFX_TRACE_LEVEL_ERROR,
-                      "DEV_DoSystemBootstart(): Error waiting for device to become ready!");
-          }
-        } else
-        {
-          /* Check if the Bootloader is running */
-          char szCookie[5] = {0};
-
-          /* Read the DPM cookie */
-          HWIF_READN(ptDevInstance, szCookie, ptDevInstance->pbDPM, 4);
-
-          /* On DPM cards we need to check for a valid cookie */
-          if (0 != OS_Strcmp( szCookie, CIFX_DPMSIGNATURE_BSL_STR))
-          {
-            /* Failed to set the device into boot mode */
-            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-            {
-              USER_Trace(ptDevInstance,
-                        CIFX_TRACE_LEVEL_ERROR,
-                        "DEV_DoSystemBootstart(): Error setting card into boot mode!");
-            }
-
-            lRet = CIFX_DEV_FUNCTION_FAILED;
-          }
-        }
-
-        /* Re-read device handshake flags */
-        DEV_Reset_Finish(ptDevInstance);
-      }
-    }
-    OS_ReleaseMutex(ptSysDevice->pvInitMutex);
-  }
-
-  return lRet;
+  UNREFERENCED_PARAMETER(ptChannel);
+  UNREFERENCED_PARAMETER(ulTimeout);
+  UNREFERENCED_PARAMETER(ulParam);
+  return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
 /*****************************************************************************/
@@ -1685,8 +1376,7 @@ static int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
     {
       char szCookie[5] = {0};
 
-      /* Prepare reset */
-      DEV_Reset_Prepare(ptDevInstance);
+      ptDevInstance->fResetActive = 1; /* DSR ignores all interrupts now */
 
       /* Perform the Reset */
       lRet = DEV_Reset_Execute(ptDevInstance, ulResetParam, 1);
@@ -1706,6 +1396,9 @@ static int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
       /* Now wait for the card to come back */
       if(CIFX_NO_ERROR == lRet)
       {
+        /* Clear HS flags */
+        DEV_Reset_FlagsClear(ptDevInstance);
+
         /* now wait for card to become READY */
         if( !DEV_WaitForReady_Poll( ptSysDevice, CIFX_TO_WAIT_HW ) )
         {
@@ -1778,8 +1471,10 @@ static int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
           }
         }
 
-        /* Re-read device handshake flags */
-        DEV_Reset_Finish(ptDevInstance);
+        /* Restore HS flags */
+        DEV_Reset_FlagsRestore(ptDevInstance);
+
+        ptDevInstance->fResetActive = 0;
       }
 
       /* Log the current DPM state */
@@ -1813,147 +1508,9 @@ static int32_t DEV_DoUpdateStart(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout,
 /*****************************************************************************/
 static int32_t DEV_DoChannelInit(PCHANNELINSTANCE ptChannel, uint32_t ulTimeout)
 {
-  int32_t                lRet          = CIFX_NO_ERROR;
-  PDEVICEINSTANCE        ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  int                    fRunning      = DEV_IsRunning(ptChannel);
-  HIL_CHANNEL_INIT_REQ_T tSendPkt;
-  HIL_CHANNEL_INIT_CNF_T tRecvPkt;
-
-  OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-  /* Read firmware information */
-  tSendPkt.tHead.ulDest = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
-  tSendPkt.tHead.ulSrc  = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-  tSendPkt.tHead.ulCmd  = HOST_TO_LE32(HIL_CHANNEL_INIT_REQ);
-  tSendPkt.tHead.ulLen  = 0;
-
-  /* Transfer packet */
-  lRet = DEV_TransferPacket(ptChannel,
-                            (CIFX_PACKET*)&tSendPkt,
-                            (CIFX_PACKET*)&tRecvPkt,
-                            sizeof(tRecvPkt),
-                            CIFX_TO_SEND_PACKET,
-                            NULL,
-                            NULL);
-
-  if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
-  {
-    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
-    {
-      USER_Trace(ptDevInstance,
-                CIFX_TRACE_LEVEL_WARNING,
-                "Error executing channel initialization! (lRet=0x%08X)",
-                lRet);
-    }
-  }
-
-  if(CIFX_NO_ERROR == lRet)
-  {
-    /* The card has recognized the initialization, so we can wait until the card has processed it*/
-    /* Card was running before, so wait for running flag to vanish */
-    if(fRunning)
-    {
-      /* Check if the Firmware has removed it's running flag,
-         or if it's set now.*/
-      if ( 0 == (ptChannel->tHsCtrl.ulNetxFlags & HIL_HIF_NCF_RUN) )
-      {
-        /* FW already removed it's RUN Flag during Channel Init command sequence. No need to
-            wait for running flag to vanish */
-        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
-        {
-          USER_Trace(ptDevInstance,
-                    CIFX_TRACE_LEVEL_DEBUG,
-                    "DEV_DoChannelInit(): Firmware removed HIL_COMM_COS_RUN early! Skipping wait for NotRunning-State");
-        }
-      } else if( !DEV_WaitForNotRunning_Poll( ptChannel, CIFX_TO_WAIT_HW_RESET_ACTIVE))
-      {
-        lRet = CIFX_DEV_RESET_TIMEOUT;
-        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-        {
-          USER_Trace(ptDevInstance,
-                    CIFX_TRACE_LEVEL_ERROR,
-                    "DEV_DoChannelInit(): Error waiting for channel to leave running state!");
-        }
-      }
-    }
-
-    /* Card is in restart */
-    if(CIFX_NO_ERROR == lRet)
-    {
-      /* Check if user wants to wait until the card is READY again */
-      /* now wait for the channel and it must be at least READY */
-      uint32_t ulTempTimeout = ( CIFX_TO_WAIT_HW > ulTimeout) ? ulTimeout : CIFX_TO_WAIT_HW;
-      if( DEV_WaitForNotReady_Poll( ptChannel, ulTempTimeout) )
-      {
-        /* Firmware started after warm start process */
-        if( 0 != ulTimeout)
-        {
-          /* now wait for the channel and it must be at least READY */
-          if( !DEV_WaitForReady_Poll( ptChannel, ulTimeout) )
-          {
-            lRet = CIFX_DEV_NOT_READY;
-            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
-            {
-              USER_Trace(ptDevInstance,
-                         CIFX_TRACE_LEVEL_WARNING,
-                        "DEV_DoChannelInit(): Channel did not enter READY state during timeout!");
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Send a packet to the device to change the bus state
-*   \param ptChannel  Channel instance
-*   \param ulState    State to change to
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-static int32_t DEV_DoBusStateChange(PCHANNELINSTANCE ptChannel, uint32_t ulState)
-{
-  PDEVICEINSTANCE           ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  HIL_START_STOP_COMM_REQ_T tSendPkt;
-  HIL_START_STOP_COMM_CNF_T tRecvPkt;
-  int32_t                   lRet          = CIFX_NO_ERROR;
-
-  OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-  /* Read firmware information */
-  tSendPkt.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
-  tSendPkt.tHead.ulSrc    = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-  tSendPkt.tHead.ulCmd    = HOST_TO_LE32(HIL_START_STOP_COMM_REQ);
-  tSendPkt.tHead.ulLen    = HOST_TO_LE32(sizeof(tSendPkt.tData));
-  tSendPkt.tData.ulParam  = HOST_TO_LE32(ulState);
-
-  /* Transfer packet */
-  lRet = DEV_TransferPacket(ptChannel,
-                            (CIFX_PACKET*)&tSendPkt,
-                            (CIFX_PACKET*)&tRecvPkt,
-                            sizeof(tRecvPkt),
-                            CIFX_TO_SEND_PACKET,
-                            NULL,
-                            NULL);
-
-  if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
-  {
-    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
-    {
-      USER_Trace(ptDevInstance,
-                CIFX_TRACE_LEVEL_WARNING,
-                "Error changing bus state! (lRet=0x%08X)",
-                lRet);
-    }
-  }
-
-  return lRet;
+  UNREFERENCED_PARAMETER(ptChannel);
+  UNREFERENCED_PARAMETER(ulTimeout);
+  return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
 /*****************************************************************************/
@@ -1966,70 +1523,11 @@ static int32_t DEV_DoBusStateChange(PCHANNELINSTANCE ptChannel, uint32_t ulState
 /*****************************************************************************/
 static int32_t DEV_BusState(PCHANNELINSTANCE ptChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
 {
-  int32_t lRet = CIFX_NO_ERROR;
-
+  UNREFERENCED_PARAMETER(ptChannel);
+  UNREFERENCED_PARAMETER(ulCmd);
+  UNREFERENCED_PARAMETER(pulState);
   UNREFERENCED_PARAMETER(ulTimeout);
-
-  if( NULL == pulState) return CIFX_INVALID_POINTER;
-
-  /* Read actual BUS state */
-  *pulState = (LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->ulCommunicationState)) & HIL_HIF_COMM_STATE_BUS_ON) ?
-              CIFX_BUS_STATE_ON : CIFX_BUS_STATE_OFF;
-
-  switch (ulCmd)
-  {
-    case CIFX_BUS_STATE_ON:
-    {
-      /* Check if the BUS is already ON */
-      (void)DEV_IsCommunicating(ptChannel, &lRet); /* lRet evaluated */
-
-      if( !*pulState &&
-          (CIFX_DEV_NO_COM_FLAG == lRet) )
-      {
-        int32_t lTemp = DEV_DoBusStateChange(ptChannel, HIL_START_STOP_COMM_PARAM_START);
-
-        /* Only update return value, if packet transfer did not succeed, so
-           we can wait for COM_BIT below */
-        if(lTemp != CIFX_NO_ERROR)
-          lRet = lTemp;
-      }
-
-      *pulState = (LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->ulCommunicationState)) & HIL_HIF_COMM_STATE_BUS_ON) ?
-                  CIFX_BUS_STATE_ON : CIFX_BUS_STATE_OFF;
-    }
-    break;
-
-    case CIFX_BUS_STATE_OFF:
-    {
-      /* Check if the BUS is off */
-      if(!DEV_IsReady(ptChannel))
-      {
-        lRet = CIFX_DEV_NOT_READY;
-
-      } else if(*pulState || DEV_IsCommunicating(ptChannel, &lRet))
-      {
-        lRet = DEV_DoBusStateChange(ptChannel, HIL_START_STOP_COMM_PARAM_STOP);
-
-        *pulState = (LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->ulCommunicationState)) & HIL_HIF_COMM_STATE_BUS_ON) ?
-                    CIFX_BUS_STATE_ON : CIFX_BUS_STATE_OFF;
-      }
-    }
-    break;
-
-    case CIFX_BUS_STATE_GETSTATE:
-    {
-      if (0 == DEV_IsRunning(ptChannel))
-        lRet = CIFX_DEV_NOT_RUNNING;
-    }
-    break;
-
-    default:
-      /* Unknown command */
-      lRet = CIFX_INVALID_COMMAND;
-    break;
-  }
-
-  return lRet;
+  return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
 
@@ -2254,132 +1752,72 @@ static int DEV_WaitForLock_Poll(PCHANNELINSTANCE ptChannel, PNETX_IO_BLOCK_T ptI
 /*****************************************************************************/
 /*! Waits for a given handshake bit state on the I/O area (polling mode)
 *   \param ptChannel    Channel instance to wait for
-*   \param ptInst       Block instance on which to wait for
+*   \param ulBitMask    BitMask of events to wait for
+*   \param pulBitState  Buffer for actually set events
 *   \param ulTimeout    Maximum time in ms to wait for the desired bit state
 *   \return 0 on error/timeout, 1 on success                                 */
 /*****************************************************************************/
-static int DEV_WaitForIoBitState_Poll(PCHANNELINSTANCE ptChannel, NETX_IO_BLOCK_T* ptInst, uint32_t ulTimeout)
+static int DEV_WaitForIoBitState(PCHANNELINSTANCE ptChannel, uint32_t ulEvents, uint32_t* pulBitState, uint32_t ulTimeout)
 {
-  uint32_t ulActualState;
   int32_t lStartTime = 0;
+  uint32_t ulBitMask;
+  uint32_t ulNetxStatus;
   int iRet = 0;
+
+  /* convert events to hif irq register bit mask */
+  ulBitMask = ((ulEvents & 0x0000000F) << 8) |
+              ((ulEvents & 0x00000F00) << 4) |
+              ((ulEvents & 0x00030000));
 
   DEV_ReadHandshakeFlags(ptChannel, 0, 1);
 
-  ulActualState = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus & ptInst->tBlock.ulBitmask);
+  ulNetxStatus = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus);
 
-  /* The desired state is already there, so just return true */
-  if (ulActualState == ptInst->tBlock.ulBitmask)
-    return 1;
-
-  /* If no timeout is given, don't try to wait for the Bit change */
-  if (0 == ulTimeout)
-    return 0;
-
-  lStartTime = (int32_t)OS_GetMilliSecCounter();
-
-  /* Poll for desired bit state */
-  while (ulActualState != ptInst->tBlock.ulBitmask)
+  /* no requested event is active, we need to poll for till event occurs */
+  if (0 == (ulNetxStatus & ulBitMask))
   {
-    uint32_t ulDiffTime  = 0L;
+    /* If no timeout is given, don't try to wait for the event */
+    if (0 == ulTimeout)
+      return 0;
 
-    DEV_ReadHandshakeFlags(ptChannel, 0, 1);
+    lStartTime = (int32_t)OS_GetMilliSecCounter();
 
-    ulActualState = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus & ptInst->tBlock.ulBitmask);
-
-    /* The desired state is already there, so just return true */
-    if (ulActualState == ptInst->tBlock.ulBitmask)
+    /* Poll for desired bit state */
+    while (0 == (ulNetxStatus & ulBitMask))
     {
-      iRet = 1;
-      break;
-    }
+      uint32_t ulDiffTime  = 0L;
 
-    /* Check for timeout */
-    ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
-    if (ulDiffTime > ulTimeout)
-    {
-      break;
-    }
+      DEV_ReadHandshakeFlags(ptChannel, 0, 1);
 
-    OS_Sleep(0);
+      ulNetxStatus = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus);
+
+      /* The desired state is already there, so just return true */
+      if (ulNetxStatus & ulBitMask)
+      {
+        iRet = 1;
+        break;
+      }
+
+      /* Check for timeout */
+      ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
+      if (ulDiffTime > ulTimeout)
+      {
+        break;
+      }
+
+      OS_Sleep(0);
+    }
   }
 
-  return iRet;
-}
-
-/*****************************************************************************/
-/*! Waits for a given handshake bit state on the I/O area (irq mode)
-*   \param ptChannel    Channel instance to wait for
-*   \param ptInst       Block instance on which to wait for
-*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
-*   \return 0 on error/timeout, 1 on success                                 */
-/*****************************************************************************/
-static int DEV_WaitForIoBitState_Irq(PCHANNELINSTANCE ptChannel, NETX_IO_BLOCK_T* ptInst, uint32_t ulTimeout)
-{
-  uint32_t ulActualState;
-  int32_t lStartTime = 0;
-  uint32_t ulInternalTimeout = ulTimeout;
-  int iRet = 0;
-
-  ulActualState = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus & ptInst->tBlock.ulBitmask);
-
-  /* The desired state is already there, so just return true */
-  if (ulActualState == ptInst->tBlock.ulBitmask && ptInst->tIoCtl.bIrqState)
-    return 1;
-
-  /* If no timeout is given, don't try to wait for the Bit change */
-  if (0 == ulTimeout)
-    return 0;
-
-  lStartTime = (int32_t)OS_GetMilliSecCounter();
-
-  do {
-    uint32_t ulCurrentTime;
-    uint32_t ulDiffTime;
-
-    /* Wait for DSR to signal Handshake bit change event */
-    (void)OS_WaitEvent(ptInst->tIoCtl.pvEvent, ulInternalTimeout);
-
-    ulCurrentTime = OS_GetMilliSecCounter();
-    ulDiffTime    = ulCurrentTime - lStartTime;
-
-    /* Adjust timeout for next run */
-    ulInternalTimeout = ulTimeout - ulDiffTime;
-
-    ulActualState = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus & ptInst->tBlock.ulBitmask);
-
-    /* The desired state is already there, so just return true */
-    if (ulActualState == ptInst->tBlock.ulBitmask && ptInst->tIoCtl.bIrqState)
-    {
-      iRet = 1;
-      break;
-    }
-
-    if (ulDiffTime >= ulTimeout)
-    {
-      /* Timeout expired */
-      break;
-    }
-
-  } while (iRet == 0);
+  /* convert hif irq register to event bit mask */
+  *pulBitState = ((ulNetxStatus & 0x00000F00) >> 8) |
+                 ((ulNetxStatus & 0x0000F000) >> 4) |
+                 ((ulNetxStatus & 0x00030000));
 
   return iRet;
 }
 
-/*****************************************************************************/
-/*! Waits for a given handshake bit state on the I/O area (irq mode)
-*   \param ptChannel    Channel instance to wait for
-*   \param ptInst       Block instance on which to wait for
-*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
-*   \return 0 on error/timeout, 1 on success                                 */
-/*****************************************************************************/
-static int DEV_WaitForIoBitState(PCHANNELINSTANCE ptChannel, NETX_IO_BLOCK_T* ptInst, uint32_t ulTimeout)
-{
-  if( ((PDEVICEINSTANCE)(ptChannel->pvDeviceInstance))->fIrqEnabled)
-    return DEV_WaitForIoBitState_Irq(ptChannel, ptInst, ulTimeout);
-  else
-    return DEV_WaitForIoBitState_Poll(ptChannel, ptInst, ulTimeout);
-}
+
 
 /*****************************************************************************/
 /*! Toggles the given I/O action bit
@@ -2416,8 +1854,8 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxHifDevFuns =
   DEV_ToggleBit,
   DEV_ToggleIoAction,
   DEV_WriteCell,
-  DEV_WaitForSyncState,
-  DEV_ToggleSyncBit,
+  NULL,
+  NULL,
   DEV_PutPacket,
   DEV_GetPacket,
   DEV_GetMBXState,
