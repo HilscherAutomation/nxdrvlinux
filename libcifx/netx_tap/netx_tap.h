@@ -38,6 +38,7 @@ typedef struct NETX_ETH_DEV_CFG_Ttag
 {
   char             cifx_name[16];
   char             eth_dev_name[IFNAMSIZ];
+  uint8_t          user_control;
 
 } NETX_ETH_DEV_CFG_T;
 

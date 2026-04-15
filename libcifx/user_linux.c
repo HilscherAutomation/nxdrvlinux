@@ -848,7 +848,7 @@ int USER_GetEthernet(PCIFX_DEVICE_INFORMATION ptDevInfo)
     {
       if(g_ulTraceLevel & TRACE_LEVEL_INFO)
       {
-        USER_Trace(ptDevInfo->ptDeviceInstance, 0, "Ethernet support enabled!");
+        USER_Trace(ptDevInfo->ptDeviceInstance, 0, "Ethernet support enabled (automated scan enabled)!");
       }
       ret = 1;
     }
@@ -857,7 +857,7 @@ int USER_GetEthernet(PCIFX_DEVICE_INFORMATION ptDevInfo)
   {
     if(g_ulTraceLevel & TRACE_LEVEL_INFO)
     {
-      USER_Trace(ptDevInfo->ptDeviceInstance, 0, "No ethernet support!");
+      USER_Trace(ptDevInfo->ptDeviceInstance, 0, "No ethernet support (automated scan disabled)!");
     }
   }
   return ret;

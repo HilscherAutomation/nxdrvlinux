@@ -161,6 +161,8 @@ int           cifx_uio_map_dpm(int uio_fd, int uio_num, void** dpmbase, unsigned
 int           cifx_ISA_map_dpm(int fd, void** dpmbase, int dpmaddr, int dpmlen);
 void          cifx_ISA_unmap_dpm(void* dpmbase, int dpmlen);
 
+int32_t       cifx_cifxeth_scan( char* szBoardName);
+
 #define CIFX_PLUGIN_GET_DEVICE_COUNT "cifx_device_count"
 typedef uint32_t(*PFN_CIFX_PLUGIN_GET_DEVICE_COUNT)(void);
 #define CIFX_PLUGIN_ALLOC_DEVICE "cifx_alloc_device"

@@ -1635,7 +1635,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
 
     if (0 != USER_GetEthernet( &tDevInfo))
     {
-      NETX_ETH_DEV_CFG_T config;
+      NETX_ETH_DEV_CFG_T config = {0};
 
       sprintf( config.cifx_name, "%s", ptDevInstance->szName);
       if (NULL != cifxeth_create_device( &config))
@@ -1929,7 +1929,6 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
        }
        /* Remove a device */
 #ifdef CIFXETHERNET
-       if (1 == dev_intern->eth_support)
        {
          NETX_ETH_DEV_CFG_T config;
 
@@ -1966,7 +1965,7 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 #ifdef CIFXETHERNET
            if (1 == dev_intern->eth_support)
            {
-             NETX_ETH_DEV_CFG_T config;
+             NETX_ETH_DEV_CFG_T config = {0};
 
              sprintf( config.cifx_name, "%s", ptDev->szName);
              cifxeth_create_device( &config);
@@ -2022,7 +2021,6 @@ void cifXDriverDeinit()
     PDEVICEINSTANCE         devinstance = g_pptDevices[0];
     PCIFX_DEVICE_INTERNAL_T dev_intern  = (PCIFX_DEVICE_INTERNAL_T)devinstance->pvOSDependent;
 #ifdef CIFXETHERNET
-    if (1 == dev_intern->eth_support)
     {
       NETX_ETH_DEV_CFG_T config;
 
@@ -2570,6 +2568,76 @@ void cifXDeleteDevice(struct CIFX_DEVICE_T* device)
     free(device);
   }
 }
+
+#ifdef CIFXETHERNET
+/*****************************************************************************/
+/*! Manually triggered scan for ethernet ('NDIS') channel.
+ *  Some stacks may require additional configuration and thereby a defered scan.
+ *  So it's left to the user when to trigger creation. The interface is cleaned up
+ *  by the driver in case of a device restart or reset and needs again a manual scan.
+ *   \param szBoardName to be scanned
+ *   \return CIFX_NO_ERROR in case channel is found and created              */
+/*****************************************************************************/
+int32_t cifx_cifxeth_scan( char* szBoardName) {
+   int32_t  lRet  = CIFX_INVALID_BOARD;
+   uint32_t ulIdx = 0;
+
+   OS_EnterLock(g_pvTkitLock);
+
+   /* Seach the device with the given name */
+   for (ulIdx = 0; ulIdx < g_ulDeviceCount; ulIdx++)
+   {
+     /* Compare the device name */
+     PDEVICEINSTANCE ptDev = g_pptDevices[ulIdx];
+
+     if( (OS_Strcmp( ptDev->szName,  szBoardName) == 0) ||
+         (OS_Strcmp( ptDev->szAlias, szBoardName) == 0) )
+     {
+       PCIFX_DEVICE_INTERNAL_T dev_intern = (PCIFX_DEVICE_INTERNAL_T)ptDev->pvOSDependent;
+
+       /* only execute if not under driver (automated) control */
+       if (0 == dev_intern->eth_support) {
+         NETX_ETH_DEV_CFG_T config;
+
+         if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+         {
+           USER_Trace( ptDev,
+                       TRACE_LEVEL_DEBUG,
+                       "Manual scan for cifX ethernet interface triggered on: %s",
+                       szBoardName);
+        }
+        /* make sure device is not re-created in case of system reset */
+        config.user_control = 1;
+        sprintf( config.cifx_name, "%s", ptDev->szName);
+
+        cifxeth_remove_device( NULL,&config);
+        if (cifxeth_create_device( &config) == NULL) {
+          if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          {
+            USER_Trace( ptDev,
+                        TRACE_LEVEL_ERROR,
+                        "No cifX ethernet interface found on: %s",
+                        szBoardName);
+          } else {
+            lRet = CIFX_NO_ERROR;
+          }
+        }
+      } else {
+        if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+        {
+          USER_Trace( ptDev,
+                      TRACE_LEVEL_DEBUG,
+                      "Ignoring cifX ethernet interface scan request, as '%s' is under driver (automated) control!",
+                      szBoardName);
+        }
+      }
+    }
+  }
+  OS_LeaveLock(g_pvTkitLock);
+  return lRet;
+
+}
+#endif
 
 #ifdef CIFX_DRV_HWIF
 /*****************************************************************************/

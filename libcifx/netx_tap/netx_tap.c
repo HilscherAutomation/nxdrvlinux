@@ -1309,7 +1309,10 @@ int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, ui
     {
       if (NULL != internal_dev)
       {
-        ethdevice = 1;
+        /* do not re-create if user controls it */
+        if (internal_dev->config.user_control == 0) {
+          ethdevice = 1;
+        }
         strcpy( config.cifx_name, internal_dev->config.cifx_name);
         cifxeth_delete_device( internal_dev);
       }
@@ -1381,7 +1384,10 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
     {
       if (NULL != internal_dev)
       {
-        ethdevice = 1;
+        /* do not re-create if user controls it */
+        if (internal_dev->config.user_control == 0) {
+          ethdevice = 1;
+        }
         strcpy( config.cifx_name, internal_dev->config.cifx_name);
         cifxeth_delete_device( internal_dev);
       }
