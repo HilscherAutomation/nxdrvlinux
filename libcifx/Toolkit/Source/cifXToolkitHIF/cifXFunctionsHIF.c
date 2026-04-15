@@ -736,7 +736,7 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
                 &ptIOArea->tBlock.pbBlockStart[ulOffset],
                 ulDataLen);
 
-    bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, ptIOArea->tIoCtl.pbStatus);
+    bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, *ptIOArea->tIoCtl.pbStatus);
     bStatus = (bStatus & NETX_IO_STATUS_BALANCECNT_MSK)>>1;
     ptIOArea->tStat.ulExchangeCnt++;
     /* Balance count 1 -> Buffer was exchanged once */
@@ -869,7 +869,7 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
       /* Write data done */
       DEV_ToggleIoAction(ptChannel, ptIOArea);
 
-      bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, ptIOArea->tIoCtl.pbStatus);
+      bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, *ptIOArea->tIoCtl.pbStatus);
       bStatus = (bStatus & NETX_IO_STATUS_BALANCECNT_MSK) >> 1;
       ptIOArea->tStat.ulExchangeCnt++;
       /* Balance count 0 -> previous buffer was consumed */
