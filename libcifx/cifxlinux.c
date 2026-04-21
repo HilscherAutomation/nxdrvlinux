@@ -415,8 +415,13 @@ static int cifx_open( char* path, int dev_type, int dev_num, int fCheckAccess, s
   if (dev_type == eCIFX_DEVICE_TYPE_VFIO) {
 #ifdef VFIO_CDEV
     /* in case a vfio device number provided it's the cdev interface */
-    if (dev_num >= 0)
-      return cifx_vfio_open_cdev( path, dev_num, fCheckAccess, device);
+    if (dev_num >= 0) {
+      int ret = cifx_vfio_open_cdev( path, dev_num, fCheckAccess, device);
+      if (ret != -ENOENT)
+        return ret;
+
+      DBG("Opening vfio cdev device %s failed - trying to handle it as vfio legacy...\n", path);
+    }
 #endif
     return cifx_vfio_open( path, dev_num, fCheckAccess, device);
   }
@@ -2217,10 +2222,15 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
 #ifdef VFIO_CDEV
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as vfio based (cdev)\n", pci_path);
-        *dev_type = eCIFX_DEVICE_TYPE_VFIO;
-        ret = 0;
-        return 0;
+        /* verify it's existence, if this fails assume kernel has cdev support disabled, try legacy */
+        snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/vfio%d/dev", pci_path, *dev_num);
+        if ( (ret = open( dev_type_path, O_RDONLY)) >= 0) {
+          close(ret);
+          DBG("Identified device '%s' as vfio based (cdev)\n", pci_path);
+          *dev_type = eCIFX_DEVICE_TYPE_VFIO;
+          ret = 0;
+          return 0;
+        }
       }
 #endif
       /* assume its a non-cdev interface */
