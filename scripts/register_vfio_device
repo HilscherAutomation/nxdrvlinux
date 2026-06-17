@@ -77,8 +77,9 @@ if [ "${deregister}" != "0" ]; then
     exit 0
 fi
 
+
 # check if uio_netx is compiled with PCI support
-if modinfo uio_netx | grep -q "ignore_pci_devices"; then
+if modinfo uio_netx 2>/dev/null 1>&2 && modinfo uio_netx | grep -q "ignore_pci_devices"; then
     if [ "${force_register}" == "0" ]; then
         echo -e "\nuio_netx kernel module compiled with PCI support! This may conflict with vfio-pci usage. Disable PCI support via 'DISABLE_PCI_SUPPORT' (recommended) or run with '-f'."
         exit 1
