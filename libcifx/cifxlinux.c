@@ -2626,10 +2626,10 @@ int32_t cifx_cifxeth_scan( char* szBoardName) {
        if (0 == dev_intern->eth_support) {
          NETX_ETH_DEV_CFG_T config;
 
-         if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+         if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
          {
            USER_Trace( ptDev,
-                       TRACE_LEVEL_DEBUG,
+                       CIFX_TRACE_LEVEL_DEBUG,
                        "Manual scan for cifX ethernet interface triggered on: %s",
                        szBoardName);
         }
@@ -2639,10 +2639,10 @@ int32_t cifx_cifxeth_scan( char* szBoardName) {
 
         cifxeth_remove_device( NULL,&config);
         if (cifxeth_create_device( &config) == NULL) {
-          if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace( ptDev,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "No cifX ethernet interface found on: %s",
                         szBoardName);
           } else {
@@ -2650,10 +2650,10 @@ int32_t cifx_cifxeth_scan( char* szBoardName) {
           }
         }
       } else {
-        if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
         {
           USER_Trace( ptDev,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Ignoring cifX ethernet interface scan request, as '%s' is under driver (automated) control!",
                       szBoardName);
         }
