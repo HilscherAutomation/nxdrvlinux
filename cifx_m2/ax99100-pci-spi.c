@@ -486,7 +486,9 @@ static irqreturn_t ax99100_pci_spi_isr(int irq, void *dev_id)
 	struct priv_data *pd = (struct priv_data *)SPI_FUNC( get_devdata, sm);
 	uint8_t status;
 
-	status = ioread8(&pd->reg.spi->mis);
+	if (0 == (status = ioread8(&pd->reg.spi->mis)))
+		return IRQ_NONE;
+
 	if (status & sMIS_STC(1)) {
 		if (pd->flags.use_dma)
 			ax99100_pci_spi_do_dma_transfer(sm);
