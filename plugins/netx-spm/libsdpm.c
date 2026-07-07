@@ -31,7 +31,7 @@
   #define SDPM_FUNC_TRACE(x) //no function trace
 #endif
 
-#include "cifxlinux_internal.h"
+#include "cifxlinux_dbg.h"
 
 #define CHECK_STATE /* enable error message in case of dpm status changes to != 0x11 (printed to stderr) */
 

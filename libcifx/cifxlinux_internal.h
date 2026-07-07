@@ -19,25 +19,11 @@
 #include "cifXToolkit.h"
 #include "NetX_RegDefs.h"
 #include "cifXEndianess.h"
+#include "cifXHWFunctionsWrapper.h"
+#include "cifxlinux_dbg.h"
 
 /* off set of global IRQ status/control in DPM */
 #define IRQ_CFG_REG_OFFSET 0xfff0
-
-#define FORMAT_STR(type,fmt) type "%s: " fmt
-#define ERR(fmt, ...)  do { \
-                         if (g_ulTraceLevel & TRACE_LEVEL_ERROR) { \
-                           fprintf( stderr, FORMAT_STR("ERR:",fmt), __func__, ##__VA_ARGS__); \
-                         } \
-                        } while (0)
-#if defined(VERBOSE) || defined(DEBUG)
-  #define DBG(fmt, ...)  do { \
-                           if (g_ulTraceLevel & TRACE_LEVEL_DEBUG) { \
-                             fprintf( stdout, FORMAT_STR("DBG:",fmt), __func__, ##__VA_ARGS__); \
-                           } \
-                         } while (0)
-#else
-  #define DBG(fmt, ...)
-#endif
 
 /* internal is pointer to CIFX_DEVICE_INTERNAL_T */
 #define IS_UIO_DEVICE(internal) (internal->device_type == eCIFX_DEVICE_TYPE_UIO ? 1 : 0)
