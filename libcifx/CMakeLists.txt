@@ -177,6 +177,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libcifx.cdx.json
     DEPENDS ${update_sbom}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libcifx.cdx.in
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Toolkit/LICENSE.md
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/sbom/
     COMMAND jq '.metadata.component.version = \"${DRV_VERSION}\" | .components[0].version = \"${TKIT_VERSION}\" | .components[0].licenses[0].license.text.content = \"${TKIT_LICENSE_TEXT_SAN}\"' ${CMAKE_CURRENT_SOURCE_DIR}/sbom/libcifx.cdx.in > ${CMAKE_CURRENT_BINARY_DIR}/sbom/libcifx.cdx.json
     COMMAND bash -c '${update_sbom} ${CMAKE_CURRENT_BINARY_DIR}/sbom/libcifx.cdx.json ${CMAKE_CURRENT_BINARY_DIR}/libcifx.cdx.json "${SBOM_OPTS}" '
 )
