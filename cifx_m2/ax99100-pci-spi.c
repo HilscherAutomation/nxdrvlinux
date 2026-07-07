@@ -625,7 +625,11 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	struct SPI_CONTROLLER_STRUCT *sm;
 	int err;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
+	sm = spi_alloc_host(dev, sizeof(*pd));
+#else
 	sm = spi_alloc_master(dev, sizeof(*pd));
+#endif
 	if (!sm)
 		return -ENOMEM;
 
