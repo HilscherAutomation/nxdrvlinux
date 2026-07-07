@@ -176,6 +176,8 @@ struct priv_data {
 		uint32_t use_opcf : 1; /* OP-Code field usage */
 		uint32_t use_dma : 1; /* DMA usage */
 	} flags;
+
+	int irq;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -626,6 +628,7 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	struct priv_data *pd;
 	struct SPI_CONTROLLER_STRUCT *sm;
 	int err;
+	int irq_flags = 0;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
 	sm = spi_alloc_host(dev, sizeof(*pd));
@@ -645,17 +648,17 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	err = pci_enable_device(pci);
 	if (err) {
 		dev_err(dev, "Enable PCI device failed!\n");
-		goto err0;
+		goto err_enable_pci;
 	}
 	err = pci_request_regions(pci, dev_name(dev));
 	if (err) {
 		dev_info(dev, "Request PCI regions failed!\n");
-		goto err1;
+		goto err_req_region;
 	}
 	err = dma_set_mask(&pci->dev, DMA_BIT_MASK(64));
 	if (err) {
 		dev_info(dev, "Set DMA mask failed!\n");
-		goto err2;
+		goto err_dma_mask;
 	}
 	pci_set_master(pci);
 
@@ -664,7 +667,7 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	if (!pd->reg.spi) {
 		dev_err(dev, "Map PCI IO bar0 failed (spi)!\n");
 		err = -ENODEV;
-		goto err5;
+		goto err_map_spi;
 	}
 
 	/* Map required memory regions */
@@ -672,26 +675,42 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	if (!pd->reg.txdma) {
 		dev_err(dev, "Map PCI memory bar1 failed (txdma)!\n");
 		err = -ENODEV;
-		goto err2;
+		goto err_map_txdma;
 	}
 	pd->reg.rxdma = pci_iomap_range(pci, 1, 0x100, sizeof(*pd->reg.rxdma));
 	if (!pd->reg.rxdma) {
 		dev_err(dev, "Map PCI memory bar1 failed (rxdma)!\n");
 		err = -ENODEV;
-		goto err3;
+		goto err_map_rxdma;
 	}
 	pd->reg.common = pci_iomap_range(pci, 1, 0x238, sizeof(*pd->reg.common));
 	if (!pd->reg.common) {
 		dev_err(dev, "Map PCI memory bar1 failed (common)!\n");
 		err = -ENODEV;
-		goto err4;
+		goto err_map_common;
 	}
 
 	/* Install IRQ handler */
-	err = devm_request_irq(dev, pci->irq, ax99100_pci_spi_isr, IRQF_SHARED, KBUILD_MODNAME, sm);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0))
+	#define PCI_IRQ_INTX PCI_IRQ_LEGACY
+#endif
+	err = pci_alloc_irq_vectors(pci, 1, 1, PCI_IRQ_MSI);
+	if (err != 1) {
+		dev_err(dev, "Failed allocating IRQ vector PCI_IRQ_MSI - trying legacy...\n");
+
+		irq_flags = IRQF_SHARED;
+		err = pci_alloc_irq_vectors(pci, 1, 1, PCI_IRQ_INTX);
+		if (err != 1) {
+			dev_err(dev, "Failed allocating IRQ vector PCI_IRQ_INTX!\n");
+			goto err_alloc_irq;
+		}
+	}
+
+	pd->irq = pci_irq_vector(pci, 0);
+	err = devm_request_irq(dev, pd->irq, ax99100_pci_spi_isr, irq_flags, KBUILD_MODNAME, sm);
 	if (err) {
 		dev_err(dev, "Register IRQ%d failed!\n", pci->irq);
-		goto err6;
+		goto err_request_irq;
 	}
 
 	/* Configure the SPI master structure */
@@ -713,7 +732,7 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 	err = devm_spi_register_controller(dev, sm);
 	if (err) {
 		dev_err(dev, "Register SPI master failed!\n");
-		goto err7;
+		goto err_chip_register;
 	}
 
 	dev_info(dev, "%s successfully initialized!\n", dev_name(&sm->dev));
@@ -723,22 +742,26 @@ static int ax99100_pci_spi_probe(struct pci_dev *pci, const struct pci_device_id
 
 	return 0;
 
-err7:
+err_chip_register:
 	ax99100_pci_spi_chip_deinit(sm);
-err6:
-	pci_iounmap(pci, pd->reg.spi);
-err5:
+	devm_free_irq( &pci->dev, pd->irq, sm);
+err_request_irq:
+	pci_free_irq_vectors(pci);
+err_alloc_irq:
 	pci_iounmap(pci, pd->reg.common);
-err4:
+err_map_common:
 	pci_iounmap(pci, pd->reg.rxdma);
-err3:
+err_map_rxdma:
 	pci_iounmap(pci, pd->reg.txdma);
-err2:
+err_map_txdma:
+	pci_iounmap(pci, pd->reg.spi);
+err_map_spi:
 	pci_clear_master(pci);
+err_dma_mask:
 	pci_release_regions(pci);
-err1:
+err_req_region:
 	pci_disable_device(pci);
-err0:
+err_enable_pci:
 	SPI_FUNC(put, sm);
 
 	return err;
@@ -757,7 +780,8 @@ static void ax99100_pci_spi_remove(struct pci_dev *pci)
 	ax99100_pci_spi_unregister_devices(sm);
 	ax99100_pci_spi_chip_deinit(sm);
 
-	devm_free_irq( &pci->dev, pci->irq, sm);
+	devm_free_irq( &pci->dev, pd->irq, sm);
+	pci_free_irq_vectors(pci);
 
 	pci_iounmap(pci, pd->reg.spi);
 	pci_iounmap(pci, pd->reg.common);
