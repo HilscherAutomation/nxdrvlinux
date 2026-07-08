@@ -307,7 +307,12 @@ static int ax99100_pci_gpio_get(struct gpio_chip *gc, uint32_t offset)
  * @offset:
  * @value:
  */
-static void ax99100_pci_gpio_set(struct gpio_chip *gc, uint32_t offset, int value)
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
+static int ax99100_pci_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+#else
+static void ax99100_pci_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+#endif
 {
 	struct priv_data *pd = gpiochip_get_data(gc);
 	unsigned long flags;
@@ -320,6 +325,10 @@ static void ax99100_pci_gpio_set(struct gpio_chip *gc, uint32_t offset, int valu
 		iomod32(BIT(offset), 0, &pd->reg.gpio->pin);
 
 	spin_unlock_irqrestore(&pd->lock, flags);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
+	return 0;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
