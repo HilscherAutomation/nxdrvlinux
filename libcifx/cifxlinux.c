@@ -2375,7 +2375,8 @@ static int check_if_compatible_pci_card( char* pci_path) {
          if ( (id == NETX_CHIP_PCI_DEVICE_ID) ||
               (id == NETPLC100C_PCI_DEVICE_ID) ||
               (id == NETJACK100_PCI_DEVICE_ID) ||
-              (id == CIFX4000_PCI_DEVICE_ID) ) {
+              (id == CIFX4000_PCI_DEVICE_ID)   ||
+              (id == CIFX900_PCI_DEVICE_ID) ) {
           return 0;
         } else {
           DBG( "Skip Hilscher device '%s' as it is not listed as a compatible device (sub device id=0x%X)\n", pci_path, id);
