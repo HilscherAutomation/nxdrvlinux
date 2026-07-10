@@ -234,11 +234,21 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
     void *pci_buf = malloc(PCI_CONFIG_BUF_SIZE);
 
     if(!pci_buf) {
-      ERR( "Error allocating memory!\n");
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "Error allocating memory!\n");
+      }
       return NULL;
     }
     if (pread( GET_VFIO_PARAM(info)->vfio_fd, pci_buf, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) < 0) {
-      ERR( "Error reading PCI configuration space (ret=%d)!\n", errno);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "Error reading PCI configuration space (ret=%d)!\n", errno);
+      }
     } else {
       return  pci_buf;
     }
@@ -257,7 +267,12 @@ void* OS_ReadPCIConfig(void* pvOSDependent) {
     }
     if ((pci_ret = pci_device_cfg_read(&info->pci, pci_buf, 0, PCI_CONFIG_BUF_SIZE, NULL)) )
     {
-      DBG("pci_device_cfg_read() returns %d\n", pci_ret);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_DEBUG,
+                   "pci_device_cfg_read() returns %d\n", pci_ret);
+      }
       free( pci_buf);
       pci_buf = NULL;
     }
@@ -291,7 +306,12 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
 
   if (IS_VFIO_DEVICE(info)) {
     if (pwrite( GET_VFIO_PARAM(info)->vfio_fd, pvPCIConfig, PCI_CONFIG_BUF_SIZE, VFIO_PCI_CONFIG_OFF) != PCI_CONFIG_BUF_SIZE) {
-      ERR( "Error writing PCI configuration space (ret=%d)!\n", errno);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "Error writing PCI configuration space (ret=%d)!\n", errno);
+      }
     }
     free(pvPCIConfig);
     return;
@@ -303,7 +323,12 @@ void OS_WritePCIConfig(void* pvOSDependent, void* pvPCIConfig) {
 
     if ((pci_ret = pci_device_cfg_write(&info->pci, pvPCIConfig, 0, PCI_CONFIG_BUF_SIZE, NULL)) )
     {
-      DBG( "pci_device_cfg_write() returns %d\n", pci_ret);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "pci_device_cfg_write() returns %d\n", pci_ret);
+      }
     }
     free(pvPCIConfig);
   }
@@ -384,10 +409,20 @@ void unmask_vfio_irq(PCIFX_DEVICE_INTERNAL_T info) {
     /* INTX_IRQ irq is automatically masked - so we need to unmask after processing */
     pfd->irq.vfio_irq_ctrl->flags = (VFIO_IRQ_SET_DATA_NONE | VFIO_IRQ_SET_ACTION_UNMASK);
     if (ioctl( pfd->vfio_fd, VFIO_DEVICE_SET_IRQS, pfd->irq.vfio_irq_ctrl) < 0) {
-      ERR( "Error - VFIO_DEVICE_SET_IRQS (ret=%d)\n", errno);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "Error - VFIO_DEVICE_SET_IRQS (ret=%d)\n", errno);
+      }
     }
   } else {
-    ERR( "Error - Invalid vfio control information!\n");
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+    {
+      USER_Trace(info->devinstance,
+                 CIFX_TRACE_LEVEL_ERROR,
+                 "Error - Invalid vfio control information!\n");
+    }
   }
 }
 
@@ -433,9 +468,19 @@ int enable_vfio_irq( PCIFX_DEVICE_INTERNAL_T info) {
                   return 0;
                 }
             }
-            ERR( "Error creating/registering VFIO irq resources (ret=%d)\n", errno);
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+            {
+              USER_Trace(info->devinstance,
+                         CIFX_TRACE_LEVEL_ERROR,
+                         "Error creating/registering VFIO irq resources (ret=%d)\n", errno);
+            }
         } else {
-            ERR( "Error retrieving VFIO IRQ info via VFIO_DEVICE_GET_IRQ_INFO (ret=%d)\n", errno);
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+            {
+              USER_Trace(info->devinstance,
+                         CIFX_TRACE_LEVEL_ERROR,
+                         "Error retrieving VFIO IRQ info via VFIO_DEVICE_GET_IRQ_INFO (ret=%d)\n", errno);
+            }
         }
         ret = -errno;
     }
@@ -536,7 +581,12 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedpolicy(&info->irq_thread_attr, info->irq_scheduler_algo)) != 0)
     {
-      ERR( "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_WARNING,
+                   "Error setting custom thread scheduling algorithm for IRQ thread (pthread_attr_setschedpolicy=%d)", ret);
+      }
     }
   }
 
@@ -548,7 +598,12 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     pthread_attr_setinheritsched( &info->irq_thread_attr, PTHREAD_EXPLICIT_SCHED);
     if( (ret = pthread_attr_setschedparam(&info->irq_thread_attr, &sched_param)) != 0)
     {
-      ERR( "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_WARNING,
+                   "Error setting custom thread priority in IRQ thread (pthread_attr_setschedparam=%d)", ret);
+      }
     }
   }
 
@@ -556,7 +611,12 @@ void OS_EnableInterrupts(void* pvOSDependent) {
   if (IS_VFIO_DEVICE(info) != 0) {
     /* it's a vfio device, we need to enable irq handling */
     if ((ret = enable_vfio_irq( info)) != 0) {
-      ERR( "Error enabling vfio interrupt (ret=%d)", ret);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+      {
+        USER_Trace(info->devinstance,
+                   CIFX_TRACE_LEVEL_ERROR,
+                   "Error enabling vfio interrupt (ret=%d)", ret);
+      }
       /* skip thread creation in case of an error */
       goto err;
     }
@@ -567,7 +627,12 @@ void OS_EnableInterrupts(void* pvOSDependent) {
   if( (ret = pthread_create( &info->irq_thread, &info->irq_thread_attr, netx_irq_thread,
                       (void*)info )) != 0 )
   {
-    ERR( "Enabling Interrupts (pthread_create=%d)", ret);
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+    {
+      USER_Trace(info->devinstance,
+                 CIFX_TRACE_LEVEL_ERROR,
+                 "Error creating IRQ thread (pthread_create=%d)", ret);
+    }
     goto err;
   } else
   {
@@ -580,7 +645,12 @@ void OS_EnableInterrupts(void* pvOSDependent) {
   return;
 
 err:
-  ERR( "Error enabling IRQ! Please fix error and/or restart with polling mode. Driver won't recover from this state!");
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+  {
+    USER_Trace(info->devinstance,
+               CIFX_TRACE_LEVEL_ERROR,
+               "Error enabling IRQ! Please fix error and/or restart in polling mode. Driver won't recover from this state!");
+  }
 #ifdef VFIO_SUPPORT
   /* we can savely call disable even when it was not enabled before */
   if (IS_VFIO_DEVICE(info) != 0) {
