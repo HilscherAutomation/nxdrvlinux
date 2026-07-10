@@ -558,7 +558,7 @@ void OS_EnableInterrupts(void* pvOSDependent) {
     if ((ret = enable_vfio_irq( info)) != 0) {
       ERR( "Error enabling vfio interrupt (ret=%d)", ret);
       /* skip thread creation in case of an error */
-      return;
+      goto err;
     }
   }
 #endif
@@ -568,6 +568,7 @@ void OS_EnableInterrupts(void* pvOSDependent) {
                       (void*)info )) != 0 )
   {
     ERR( "Enabling Interrupts (pthread_create=%d)", ret);
+    goto err;
   } else
   {
     if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
@@ -576,6 +577,19 @@ void OS_EnableInterrupts(void* pvOSDependent) {
       HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
     }
   }
+  return;
+
+err:
+  ERR( "Error enabling IRQ! Please fix error and/or restart with polling mode. Driver won't recover from this state!");
+#ifdef VFIO_SUPPORT
+  /* we can savely call disable even when it was not enabled before */
+  if (IS_VFIO_DEVICE(info) != 0) {
+    disable_vfio_irq( info);
+  }
+#endif
+  /* mark irq as not started/initialized */
+  info->irq_stop = 1;
+  pthread_attr_destroy(&info->irq_thread_attr);
 }
 
 /*****************************************************************************/
@@ -588,22 +602,24 @@ void OS_DisableInterrupts(void* pvOSDependent) {
 
   FUNC_TRACE("entry");
 
-  info->irq_stop = 1;
-  pthread_join(info->irq_thread, NULL);
+  /* make sure IRQ is correctly initialized */
+  if (info->irq_stop == 0) {
+    info->irq_stop = 1;
+    pthread_join(info->irq_thread, NULL);
 
-  if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
-    HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
-    ulVal &= HOST_TO_LE32(~MSK_IRQ_EN0_INT_REQ);
-    HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
-  }
-
-  pthread_attr_destroy(&info->irq_thread_attr);
+    if(info->devinstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) {
+      HWIF_READN(info->devinstance, &ulVal, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, sizeof(ulVal));
+      ulVal &= HOST_TO_LE32(~MSK_IRQ_EN0_INT_REQ);
+      HWIF_WRITEN(info->devinstance, info->devinstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
+    }
+    pthread_attr_destroy(&info->irq_thread_attr);
 
 #ifdef VFIO_SUPPORT
-  if (IS_VFIO_DEVICE(info) != 0) {
-    disable_vfio_irq( info);
-  }
+    if (IS_VFIO_DEVICE(info) != 0) {
+      disable_vfio_irq( info);
+    }
 #endif
+  }
 }
 
 /*****************************************************************************/
