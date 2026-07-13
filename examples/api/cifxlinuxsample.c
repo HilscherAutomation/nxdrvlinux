@@ -987,6 +987,11 @@ int main(int argc, char* argv[])
   }
 
   if (card_no >= 0) {
+    /* Set trace level variable directly to be able to see debug messages */
+    /* of cifXFindDevice(). cifXDriverInit() will set it to late.         */
+    extern uint32_t g_ulTraceLevel;
+
+    g_ulTraceLevel = init.trace_level;
     if ((device = cifXFindDevice( card_no, 0)) != NULL) {
       init.init_options = CIFX_DRIVER_INIT_NOSCAN;
       init.user_cards = device;
