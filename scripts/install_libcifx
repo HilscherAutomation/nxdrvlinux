@@ -49,7 +49,6 @@ fi
   else
     options="$options -DSPM_PLUGIN=OFF"
   fi
-  tmp_dir=$pwd
   cd "${buildfolder}"
   if ! cmake "${drv_dir}" ${options}; then
     echo "Error preparing environment!"
@@ -64,4 +63,3 @@ fi
       echo "cifX driver successfully installed!"
     fi
   fi
-  cd "${tmp_dir}"
