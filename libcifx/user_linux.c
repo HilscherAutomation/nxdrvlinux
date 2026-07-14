@@ -273,6 +273,28 @@ exit:
 }
 
 /*****************************************************************************/
+/*! Internal helper function checking file name complies 8.3 format
+*     \param ptDevInfo      Device information
+*     \param filename       pointer to file name
+*     \param ext            pointer to extension
+*     \return = 0 on success                                                 */
+/*****************************************************************************/
+static int check_file_name_format( PCIFX_DEVICE_INFORMATION ptDevInfo, char* filename, char* ext) {
+  /* only allow 8.3 file name format */
+  if ( (strlen(filename)>12) || (ext-filename>8) ) {
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
+    {
+      USER_Trace(ptDevInfo->ptDeviceInstance,
+                 CIFX_TRACE_LEVEL_INFO,
+                 "Ignoring file with wrong file name format '%s' as it's != 8.3!",
+                 filename);
+    }
+    return 1;
+  }
+  return 0;
+}
+
+/*****************************************************************************/
 /*! Returns the number of firmware files to be downloaded on the given
 *   device/channel
 *     \param ptDevInfo      Device information (DeviceNr, SerialNr, ChannelNr)
@@ -298,6 +320,10 @@ uint32_t USER_GetFirmwareFileCount(PCIFX_DEVICE_INFORMATION ptDevInfo)
         if( (0 == strncasecmp(szExt, HIL_FILE_EXTENSION_FIRMWARE, 4)) ||
             (0 == strncasecmp(szExt, HIL_FILE_EXTENSION_OPTION, 4)) )
         {
+          /* check if 8.3 format */
+          if (check_file_name_format( ptDevInfo, dirent->d_name, szExt))
+            continue;
+
           ++ulRet;
         }
       }
@@ -381,6 +407,10 @@ uint32_t USER_GetConfigurationFileCount(PCIFX_DEVICE_INFORMATION ptDevInfo)
       {
         if(0 == strncasecmp(szExt, HIL_FILE_EXTENSION_DATABASE, 4))
         {
+          /* check if 8.3 format */
+          if (check_file_name_format( ptDevInfo, dirent->d_name, szExt))
+            continue;
+
           ++ulRet;
         }
       }
@@ -648,6 +678,10 @@ int USER_GetOSFile(PCIFX_DEVICE_INFORMATION ptDevInfo, PCIFX_FILE_INFORMATION pt
       {
         if(0 == strncasecmp(szExt, HIL_FILE_EXTENSION_FIRMWARE, 4))
         {
+          /* check if 8.3 format */
+          if (check_file_name_format( ptDevInfo, dirent->d_name, szExt))
+            continue;
+
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
           snprintf(ptFileInfo->szFullFileName, sizeof(ptFileInfo->szFullFileName),
                   "%s/%s", szPath, dirent->d_name);
