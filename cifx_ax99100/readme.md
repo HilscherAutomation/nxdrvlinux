@@ -1,8 +1,14 @@
 # Overview
 
-The [cifX/M.2](https://www.hilscher.com/products/pc-cards-for-industrial-ethernet-fieldbus/m2) card is a netX90 based multi function PCIe device. It provides a SPI interface for accessing the netX90 as well as multiple GPIOs. GPIO at offset 7 can optionally be used as an interrrupt source (DIRQ) for the cifX driver.
+The cifx_ax99100 driver provides access to all netX90 based cards with PCIe host interface. The driver consists of the kernel modules ax99100-pci-spi and the optional ax99100-pci-gpio.
 
-The driver consists of the kernel modules ax99100-pci-spi and the optional ax99100-pci-gpio.
+Currently suppported products:<br>
+ - M.2 ('CIFX M224290-x', 'CIFX M223090-x')<br>
+ - PCIe ('CIFX PCIE90-x')<br>
+ - low profile PCIe ('CIFX LPCIE90-x')<br>
+ - miniPCIe ('CIFX HPCIE90-x')<br>
+
+For a details refer to the [PC card product portfolio](https://www.hilscher.com/products/pc-cards-for-industrial-ethernet-fieldbus).
 
 ### ax99100-pci-spi.ko:
 The module abstracts the PCIe to SPI transfers via the Linux spidev interface.
