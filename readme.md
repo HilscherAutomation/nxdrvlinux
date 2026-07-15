@@ -22,7 +22,7 @@ The driver consists of a user space and a kernel space component. The follwing t
 | hardware                           | kernel driver                          | user space driver (compile option (1)) |
 | ---------------------------------- |:--------------------------------------:|:--------------------------------------:|
 | PCI based host interface           | uio_netx or vfio-pci (2)               | libcifx (VFIO if vfio-pci)             |
-| PCI based host interface netx912   | vfio-pci                               | libcifx (VFIO)                         |
+| PCI based host interface netx900   | vfio-pci                               | libcifx (VFIO)                         |
 | SPI based host interface           | spidev                                 | libcifx (SPM_PLUGIN)                   |
 | ISA or other memory mapped         | optional: uio_netx                     | libcifx                                |
 | cifX M.2 device                    | ax99100                                | libcifx (SPM_PLUGIN)                   |
@@ -39,7 +39,7 @@ For SPI support use the driver's SPM plugin. It provides an easy integration for
 
 # Requirements
 
- - CMake (min 2.8.12)
+ - CMake (min 3.13)
  - libpthread, librt
  - optional: Linux kernel header (only required when building the kernel module uio_netx)
  - optional: libpciaccess-dev (only required when uio based PCI devices are accessed, more info [PCI host interface](#PCI-host-interface))
@@ -58,9 +58,9 @@ sudo apt-get install libpciaccess-dev
 sudo apt-get install libnl-3-dev libnl-cli-3-dev
 ```
 
-# Limitations
+<!--- # Limitations -->
+<!--- currently no known limitations -->
 
- - libcifx VIRTETH is not supported for netX912 devices yet
 
 <br>
 
@@ -77,7 +77,7 @@ In case a more advanced setup (e.g. SPI support) is required or any installation
 ```
 
 At this point you should be ready to access PCI devices with an application noted [down below](#Build-of-the-provided-example-applications) at least until you next reboot.
-In contrast to 'uio' based PCI devices 'vfio-pci' devices (netX912 devices) may require additional configuration and for sure to persist accross a reboot (see [PCI host interface](#PCI-host-interface)).
+In contrast to 'uio' based PCI devices 'vfio-pci' devices (netX900 devices) may require additional configuration and for sure to persist accross a reboot (see [PCI host interface](#PCI-host-interface)).
 
 <br>
 
@@ -99,7 +99,7 @@ In contrast to 'uio' based PCI devices 'vfio-pci' devices (netX912 devices) may 
 | TIME                           | Enables toolkit function, setting the device time during device start-up.
 | VIRTETH                        | Enables support for the netX based virtual Ethernet interface. Note: This feature requires dedicated hardware and firmware.
 | SHARED                         | Switch between shared and static library.
-| VFIO                           | Enable support for VFIO devices (DMA support if IOMMU is enabled with translation).<br><br>NOTE: netx912 devices demands on it.
+| VFIO                           | Enable support for VFIO devices (DMA support if IOMMU is enabled with translation).<br><br>NOTE: netx900 devices demands on it.
 | VFIO_FORCE_LEGACY              | Enable in case iommufd (cdev interface) is not supported by the target kernel (<6.2.).
 
 ### Build and install the library
@@ -152,7 +152,7 @@ For kernel version <6.2. iommufd (cdev interface) is not supported. In this case
 
 The following sections show how to assign the uio or vfio driver to a device during runtime. For persistant setup (after reboot) please chose an adequate or a combination of the common methods (udev rule, '/etc/modules/', '/etc/blacklist'...).
 
-As the netX912 runs only with the vfio-pci driver an example [udev rule](templates/udev/80-udev-netx900-vfio.rules) for a persistant assignment is provided.
+As the netX900 runs only with the vfio-pci driver an example [udev rule](templates/udev/80-udev-netx900-vfio.rules) for a persistant assignment is provided.
 
 #### <a id="VFIO-Driver"></a>2.1.1.1 VFIO Driver
 The vfio-pci driver is a generic driver for PCI devices. To motivate the driver to take control over a specific PCI device, the device need to be bind to the driver.
@@ -242,11 +242,10 @@ sudo modprobe -r uio_netx
 <br>
 
 #### <a id="Running-uio_netx-and-vfio-pci-in-parallel"></a>2.1.1.3 Running uio_netx and vfio-pci in parallel
-<b>NOTE:</b> _In generell it is not recommended to run both in parallel. Except the uio_netx need to be active to provide access to other devices, like ISA or other memory mapped devices. In this case the uio_netx and vfio-pci need to be used in parallel._
+The PCI device assignment noted under [VFIO Driver](#VFIO-Driver) will only work if the device is not already under uio_netx control. The same applies to the uio_netx module. The device access will only work if not already under vfio-pci control.
+netX900 devices do not underly this access conflicts as only the vfio-pci driver controls it. To avoid these assignment difficulties for other devices it is recommended to assign all PCI devices to only one driver. In case vfio-pci driver is required for devices other netX900 it is recommend to disable PCI support ('DISABLE_PCI_SUPPORT') of the uio_netx driver.
 
-The device assignment noted under [VFIO Driver](#VFIO-Driver) will only work if the device is not already under uio_netx control. The same applies to the uio_netx module. The device access will only work if not already under vfio-pci control.
-
-To avoid these device access conflicts between the drivers it is recommended to disable PCI support ('DISABLE_PCI_SUPPORT') of the uio_netx driver.
+<b>NOTE:</b> _If the driver is compiled with the correct options it will not care about the setup and will be able to handle any assignement combination. But for transparency it is not recommended to run both modules in parallel._
 
 <br>
 

@@ -34,7 +34,7 @@ option(HWIF                   "Enables the toolkit's Hardware Function Interface
 option(PLUGIN                 "Enables support of device plugins and enables hardware function interface (sets HWIF)" OFF)
 option(SPM_PLUGIN             "Build spm-plugin and enables support of device plugins (sets as well HWIF and PLUGIN)" OFF)
 # vfio
-option(VFIO                   "Build libary supporting VFIO interface (default: OFF)" OFF)
+option(VFIO                   "Build libary supporting VFIO interface. Required to access netX900 devices (default: ON)" ON)
 option(VFIO_FORCE_LEGACY      "Force library supporting only the legacy vfio interface and not cdev interface (CONFIG_VFIO_DEVICE_CDEV) (sets VFIO)" OFF)
 # sbom
 option(SBOM                   "Generate SBOM" OFF)
