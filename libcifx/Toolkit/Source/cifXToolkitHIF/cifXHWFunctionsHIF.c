@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctionsHIF.c 15566 2026-06-18 06:56:55Z RHornung $:
+  $Id: cifXHWFunctionsHIF.c 15575 2026-06-19 08:31:48Z MNoll $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -1773,8 +1773,12 @@ static int DEV_WaitForIoBitState(PCHANNELINSTANCE ptChannel, uint32_t ulEvents, 
 
   ulNetxStatus = (ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus);
 
-  /* no requested event is active, we need to poll for till event occurs */
-  if (0 == (ulNetxStatus & ulBitMask))
+  /* The desired state is already there, so just return true */
+  if (ulNetxStatus & ulBitMask)
+  {
+    iRet = 1;
+  }
+  else  /* no requested event is active, we need to poll for till event occurs */
   {
     /* If no timeout is given, don't try to wait for the event */
     if (0 == ulTimeout)

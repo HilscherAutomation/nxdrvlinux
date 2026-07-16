@@ -1,6 +1,11 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.7.0
+-----------------
+  - Fixed HIFxChannelIOWaitEvent misses/ignores already pending events
+  - Fixed invalid access to IO action status in HWIF_READ8 macro
+
   V2.8.6.0
 -----------------
   - Separated function xSysdeviceExtendedMemory for DPM and HIF and return CIFX_FUNCTION_NOT_AVAILABLE for HIF

@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionsHIF.c 15566 2026-06-18 06:56:55Z RHornung $:
+  $Id: cifXFunctionsHIF.c 15589 2026-07-13 09:56:02Z AMinor $:
 
   Description:
     cifX API function implementation
