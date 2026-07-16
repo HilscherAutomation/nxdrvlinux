@@ -19,7 +19,7 @@ else(LIBRARY_HEADER OR LIBRARY_INC_LIB)
     pkg_check_modules(LIBRARY_REQ REQUIRED cifx)
 endif(LIBRARY_HEADER OR LIBRARY_INC_LIB)
 
-include_directories(${LIBRARY_REQ_INCLUDE_DIRS} ${src_dir}/Marshaller/cifXAPI/ /usr/local/include/cifx/)
+include_directories(${LIBRARY_REQ_INCLUDE_DIRS} ${src_dir}/Marshaller/cifXAPI/)
 
 add_executable(cifx_tcpserver
     ${src_dir}/tcp_connector.c
