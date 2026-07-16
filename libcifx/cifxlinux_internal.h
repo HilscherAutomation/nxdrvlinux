@@ -19,7 +19,6 @@
 #include "cifXToolkit.h"
 #include "NetX_RegDefs.h"
 #include "cifXEndianess.h"
-#include "cifXHWFunctionsWrapper.h"
 #include "cifxlinux_dbg.h"
 
 /* off set of global IRQ status/control in DPM */

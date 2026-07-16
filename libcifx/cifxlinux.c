@@ -200,7 +200,7 @@ static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAcces
     goto alloc_err;
   }
 
-  strncpy( pfd->device_path, device_path, strlen(device_path));
+  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
 
   pfd->vfio_num = vfio_num;
   snprintf( dev_name, CIFX_MAX_FILE_NAME_LENGTH, "/dev/vfio/devices/vfio%d", pfd->vfio_num);
@@ -270,7 +270,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
   pfd->group = -1;
   pfd->vfio_fd = -1;
 
-  strncpy( pfd->device_path, device_path, strlen(device_path));
+  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
   snprintf( group_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/iommu_group", pfd->device_path);
   if ((ret = get_link_base_name( group_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &group)) != 0)
     goto open_err;
@@ -2370,7 +2370,7 @@ static int check_if_compatible_pci_card( char* pci_path) {
 /*****************************************************************************/
 static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess) {
   struct dirent**       namelist;
-  int                   custom_uios;
+  int                   custom_uios = 0;
   int                   num_uios = 0;
   int                   founddevice = 0;
   struct CIFX_DEVICE_T* device = NULL;

@@ -545,8 +545,10 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
     memset(&ifr, 0, sizeof(ifr));
     ifr.ifr_flags = (IFF_TAP | IFF_NO_PI);
 
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
     if(prefix)
       strncpy( ifr.ifr_name, prefix, IFNAMSIZ);
+#pragma GCC diagnostic push
 
     if( (err = ioctl(ret, TUNSETIFF, (void *) &ifr)) < 0 )
     {
