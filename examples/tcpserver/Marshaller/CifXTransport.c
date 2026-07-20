@@ -7,9 +7,9 @@
    Filename:
     $Workfile: CifXTransport.c $
    Last Modification:
-    $Author: AMinor $
+    $Author: MNoll $
     $Modtime: $
-    $Revision: 13819 $
+    $Revision: 15360 $
 
    Targets:
      Win32/ANSI   : yes
@@ -209,7 +209,7 @@ uint32_t cifXTransportInit(void* pvMarshaller, void* pvConfig)
                 }
 
                 /* Memory available, continue with internal device setup */
-                OS_Memset(ptDevice->ptChannels, 0, sizeof(*ptDevice->ptChannels) * ptDevice->ulChannelCount);
+                OS_Memset(ptDevice->ptChannels, 0, (uint32_t)(sizeof(*ptDevice->ptChannels) * ptDevice->ulChannelCount));
 
                 ptDevice->ulBoard = ulBoard;
                 ptDevice->fValid  = 1;
@@ -1048,7 +1048,7 @@ static int32_t HandleSysdeviceCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* 
 
         CIFX_DIRECTORYENTRY tDirEntry = {0};
 
-        *((uint32_t*)&tDirEntry.hList) = ptFindReq->tData.hList;
+        tDirEntry.hList = (void*)(uintptr_t)ptFindReq->tData.hList;
         tDirEntry.bFiletype  = ptFindReq->tData.bFiletype;
         tDirEntry.ulFilesize = ptFindReq->tData.ulFilesize;
         OS_Memcpy(tDirEntry.szFilename, ptFindReq->tData.szFilename, sizeof(ptFindReq->tData.szFilename));
@@ -1065,7 +1065,7 @@ static int32_t HandleSysdeviceCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* 
         {
           PSYSDEV_FIND_FIRSTFILE_CNF_T ptFindCnf = (PSYSDEV_FIND_FIRSTFILE_CNF_T)(ptMarshallerHeader);
 
-          ptFindCnf->tData.hList      = *((uint32_t*)&tDirEntry.hList);
+          ptFindCnf->tData.hList      = (uint32_t)(uintptr_t)tDirEntry.hList;
           ptFindCnf->tData.bFiletype  = tDirEntry.bFiletype;
           ptFindCnf->tData.ulFilesize = tDirEntry.ulFilesize;
           OS_Memcpy(ptFindCnf->tData.szFilename, tDirEntry.szFilename, sizeof(ptFindCnf->tData.szFilename));
@@ -1092,7 +1092,7 @@ static int32_t HandleSysdeviceCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* 
 
         CIFX_DIRECTORYENTRY tDirEntry = {0};
 
-        *((uint32_t*)&tDirEntry.hList) = ptFindReq->tData.hList;
+        tDirEntry.hList = (void*)(uintptr_t)ptFindReq->tData.hList;
         tDirEntry.bFiletype  = ptFindReq->tData.bFiletype;
         tDirEntry.ulFilesize = ptFindReq->tData.ulFilesize;
         OS_Memcpy(tDirEntry.szFilename, ptFindReq->tData.szFilename, sizeof(ptFindReq->tData.szFilename));
@@ -1109,7 +1109,7 @@ static int32_t HandleSysdeviceCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* 
         {
           PSYSDEV_FIND_NEXTFILE_CNF_T ptFindCnf = (PSYSDEV_FIND_NEXTFILE_CNF_T)(ptMarshallerHeader);
 
-          ptFindCnf->tData.hList      = *((uint32_t*)&tDirEntry.hList);
+          ptFindCnf->tData.hList      = (uint32_t)(uintptr_t)tDirEntry.hList;
           ptFindCnf->tData.bFiletype  = tDirEntry.bFiletype;
           ptFindCnf->tData.ulFilesize = tDirEntry.ulFilesize;
           OS_Memcpy(ptFindCnf->tData.szFilename, tDirEntry.szFilename, sizeof(ptFindCnf->tData.szFilename));
@@ -1721,7 +1721,7 @@ static int32_t HandleChannelCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pv
 
         CIFX_DIRECTORYENTRY tDirEntry = {0};
 
-        *((uint32_t*)&tDirEntry.hList) = ptFindReq->tData.hList;
+        tDirEntry.hList = (void*)(uintptr_t)ptFindReq->tData.hList;
         tDirEntry.bFiletype  = ptFindReq->tData.bFiletype;
         tDirEntry.ulFilesize = ptFindReq->tData.ulFilesize;
         OS_Memcpy(tDirEntry.szFilename, ptFindReq->tData.szFilename, sizeof(ptFindReq->tData.szFilename));
@@ -1737,7 +1737,7 @@ static int32_t HandleChannelCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pv
         {
           PCHANNEL_FIND_FIRSTFILE_CNF_T ptFindCnf = (PCHANNEL_FIND_FIRSTFILE_CNF_T)(ptMarshallerHeader);
 
-          ptFindCnf->tData.hList      = *((uint32_t*)&tDirEntry.hList);
+          ptFindCnf->tData.hList      = (uint32_t)(uintptr_t)tDirEntry.hList;
           ptFindCnf->tData.bFiletype  = tDirEntry.bFiletype;
           ptFindCnf->tData.ulFilesize = tDirEntry.ulFilesize;
           OS_Memcpy(ptFindCnf->tData.szFilename, tDirEntry.szFilename, sizeof(ptFindCnf->tData.szFilename));
@@ -1764,7 +1764,7 @@ static int32_t HandleChannelCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pv
 
         CIFX_DIRECTORYENTRY tDirEntry = {0};
 
-        *((uint32_t*)&tDirEntry.hList) = ptFindReq->tData.hList;
+        tDirEntry.hList = (void*)(uintptr_t)ptFindReq->tData.hList;
         tDirEntry.bFiletype  = ptFindReq->tData.bFiletype;
         tDirEntry.ulFilesize = ptFindReq->tData.ulFilesize;
         OS_Memcpy(tDirEntry.szFilename, ptFindReq->tData.szFilename, sizeof(ptFindReq->tData.szFilename));
@@ -1780,7 +1780,7 @@ static int32_t HandleChannelCommand (HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pv
         {
           PCHANNEL_FIND_NEXTFILE_CNF_T ptFindCnf = (PCHANNEL_FIND_NEXTFILE_CNF_T)(ptMarshallerHeader);
 
-          ptFindCnf->tData.hList = *((uint32_t*)&tDirEntry.hList);
+          ptFindCnf->tData.hList = (uint32_t)(uintptr_t)tDirEntry.hList;
           ptFindCnf->tData.bFiletype  = tDirEntry.bFiletype;
           ptFindCnf->tData.ulFilesize = tDirEntry.ulFilesize;
           OS_Memcpy(ptFindCnf->tData.szFilename, tDirEntry.szFilename, sizeof(ptFindCnf->tData.szFilename));

@@ -8,7 +8,7 @@
     $Id: MarshallerInternal.h 13309 2019-11-05 12:03:27Z AlexanderMinor $
    Last Modification:
     $Author: AlexanderMinor $
-    $Date: 2019-11-05 13:03:27 +0100 (Di, 05 Nov 2019) $
+    $Date: 2019-11-05 13:03:27 +0100 (Tue, 05 Nov 2019) $
     $Revision: 13309 $
 
    Targets:

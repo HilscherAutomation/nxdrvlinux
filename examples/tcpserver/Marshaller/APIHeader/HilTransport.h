@@ -8,7 +8,7 @@
     $Id: HilTransport.h 7029 2015-07-16 12:09:53Z Robert $
    Last Modification:
     $Author: Robert $
-    $Date: 2015-07-16 14:09:53 +0200 (Do, 16 Jul 2015) $
+    $Date: 2015-07-16 14:09:53 +0200 (Thu, 16 Jul 2015) $
     $Revision: 7029 $
 
    Targets:

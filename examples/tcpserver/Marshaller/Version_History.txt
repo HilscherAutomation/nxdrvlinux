@@ -19,6 +19,17 @@ The dates are given in the international date format (yyyy-mm-dd).
 #                                                                           #
 #############################################################################
 
+V2.4.0.2 (2025-03-6)
+----------------------
+Changes:
+ - Rename Version History
+
+Add-ons:
+ - None
+
+Bug fixes:
+ - None
+
 V2.4.0.1 (2022-07-15)
 ----------------------
 Changes:

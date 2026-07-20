@@ -1,7 +1,7 @@
 /**************************************************************************************
 Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $Id: HilMarshaller.c 14530 2022-06-27 12:01:46Z AMinor $:
+  $Id: HilMarshaller.c 15360 2025-11-28 10:57:11Z MNoll $:
 
 Description:
     Hilscher Transport marshalling main module
@@ -295,7 +295,6 @@ void HilMarshallerFreeBuffer(HIL_MARSHALLER_BUFFER_T* ptBuffer)
   default:
     /* NOTE: This should never happen, only if someone free's a wrong buffer,
              or destroyed the buffer management area (programming error). */
-    ptConn = ptConn;
     break;
   }
 
