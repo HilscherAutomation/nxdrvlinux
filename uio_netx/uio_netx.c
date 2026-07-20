@@ -27,13 +27,13 @@
 	#include <linux/of_address.h>
 #endif
 
+#include "uio_netx_version.h"
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
 	#define ioremap_nocache ioremap
 #endif
 
 #define MAX_USER_CARDS 10
-
-#define UIO_NETX_VERSION "2.2.0"
 
 #if defined(DISABLE_PCI_SUPPORT) && defined(DMA_SUPPORT)
 	#error "Invalid configuration detected DISABLE_PCI_SUPPORT && DMA_SUPPORT!"

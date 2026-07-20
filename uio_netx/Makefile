@@ -34,6 +34,7 @@ endif
 
 PWD := $(shell pwd)
 default:
+	@./update_version.sh || exit 1
 	$(MAKE) -C $(TMPKDIR) M=$(PWD) modules
 
 clean:
