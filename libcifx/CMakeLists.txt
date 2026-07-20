@@ -2,12 +2,18 @@
 cmake_minimum_required(VERSION 3.13)
 FIND_PACKAGE(PkgConfig REQUIRED)
 
-set(DRV_MAJOR 3)
-set(DRV_MINOR 0)
-set(DRV_PATCH 0)
+execute_process(
+    COMMAND bash -c "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/drv_version.sh -g" OUTPUT_VARIABLE DRV_VERSION
+)
+string(STRIP "${DRV_VERSION}" DRV_VERSION)
 
-set(DRV_VERSION ${DRV_MAJOR}.${DRV_MINOR}.${DRV_PATCH})
 set(DRVVERSION "\"V${DRV_VERSION}\"")
+
+# get major version ([major].[minor].[build][-optional])
+string(REGEX REPLACE "\\..*" "" DRV_MAJOR "${DRV_VERSION}")
+
+# get .so version (strip optional commit hash)
+string(REGEX REPLACE "-.*" "" DRV_VERSION "${DRV_VERSION}")
 
 project("libcifx user space library" VERSION ${DRV_VERSION})
 
