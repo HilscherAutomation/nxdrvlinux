@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "cifxlinux.h"
 #include "libsdpm.h"
+#include "cifxlinux_dbg.h"
 
 #define MAX_STR            256
 
