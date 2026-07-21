@@ -415,8 +415,13 @@ static int cifx_open( char* path, int dev_type, int dev_num, int fCheckAccess, s
   if (dev_type == eCIFX_DEVICE_TYPE_VFIO) {
 #ifdef VFIO_CDEV
     /* in case a vfio device number provided it's the cdev interface */
-    if (dev_num >= 0)
-      return cifx_vfio_open_cdev( path, dev_num, fCheckAccess, device);
+    if (dev_num >= 0) {
+      int ret = cifx_vfio_open_cdev( path, dev_num, fCheckAccess, device);
+      if (ret != -ENOENT)
+        return ret;
+
+      DBG("Opening vfio cdev device %s failed - trying to handle it as vfio legacy...\n", path);
+    }
 #endif
     return cifx_vfio_open( path, dev_num, fCheckAccess, device);
   }
@@ -1251,7 +1256,8 @@ void cifx_ISA_unmap_dpm( void* dpmaddr, int dpmlen)
 int cifx_hil_pci_flash_based( int device_id, int subdevice_id) {
   if ( ((device_id == NETPLC100C_PCI_DEVICE_ID) && (subdevice_id == NETPLC100C_PCI_SUBYSTEM_ID_FLASH)) ||
        ((device_id == NETJACK100_PCI_DEVICE_ID) && (subdevice_id == NETJACK100_PCI_SUBYSTEM_ID_FLASH)) ||
-       (device_id == CIFX4000_PCI_DEVICE_ID) ) {
+       (device_id == CIFX4000_PCI_DEVICE_ID) ||
+       (device_id == CIFX900_PCI_DEVICE_ID) ) {
     return 1;
   }
   return 0;
@@ -1343,10 +1349,10 @@ int cifx_hil_pci_flash_based_by_path( char* pci_path) {
     }
 #else
     {
-      if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace( dev_instance,
-                   TRACE_LEVEL_ERROR,
+                   CIFX_TRACE_LEVEL_ERROR,
                    "cifX Driver was compiled without PCI support. Unable to handle requested (uio based) PCI card @0x%lx!",
                    ulPys_Addr);
       }
@@ -1556,10 +1562,10 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
       if(!match_pci_card(ptDevInstance, ptDevice->dpmaddr))
       {
         /* Don't add this device */
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Error finding pci device (Phys. Addr 0x%lx) on PCI bus",
                      ptDevice->dpmaddr);
         }
@@ -1578,11 +1584,11 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
     /* initialize the hardware function interface */
     if (ptDevice->hwif_init) {
       if (CIFX_NO_ERROR != (ret = ptDevice->hwif_init( ptDevice))) {
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           char szError[1024] ={0};
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Failed to initialize custom hardware interface. 'hwif_init' returns 0x%lx - %s! Skip adding custom device to toolkit!",
                      (unsigned int)ret,
                      ((CIFX_NO_ERROR == xDriverGetErrorDescription( ret,  szError, sizeof(szError))) ? szError : "Unknown error"));
@@ -1601,7 +1607,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
         HWIF_WRITEN( ptDevInstance, ptDevInstance->pbDPM+IRQ_CFG_REG_OFFSET, (void*)&ulVal, sizeof(ulVal));
       }
       if ((ret = cifXTKitAddDevice(ptDevInstance))) {
-        if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           char szError[1024] ={0};
           xDriverGetErrorDescription( ret,  szError, sizeof(szError));
@@ -1641,7 +1647,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
       if (NULL != cifxeth_create_device( &config))
       {
         ptInternalDev->eth_support = 1;
-        if (g_ulTraceLevel & TRACE_LEVEL_INFO)
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
         {
           USER_Trace(ptDevInstance, 0, "Successfully created ethernet interface on %s", ptDevInstance->szName);
         }
@@ -1920,10 +1926,10 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
        PCIFX_DEVICE_INTERNAL_T dev_intern = (PCIFX_DEVICE_INTERNAL_T)ptDev->pvOSDependent;
 #endif
 
-       if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+       if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
        {
          USER_Trace( ptDev,
-                     TRACE_LEVEL_DEBUG,
+                     CIFX_TRACE_LEVEL_DEBUG,
                     "RESTART DEVICE requested for device: %s",
                      szBoardName);
        }
@@ -1947,11 +1953,11 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
          if (dev_intern->userdevice->hwif_init) {
            lRet = dev_intern->userdevice->hwif_init( dev_intern->userdevice);
            if (CIFX_NO_ERROR != lRet) {
-             if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+             if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
              {
                char szError[1024] ={0};
                USER_Trace(ptDev,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Failed to initialize custom hardware interface. 'hwif_init' returns 0x%lx - %s! Skip adding custom device to toolkit!",
                           (unsigned int)lRet,
                           ((CIFX_NO_ERROR == xDriverGetErrorDescription( lRet,  szError, sizeof(szError))) ? szError : "Unknown error"));
@@ -1980,10 +1986,10 @@ int32_t cifXDriverInit(const struct CIFX_LINUX_INIT* init_params)
 #endif
           }
        }
-       if (g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+       if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
        {
          USER_Trace(ptDev,
-                   TRACE_LEVEL_DEBUG,
+                   CIFX_TRACE_LEVEL_DEBUG,
                    "RESTART DEVICE done, (Status: 0x%08X)\n",
                    lRet);
        }
@@ -2182,49 +2188,70 @@ int pci_get_device_type_and_num(char* pci_path, CIFX_DEVICE_TYPE_E * dev_type, i
   char link_path[CIFX_MAX_FILE_NAME_LENGTH];
   char* driver;
 
+#if !defined(VFIO_SUPPORT) && defined(CIFX_NO_PCIACCESS_LIB)
+  (void)dev_type;
+  (void)dev_num;
+  DBG("Skipping found PCI device '%s' as PCI support is disabled (see CIFX_NO_PCIACCESS_LIB/VFIO_SUPPORT)!\n", pci_path);
+  return ret;
+#endif
+
   snprintf( dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/driver", pci_path);
   /* on success result provides the assigend driver */
-  if (get_link_base_name( dev_type_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &driver) == 0) {
+  if ((ret = get_link_base_name( dev_type_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &driver)) == 0) {
+    int ret = -EINVAL;
+
     /* netx=uio_netx driver */
     if (strcmp(driver, "netx") == 0) {
 #ifndef CIFX_NO_PCIACCESS_LIB
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/uio/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "uio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as uio_netx based\n", dev_type_path);
+        DBG("Identified device '%s' as uio_netx based\n", pci_path);
         *dev_type = eCIFX_DEVICE_TYPE_UIO;
         return 0;
       } else {
-        ERR("Error extracting uio device number of '%s'\n", dev_type_path);
+        ERR("Error extracting uio device number of '%s'\n", pci_path);
       }
 #else
-#ifndef VFIO_SUPPORT
-      (void)dev_type;
-      (void)dev_num;
-#endif
-      ERR("Skipping found uio_netx based PCI '%s' device not as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!\n", pci_path);
+      DBG("Skipping found uio_netx based PCI device '%s' as it is not supported since library is compiled with CIFX_NO_PCIACCESS_LIB!\n", pci_path);
 #endif
       return ret;
     }
-#ifdef VFIO_SUPPORT
+
     if (strcmp(driver, "vfio-pci") == 0) {
+#ifdef VFIO_SUPPORT
 #ifdef VFIO_CDEV
       snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/", pci_path);
       if ( (ret = scan_dir_for_dev_file_idx(dev_type_path, "vfio%u", dev_num)) == 0) {
-        DBG("Identified device '%s' as vfio based (cdev)\n", dev_type_path);
-        *dev_type = eCIFX_DEVICE_TYPE_VFIO;
-        ret = 0;
-        return 0;
+        /* verify it's existence, if this fails assume kernel has cdev support disabled, try legacy */
+        snprintf(dev_type_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/vfio-dev/vfio%d/dev", pci_path, *dev_num);
+        if ( (ret = open( dev_type_path, O_RDONLY)) >= 0) {
+          close(ret);
+          DBG("Identified device '%s' as vfio based (cdev)\n", pci_path);
+          *dev_type = eCIFX_DEVICE_TYPE_VFIO;
+          ret = 0;
+          return 0;
+        }
       }
 #endif
       /* assume its a non-cdev interface */
-      DBG("Identified device '%s' as vfio based (legacy)\n", dev_type_path);
+      DBG("Identified device '%s' as vfio based (legacy)\n", pci_path);
       *dev_type = eCIFX_DEVICE_TYPE_VFIO;
       *dev_num = -1; /* mark it as legacy interface */
       return 0;
-    }
+#else //VFIO_SUPPORT
+      DBG("Skipping found vfio-pci based PCI device '%s' as it is not supported since library is compiled without VFIO_SUPPORT!\n", pci_path);
+      return ret;
 #endif
+    }
+    /* assigned driver not supported (not expected) */
+    ERR("Skipping found PCI device '%s' as assigned driver '%s' is not supported!\n", pci_path, driver);
   } else {
-    /* assigned driver not supported */
+    if (ret == -ENOENT) {
+        /* no driver assigned to device */
+        DBG("Skipping found device '%s' as no driver is assigned!\n", pci_path);
+    } else {
+        ERR("Error while retrieving driver information for PCI device '%s' (ret=%d)!\n", pci_path, ret);
+    }
   }
   return ret;
 }

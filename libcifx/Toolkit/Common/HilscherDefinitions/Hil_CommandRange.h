@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_CommandRange.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_CommandRange.h $: *//*!
 
   \file Hil_CommandRange.h
 
@@ -685,8 +685,9 @@ enum HIL_COMMAND_Etag
   /** CC-Link IE Field Basic master service commands */
   CCLIEFBM_COMMAND_START                              = 0x0000AC00,
 
-  /** Generic application task service commands */
-  GENERIC_AP_TASK_COMMAND_START                       = 0x0000AD00,
+  /** Generic application service commands
+    * The commands are described in the Hil_ApplicationCmd.h file. */
+  GENERIC_APP_COMMAND_START                           = 0x0000AD00,
 
   /** Generic communication interface service commands
    * The commands are described in the Hil_GenericCommunicationInterface.h file. */
@@ -710,6 +711,8 @@ enum HIL_COMMAND_Etag
   /** TSN Core component commands */
   TSN_CORE_COMMAND_START                              = 0x0000B400,
 
+  /** GCOV component commands */
+  GCOV_COMMAND_START                                  = 0x0000B500,
 
 
   /* ^^^^ Add new error codes above this line ^^^^ */

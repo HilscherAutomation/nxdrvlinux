@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXInit.c 14703 2023-04-27 12:25:19Z RMayer $:
+  $Id: cifXToolkit.c 15355 2025-11-28 09:28:41Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -45,6 +45,8 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "cifXToolkit.h"
 #include "cifXErrors.h"
 #include "cifXEndianess.h"
+#include "cifXHWFunctions.h"
+#include "cifXHWFunctionsWrapper.h"
 
 #include "Hil_Packet.h"
 #include "Hil_ModuleLoader.h"
@@ -52,9 +54,23 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 #include "Hil_Results.h"
 
 #include "NetX_ROMLoader.h"
+#include "NetX_RegDefs.h"
 #include "netx50_romloader_dpm.h"
 #include "netx51_romloader_dpm.h"
 
+typedef struct DEVICE_CHANNEL_DATAtag
+{
+  int       fModuleLoaded;                          /* Module loaded */
+  int       fCNFLoaded;                             /* CNF file loaded */
+  char      szFileName[16];                         /* Module short file name 8.3 */
+  uint32_t  ulFileSize;
+} DEVICE_CHANNEL_DATA;
+
+typedef struct DEVICE_CHANNEL_CONFIGtag
+{
+  int                 fFWLoaded;                    /* FW file loaded */
+  DEVICE_CHANNEL_DATA atChannelData[CIFX_MAX_NUMBER_OF_CHANNELS];
+} DEVICE_CHANNEL_CONFIG, *PDEVICE_CHANNEL_CONFIG;
 
 /* Use external definitions for the netX specific functions */
 /* This keeps the netX chip headers independent of toolkit definitions. */
@@ -70,36 +86,30 @@ extern int      IsNetX51or52ROM             ( PDEVICEINSTANCE ptDevInstance);
 extern int      IsNetX4x00FLASH             ( PDEVICEINSTANCE ptDevInstance);
 extern int      IsNetX4x00ROM               ( PDEVICEINSTANCE ptDevInstance);
 extern int      IsNetX90FLASH               ( PDEVICEINSTANCE ptDevInstance);
-extern int      IsNetX90ROM               ( PDEVICEINSTANCE ptDevInstance);
+extern int      IsNetX90ROM                 ( PDEVICEINSTANCE ptDevInstance);
+extern int32_t  cifXReadFirmwareIdent       ( PDEVICEINSTANCE       ptDevInstance,
+                                              uint32_t              ulChannel,
+                                              PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
+                                              void*                 pvUser);
 
-/*****************************************************************************/
-/*! Structure description of NETX_FW_IDENTIFY_CNF_DATA_T                     */
-/*****************************************************************************/
-static const CIFX_ENDIANESS_ENTRY_T s_atFWIdentifyConv[] =
-{
-  /* Offset, Width,                       Elements */
-  { 0x00, eCIFX_ENDIANESS_WIDTH_16BIT, 4}, /* tFwVersion.Maj/Min/Build/Rev   */
-  { 0x48, eCIFX_ENDIANESS_WIDTH_16BIT, 1}, /* tFwDate.usYear                 */
-};
-
-uint32_t g_ulTraceLevel = TRACE_LEVEL_ERROR;  /*!< Tracelevel used by the toolkit */
+#ifdef CIFX_TOOLKIT_TIME
+extern void cifXInitTime(PDEVICEINSTANCE ptDevInstance);
+#endif
 
 /*****************************************************************************/
 /*!  \addtogroup CIFX_TOOLKIT_FUNCS cifX DPM Toolkit specific functions
 *    \{                                                                      */
 /*****************************************************************************/
 
-uint32_t                g_ulDeviceCount = 0;      /*!< Number of devices handled by toolkit */
-PDEVICEINSTANCE*        g_pptDevices    = NULL;   /*!< Array of device informations         */
-
-TKIT_DRIVER_INFORMATION g_tDriverInfo   = {0};    /*!< Global driver information            */
-
-void* g_pvTkitLock = NULL;
+extern uint32_t                g_ulDeviceCount;
+extern PDEVICEINSTANCE*        g_pptDevices;
+extern TKIT_DRIVER_INFORMATION g_tDriverInfo;
+extern void*                   g_pvTkitLock;
 
 /*****************************************************************************/
 /*! Cyclic timer for COS bit checking, if we are running in polling mode     */
 /*****************************************************************************/
-void cifXTKitCyclicTimer(void)
+static void DPMcifXTKitCyclicTimer(void)
 {
   uint32_t ulIdx;
 
@@ -108,8 +118,13 @@ void cifXTKitCyclicTimer(void)
   {
     if(!g_pptDevices[ulIdx]->fIrqEnabled)
     {
-      /* Device is not running in IRQ mode, so we need to check COS */
-      DEV_CheckCOSFlags(g_pptDevices[ulIdx]);
+      PDEVICEINSTANCE ptDevInstance = g_pptDevices[ulIdx];
+      /* COS handling is only available on DPM- and not on HIF-devices. */
+      if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
+      {
+        /* Device is not running in IRQ mode, so we need to check COS */
+        DEV_CheckCOSFlags(g_pptDevices[ulIdx]);
+      }
     }
   }
   OS_LeaveLock(g_pvTkitLock);
@@ -227,7 +242,7 @@ static void cifXDeleteChannelInstance(PCHANNELINSTANCE ptChannelInst)
 *   \param ulActDPMState        Actual DPM state
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXDetectChipTypebyROMLoader(PDEVICEINSTANCE ptDevInstance, uint32_t ulActDPMState)
+static int32_t cifXDetectChipTypebyROMLoader(PDEVICEINSTANCE ptDevInstance, uint32_t ulActDPMState)
 {
   int32_t  lRet     = CIFX_DRV_INIT_STATE_ERROR;
   uint32_t ulCookie = 0;
@@ -280,10 +295,10 @@ int32_t cifXDetectChipTypebyROMLoader(PDEVICEINSTANCE ptDevInstance, uint32_t ul
     lRet = CIFX_NO_ERROR;
   }
 
-  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
   {
     USER_Trace( ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "Chiptype detected: %d",
                 ptDevInstance->eChipType);
   }
@@ -298,6 +313,7 @@ int32_t cifXDetectChipTypebyROMLoader(PDEVICEINSTANCE ptDevInstance, uint32_t ul
 /*****************************************************************************/
 static int32_t cifXHardwareReset(PDEVICEINSTANCE ptDevInstance)
 {
+  PNETX_GLOBAL_REG_BLOCK ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)ptDevInstance->pvGlobalRegisters;
   static const uint32_t s_aulResetSequence[] =
   {
     0x00000000, 0x00000001,0x00000003, 0x00000007,
@@ -308,8 +324,8 @@ static int32_t cifXHardwareReset(PDEVICEINSTANCE ptDevInstance)
   void*                   pvPCIConfig    = NULL;
   uint32_t                ulIdx          = 0;
   int32_t                 lRet           = CIFX_DRV_INIT_STATE_ERROR;
-  volatile uint32_t*      pulHostReset   = &ptDevInstance->ptGlobalRegisters->ulHostReset;
-  volatile uint32_t*      pulSystemState = &ptDevInstance->ptGlobalRegisters->ulSystemState;
+  volatile uint32_t*      pulHostReset   = &ptGlobalRegisters->ulHostReset;
+  volatile uint32_t*      pulSystemState = &ptGlobalRegisters->ulSystemState;
 
   /* Read PCI config */
   if(ptDevInstance->fPCICard)
@@ -349,10 +365,10 @@ static int32_t cifXHardwareReset(PDEVICEINSTANCE ptDevInstance)
   /* Call user, to allow setting up DPM, HW etc, */
   if(ptDevInstance->pfnNotify)
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "Calling supplied function (0x%08X) after resetting the card!",
                 ptDevInstance->pfnNotify);
     }
@@ -374,10 +390,10 @@ static int32_t cifXHardwareReset(PDEVICEINSTANCE ptDevInstance)
       /* Error, register block not available */
       lRet = CIFX_MEMORY_MAPPING_FAILED;
 
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_ERROR,
+                   CIFX_TRACE_LEVEL_ERROR,
                    "DPM Content invalid after Reset (Data=0x%08X)!",
                    ulState);
       }
@@ -417,10 +433,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
   {
     lRet = CIFX_FILE_OPEN_FAILED;
 
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_ERROR,
+                CIFX_TRACE_LEVEL_ERROR,
                 "Error opening bootloader file '%s'!",
                 tFileInfo.szFullFileName);
     }
@@ -429,10 +445,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
     /* Read bootloader file data */
     uint8_t* pbBuffer = (uint8_t*)OS_Memalloc(ulFileSize);
 
-    if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
     {
       USER_Trace(ptDevInstance,
-                 TRACE_LEVEL_INFO,
+                 CIFX_TRACE_LEVEL_INFO,
                  "Downloading bootloder '%s'",
                  tFileInfo.szFullFileName);
     }
@@ -441,10 +457,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
     {
       lRet = CIFX_FILE_LOAD_INSUFF_MEM;
 
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error creating file buffer!");
       }
     } else
@@ -453,10 +469,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
       {
         lRet = CIFX_FILE_READ_ERROR;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error reading bootloader file '%s'!",
                     tFileInfo.szFullFileName);
         }
@@ -467,10 +483,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
         /* Call user, to allow setting up DPM, HW etc, */
         if(ptDevInstance->pfnNotify)
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Calling supplied function (0x%08X) before starting bootloader!",
                       ptDevInstance->pfnNotify);
           }
@@ -515,10 +531,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
                 other timings/bit width than the original ROM loader settings */
             if( ptDevInstance->pfnNotify && (0 == ulIdx))
             {
-              if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_DEBUG,
+                          CIFX_TRACE_LEVEL_DEBUG,
                           "Calling supplied function (0x%08X) after starting bootloader!",
                           ptDevInstance->pfnNotify);
               }
@@ -544,10 +560,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
                 /* All states are OK */
                 lRet = CIFX_NO_ERROR;
 
-                if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_DEBUG,
+                            CIFX_TRACE_LEVEL_DEBUG,
                             "Bootloader was downloaded and started successfully!");
                 }
 
@@ -558,10 +574,10 @@ static int32_t cifXRunBootloader(PDEVICEINSTANCE ptDevInstance)
 
           if(CIFX_NO_ERROR != lRet)
           {
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "DPM not accessible after starting Bootloader! (lRet=0x%08X)",
                         lRet);
             }
@@ -596,10 +612,10 @@ static int32_t cifXStartRAMDevice(PDEVICEINSTANCE ptDevInstance)
   /*--------------------------------------*/
   if(ptDevInstance->ulDPMSize < NETX_DPM_MEMORY_SIZE)
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
       USER_Trace( ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "RAM based device needs a DPM >= 64kB to work (DPMSize=%u). Device cannot be handled!",
                   ptDevInstance->ulDPMSize);
     }
@@ -608,10 +624,10 @@ static int32_t cifXStartRAMDevice(PDEVICEINSTANCE ptDevInstance)
 
   } else
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace( ptDevInstance,
-                  TRACE_LEVEL_DEBUG,
+                  CIFX_TRACE_LEVEL_DEBUG,
                   "New RAM based device found, device will be reset!");
     }
 
@@ -620,10 +636,10 @@ static int32_t cifXStartRAMDevice(PDEVICEINSTANCE ptDevInstance)
     /*-------------------------------------------------------------*/
     if(ptDevInstance->pfnNotify)
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
       {
         USER_Trace( ptDevInstance,
-                    TRACE_LEVEL_DEBUG,
+                    CIFX_TRACE_LEVEL_DEBUG,
                     "Calling supplied function (0x%08X) before resetting the card (HWReset)!",
                     ptDevInstance->pfnNotify);
       }
@@ -636,10 +652,10 @@ static int32_t cifXStartRAMDevice(PDEVICEINSTANCE ptDevInstance)
     if(CIFX_NO_ERROR != (lRet = cifXHardwareReset(ptDevInstance)))
     {
       /* HW reset failed */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace( ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Hardware reset failed, check if the card is correctly configured (PCI/DPM bootmode) (lRet=0x%08X)!",
                     lRet);
       }
@@ -650,10 +666,10 @@ static int32_t cifXStartRAMDevice(PDEVICEINSTANCE ptDevInstance)
     } else if( CIFX_NO_ERROR != (lRet = cifXRunBootloader(ptDevInstance)))
     {
       /* Bootloader could not be started */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace( ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Bootloader could not be started! (lRet=0x%08X)",
                     lRet);
       }
@@ -696,10 +712,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
     void*       pvFile        = NULL;
     CIFXHANDLE  hSysDevice    = (CIFXHANDLE)&ptDevInstance->tSystemDevice;
 
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace( ptDevInstance,
-                  TRACE_LEVEL_WARNING,
+                  CIFX_TRACE_LEVEL_WARNING,
                   "O/S file (%s) found. Download and start base rcX System!", tFileInfo.szShortFileName);
     }
 
@@ -708,10 +724,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
     /*-----------------------------------------*/
     if(NULL == (pvFile  = OS_FileOpen(tFileInfo.szFullFileName, &ulFileLength)))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace( ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error opening OS file '%s'!",
                     tFileInfo.szFullFileName);
       }
@@ -728,10 +744,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
       {
         lRet = CIFX_FILE_LOAD_INSUFF_MEM;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error creating file buffer!");
         }
 
@@ -743,10 +759,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
         if(ulFileLength != OS_FileRead(pvFile, 0, ulFileLength, pbBuffer))
         {
           /* Error reading file */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace( ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error reading OS file from disk '%s'!",
                         tFileInfo.szFullFileName);
           }
@@ -767,10 +783,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
                                                               NULL)))
         {
           /* Error during download */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace( ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error downloading OS file to device '%s'"\
                         " - (lRet=0x%08X)!",
                         tFileInfo.szFullFileName,
@@ -789,10 +805,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
           OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
 
           /* Download successfull */
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace( ptDevInstance,
-                        TRACE_LEVEL_DEBUG,
+                        CIFX_TRACE_LEVEL_DEBUG,
                         "OS file was downloaded successfully '%s'", tFileInfo.szFullFileName);
           }
 
@@ -803,7 +819,7 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
           tSendPkt.tData.ulChannelNo = HOST_TO_LE32(CIFX_SYSTEM_DEVICE);
 
           /* Transfer packet */
-          lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
+          lRet = DEV_TransferPacket(&ptDevInstance->tSystemDevice,
                                     (CIFX_PACKET*)&tSendPkt,
                                     (CIFX_PACKET*)&tRecvPkt,
                                     sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
@@ -815,10 +831,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
               (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
           {
             /* Error starting the firmware */
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error sending Start request to start Base OS (lRet=0x%08X)!",
                         lRet);
             }
@@ -831,10 +847,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             {
               lRet = CIFX_DEV_RESET_TIMEOUT;
 
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Error waiting for firmware to leave reset state! (lRet=0x%08X)",
                           lRet);
               }
@@ -849,10 +865,10 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
                 lRet = CIFX_DEV_NOT_READY;
 
                 /* READY state not reached */
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error device does not reach READY state! (lRet=0x%08X)",
                             lRet);
                 }
@@ -927,10 +943,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
 
     CIFXHANDLE hSysDevice = (CIFXHANDLE)&ptDevInstance->tSystemDevice;
 
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_WARNING,
+                  CIFX_TRACE_LEVEL_WARNING,
                   "O/S file (%s) found. Download and start base rcX System!", tFileInfo.szShortFileName);
     }
 
@@ -939,10 +955,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
     /*-----------------------------------------*/
     if(NULL == (pvFile = OS_FileOpen( tFileInfo.szFullFileName, &ulFileLength)))
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error opening OS file '%s'!",
                     tFileInfo.szFullFileName);
       }
@@ -960,10 +976,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
       {
         lRet = CIFX_FILE_LOAD_INSUFF_MEM;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error creating file buffer!");
         }
 
@@ -975,10 +991,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
         if(ulFileLength != OS_FileRead(pvFile, 0, ulFileLength, pbBuffer))
         {
           /* Error reading file */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace( ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error reading OS file from disk '%s'!",
                         tFileInfo.szFullFileName);
           }
@@ -991,31 +1007,31 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
              We will only download it, if our file is different from that on the
              device, or the device does not have this file                      */
           int fDownload = 0;
-          if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload( hSysDevice,
-                                                              HIL_PACKET_DEST_SYSTEM, /* BASE OS will be found in "PORT_0" */
-                                                              &fDownload,
-                                                              tFileInfo.szShortFileName,
-                                                              pbBuffer,
-                                                              ulFileLength,
-                                                              DEV_TransferPacket,
-                                                              NULL,
-                                                              NULL)))
+          if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload(hSysDevice,
+                                                             HIL_PACKET_DEST_SYSTEM, /* BASE OS will be found in "PORT_0" */
+                                                             &fDownload,
+                                                             tFileInfo.szShortFileName,
+                                                             pbBuffer,
+                                                             ulFileLength,
+                                                             DEV_TransferPacket,
+                                                             NULL,
+                                                             NULL)))
           {
             /* Display an error */
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace( ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Error checking for download '%s'!",
                           tFileInfo.szFullFileName);
             }
           } else if (!fDownload)
           {
             /* File already exists on the hardware, we have not to download it*/
-            if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
             {
               USER_Trace( ptDevInstance,
-                          TRACE_LEVEL_DEBUG,
+                          CIFX_TRACE_LEVEL_DEBUG,
                           "Skipping download for file '%s'" \
                           "[checksum identical]!",
                           tFileInfo.szFullFileName);
@@ -1026,7 +1042,7 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             uint32_t ulChNum = 0;
             for ( ulChNum = 0; ulChNum < CIFX_MAX_NUMBER_OF_CHANNELS; ulChNum++)
             {
-              (void)DEV_RemoveChannelFiles( (PCHANNELINSTANCE)hSysDevice, ulChNum, DEV_TransferPacket, NULL, NULL, NULL);
+              (void)DEV_RemoveChannelFiles((PCHANNELINSTANCE)hSysDevice, ulChNum, DEV_TransferPacket, NULL, NULL, NULL);
             }
 
             /* Download the file stored in the buffer */
@@ -1043,10 +1059,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             if(CIFX_NO_ERROR != lRet)
             {
               /* Error during download */
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace( ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error downloading OS file to device '%s'"\
                             " - (lRet=0x%08X)!",
                             tFileInfo.szFullFileName,
@@ -1055,10 +1071,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
             } else
             {
               /* Download successful */
-              if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
               {
                 USER_Trace( ptDevInstance,
-                            TRACE_LEVEL_DEBUG,
+                            CIFX_TRACE_LEVEL_DEBUG,
                             "OS file was downloaded successfully '%s'", tFileInfo.szFullFileName);
               }
 
@@ -1066,10 +1082,10 @@ static int32_t cifXHandleFlashBaseOSModule(PDEVICEINSTANCE ptDevInstance)
               /* We have to do a SYSTEMSTART */
               if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
               {
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error during Flash based Base OS system start! (lRet=0x%08X)",
                             lRet);
                 }
@@ -1121,10 +1137,10 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
     ulFirmwareCnt = USER_GetFirmwareFileCount(&tDevInfo);
 
     /* Show information about the channel and the number of firmware files to download */
-    if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
     {
       USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_INFO,
+                  CIFX_TRACE_LEVEL_INFO,
                   "Firmware download, checking / starting: CHANNEL #%d, %d file(s)",
                   ulChannel,
                   ulFirmwareCnt);
@@ -1143,10 +1159,10 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
       if(!USER_GetFirmwareFile(&tDevInfo, ulIdx, &tFileInfo))
       {
         /* Firmware file not returned by USER */
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error querying Firmware to load from USER_GetFirmwareFile (ulIdx=%u)!",
                       ulIdx);
         }
@@ -1159,10 +1175,10 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
         void*     pvFile = OS_FileOpen(tFileInfo.szFullFileName, &ulFileLength);
         if(NULL == pvFile)
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error opening Firmware file '%s'!",
                         tFileInfo.szFullFileName);
           }
@@ -1178,10 +1194,10 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
           {
             lRet = CIFX_FILE_LOAD_INSUFF_MEM;
 
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error creating file buffer!");
             }
 
@@ -1193,27 +1209,27 @@ static int32_t cifXDownloadFWFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNE
             if(ulFileLength != OS_FileRead(pvFile, 0, ulFileLength, pbBuffer))
             {
               /* Error reading file */
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Error reading Firmware file from disk '%s'!",
                           tFileInfo.szFullFileName);
               }
             } else
             {
               uint8_t bLoadState = CIFXTKIT_DOWNLOAD_NONE;
-              if( CIFX_NO_ERROR == (lRet = DEV_ProcessFWDownload( ptDevInstance,
-                                                                  ulChannel,
-                                                                  tFileInfo.szFullFileName,
-                                                                  tFileInfo.szShortFileName,
-                                                                  ulFileLength,
-                                                                  pbBuffer,
-                                                                  &bLoadState,
-                                                                  DEV_TransferPacket,
-                                                                  NULL,
-                                                                  NULL,
-                                                                  NULL)))
+              if( CIFX_NO_ERROR == (lRet = DEV_ProcessFWDownload(ptDevInstance,
+                                                                 ulChannel,
+                                                                 tFileInfo.szFullFileName,
+                                                                 tFileInfo.szShortFileName,
+                                                                 ulFileLength,
+                                                                 pbBuffer,
+                                                                 &bLoadState,
+                                                                 DEV_TransferPacket,
+                                                                 NULL,
+                                                                 NULL,
+                                                                 NULL)))
               {
                 switch(bLoadState & ~CIFXTKIT_DOWNLOAD_EXECUTED)
                 {
@@ -1291,10 +1307,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     ulConfigCnt   = USER_GetConfigurationFileCount(&tDevInfo);
 
     /* Display information about configuration files to download */
-    if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
     {
       USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_INFO,
+                  CIFX_TRACE_LEVEL_INFO,
                   "Configuration download, checking / starting: CHANNEL#%d, %d file(s)!",
                   ulChannel,
                   ulConfigCnt);
@@ -1313,10 +1329,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
       if(!USER_GetConfigurationFile(&tDevInfo, ulIdx, &tFileInfo))
       {
         /* Configuration file not returned by USER */
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error querying configuration to load via USER_GetConfigurationFile (ulIdx=%u)!",
                       ulIdx);
         }
@@ -1329,10 +1345,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
         void*      pvFile       = OS_FileOpen(tFileInfo.szFullFileName, &ulFileLength);
         if(NULL == pvFile)
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error opening configuration file '%s'!",
                       tFileInfo.szFullFileName);
           }
@@ -1347,10 +1363,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
           {
             lRet = CIFX_FILE_LOAD_INSUFF_MEM;
 
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error creating file buffer!");
             }
 
@@ -1362,10 +1378,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
             if( ulFileLength != OS_FileRead(pvFile, 0, ulFileLength, pbBuffer))
             {
               /* Error reading file */
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                           TRACE_LEVEL_ERROR,
+                           CIFX_TRACE_LEVEL_ERROR,
                            "Error reading configuration file from disk '%s'!",
                            tFileInfo.szFullFileName);
               }
@@ -1373,30 +1389,30 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
             {
               /* Check if we have to download the file or if it already exists on the hardware */
               int fDownload = 0;
-              if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload( hSysDevice,
-                                                                  ulChannel,
-                                                                  &fDownload,
-                                                                  tFileInfo.szShortFileName,
-                                                                  pbBuffer,
-                                                                  ulFileLength,
-                                                                  DEV_TransferPacket,
-                                                                  NULL,
-                                                                  NULL)))
+              if ( CIFX_NO_ERROR != (lRet = DEV_CheckForDownload(hSysDevice,
+                                                                 ulChannel,
+                                                                 &fDownload,
+                                                                 tFileInfo.szShortFileName,
+                                                                 pbBuffer,
+                                                                 ulFileLength,
+                                                                 DEV_TransferPacket,
+                                                                 NULL,
+                                                                 NULL)))
               {
                 /* Display an error */
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_ERROR,
+                              CIFX_TRACE_LEVEL_ERROR,
                               "Error checking for download '%s'!",
                               tFileInfo.szFullFileName);
                 }
               } else if(!fDownload)
               {
-                if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                 {
                   USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_DEBUG,
+                              CIFX_TRACE_LEVEL_DEBUG,
                               "Skipping download for file '%s'" \
                               "[checksum identical]!",
                               tFileInfo.szFullFileName);
@@ -1404,21 +1420,22 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
               } else
               {
                 /* Download the file stored in the buffer */
-                lRet = xSysdeviceDownload(hSysDevice,
-                                          ulChannel,
-                                          DOWNLOAD_MODE_CONFIG,
-                                          tFileInfo.szShortFileName,
-                                          pbBuffer,
-                                          ulFileLength,
-                                          NULL,
-                                          NULL,
-                                          NULL);
+                lRet = xSysdeviceDownload(
+                    hSysDevice,
+                    ulChannel,
+                    DOWNLOAD_MODE_CONFIG,
+                    tFileInfo.szShortFileName,
+                    pbBuffer,
+                    ulFileLength,
+                    NULL,
+                    NULL,
+                    NULL);
                 if(CIFX_NO_ERROR != lRet)
                 {
-                  if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_ERROR,
+                              CIFX_TRACE_LEVEL_ERROR,
                               "Error downloading configuration to device '%s'"\
                               " - (lRet=0x%08X)!",
                               tFileInfo.szFullFileName,
@@ -1429,10 +1446,10 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
                   /* We have downloaded a configuration file */
                   ptDevChannelCfg->atChannelData[ulChannel].fCNFLoaded = 1;
 
-                  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_DEBUG,
+                              CIFX_TRACE_LEVEL_DEBUG,
                               "Successfully downloaded the configuration to device '%s'!",
                               tFileInfo.szFullFileName);
                   }
@@ -1462,14 +1479,15 @@ static int32_t cifXDownloadCNFFiles(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
 *   \param pvUser             Callback user parameter
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXReadHardwareIdent( PDEVICEINSTANCE ptDevInstance,
-                               PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
+static int32_t cifXReadHardwareIdent(PDEVICEINSTANCE ptDevInstance,
+                                     PFN_RECV_PKT_CALLBACK pfnRecvPktCallback,
+                                     void* pvUser)
 {
   int32_t          lRet           = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptSystemdevice = &ptDevInstance->tSystemDevice;
 
   HIL_HW_IDENTIFY_REQ_T tSendPkt;
-  CIFX_PACKET           tRecvPkt;
+  HIL_HW_IDENTIFY_CNF_T tRecvPkt;
 
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
   OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
@@ -1483,96 +1501,29 @@ int32_t cifXReadHardwareIdent( PDEVICEINSTANCE ptDevInstance,
   /* Transfer packet */
   lRet = DEV_TransferPacket( ptSystemdevice,
                              (CIFX_PACKET*)&tSendPkt,
-                             &tRecvPkt,
+                             (CIFX_PACKET*)&tRecvPkt,
                              sizeof(tRecvPkt),
                              CIFX_TO_SEND_PACKET,
                              pfnRecvPktCallback,
                              pvUser);
 
   if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHeader.ulState))) )
+      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_WARNING)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_WARNING,
+                CIFX_TRACE_LEVEL_WARNING,
                 "Error querying hardware information! (lRet=0x%08X)",
                 lRet);
     }
   } else
   {
-    HIL_HW_IDENTIFY_CNF_T* ptData = (HIL_HW_IDENTIFY_CNF_T*)&tRecvPkt;
-
-    ptDevInstance->eChipType  = (CIFX_TOOLKIT_CHIPTYPE_E)LE32_TO_HOST(ptData->tData.ulChipTyp);
+    ptDevInstance->eChipType  = (CIFX_TOOLKIT_CHIPTYPE_E)LE32_TO_HOST(tRecvPkt.tData.ulChipTyp);
   }
 
   return lRet;
 }
-
-/*****************************************************************************/
-/*! Read firmware identification
-*   \param ptDevInstance      Device Instance
-*   \param ulChannel          Channel number
-*   \param pfnRecvPktCallback Callback for unexpected packets
-*   \param pvUser             Callback user parameter
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t cifXReadFirmwareIdent( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannel,
-                               PFN_RECV_PKT_CALLBACK pfnRecvPktCallback, void* pvUser)
-{
-  int32_t          lRet          = CIFX_NO_ERROR;
-  PCHANNELINSTANCE ptChannelInst = ptDevInstance->pptCommChannels[ulChannel];
-
-  HIL_FIRMWARE_IDENTIFY_REQ_T tSendPkt;
-  CIFX_PACKET                 tRecvPkt;
-
-  OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-  /* Read firmware information */
-  tSendPkt.tHead.ulDest       = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
-  tSendPkt.tHead.ulSrc        = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-  tSendPkt.tHead.ulCmd        = HOST_TO_LE32(HIL_FIRMWARE_IDENTIFY_REQ);
-  tSendPkt.tHead.ulLen        = HOST_TO_LE32(sizeof(tSendPkt.tData));
-  tSendPkt.tData.ulChannelId  = HOST_TO_LE32(ulChannel);
-
-  /* Transfer packet */
-  lRet = DEV_TransferPacket( ptChannelInst,
-                             (CIFX_PACKET*)&tSendPkt,
-                             &tRecvPkt,
-                             sizeof(tRecvPkt),
-                             CIFX_TO_SEND_PACKET,
-                             pfnRecvPktCallback,
-                             pvUser);
-
-  if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHeader.ulState))) )
-  {
-    if(g_ulTraceLevel & TRACE_LEVEL_WARNING)
-    {
-      USER_Trace(ptDevInstance,
-                TRACE_LEVEL_WARNING,
-                "Error querying firmware information! (lRet=0x%08X)",
-                lRet);
-    }
-  } else
-  {
-    HIL_FIRMWARE_IDENTIFY_CNF_T* ptData = (HIL_FIRMWARE_IDENTIFY_CNF_T*)&tRecvPkt;
-
-    OS_Memcpy( &ptChannelInst->tFirmwareIdent,
-               &ptData->tData.tFirmwareIdentification,
-               sizeof(ptChannelInst->tFirmwareIdent));
-
-    (void)cifXConvertEndianess(0,
-                               &ptChannelInst->tFirmwareIdent,
-                               sizeof(ptChannelInst->tFirmwareIdent),
-                               s_atFWIdentifyConv,
-                               sizeof(s_atFWIdentifyConv) / sizeof(s_atFWIdentifyConv[0]));
-  }
-
-  return lRet;
-}
-
 
 /*****************************************************************************/
 /*! Start a downloaded module
@@ -1625,7 +1576,7 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
 
     /* Setup copy buffer and copy size */
     pbCopyPtr   = ((char*)(&uSendPacket.tPacket.abData[0])) + sizeof(uSendPacket.tLoadAndRunReq.tData);
-    ulCopySize  = min( (sizeof(uSendPacket.tPacket.abData) - sizeof(uSendPacket.tLoadAndRunReq.tData)), ulNameLength);
+    ulCopySize  = HIL_MIN((sizeof(uSendPacket.tPacket.abData) - sizeof(uSendPacket.tLoadAndRunReq.tData)), ulNameLength);
 
     /* Insert file name */
     (void)OS_Strncpy( pbCopyPtr, pszModuleName, ulCopySize);
@@ -1650,7 +1601,7 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
 
     /* Setup copy buffer and copy size */
     pbCopyPtr   = ((char*)(&uSendPacket.tPacket.abData[0])) + sizeof(uSendPacket.tRunReq.tData);
-    ulCopySize  = min( (sizeof(uSendPacket.tPacket.abData) - sizeof(uSendPacket.tRunReq.tData)), ulNameLength);
+    ulCopySize  = HIL_MIN((sizeof(uSendPacket.tPacket.abData) - sizeof(uSendPacket.tRunReq.tData)), ulNameLength);
 
     /* Insert file name */
     (void)OS_Strncpy( pbCopyPtr, pszModuleName, ulCopySize);
@@ -1673,10 +1624,10 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
   if ( ( CIFX_NO_ERROR  != lRet) ||
        ( SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPacket.ulSta))) )
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
       USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error starting module '%s' on Channel %d - (lRet=0x%08X)!",
                   pszModuleName,
                   ulChannelNumber,
@@ -1781,7 +1732,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     tSendPkt.tData.ulChannelNo = HOST_TO_LE32(ulChannel);
 
     /* Transfer packet */
-    lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
+    lRet = DEV_TransferPacket(&ptDevInstance->tSystemDevice,
                               (CIFX_PACKET*)&tSendPkt,
                               (CIFX_PACKET*)&tRecvPkt,
                               sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
@@ -1793,10 +1744,10 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
         (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
     {
       /* Error starting the firmware */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error sending Start request for Firmware (lRet=0x%08X)!",
                   lRet);
       }
@@ -1809,10 +1760,10 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
       {
         lRet = CIFX_DEV_RESET_TIMEOUT;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error waiting for firmware to leave reset state! (lRet=0x%08X)",
                     lRet);
         }
@@ -1828,10 +1779,10 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
           lRet = CIFX_DEV_NOT_READY;
 
           /* READY state not reached */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error device does not reach READY state! (lRet=0x%08X)",
                       lRet);
           }
@@ -1846,7 +1797,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     if( ptDevInstance->tSystemDevice.usNetxFlags & NSF_ERROR)
     {
       /* Trace system error */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         uint32_t                  ulError = 0;
         HIL_DPM_SYSTEM_CHANNEL_T* ptSysCh = (HIL_DPM_SYSTEM_CHANNEL_T*)ptDevInstance->tSystemDevice.pbDPMChannelStart;
@@ -1854,7 +1805,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
         if(0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemError))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System error information, (SystemError=0x%08X)!",
                       ulError);
         }
@@ -1862,7 +1813,7 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
         if( 0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemStatus))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System state information, (SystemState=0x%08X)!",
                       ulError);
         }
@@ -1870,10 +1821,10 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     }
 
     /* Display channel READY reached */
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "System channel is READY!");
     }
   }
@@ -1925,10 +1876,10 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
           /* We have to do a SYSTEMSTART before loading a Module again! Maybe it is already running */
           if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
           {
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error during system start! (lRet=0x%08X)",
                         lRet);
             }
@@ -1950,19 +1901,19 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
       /* We have to do a SYSTEMSTART */
       if ( CIFX_NO_ERROR != (lRet = DEV_DoSystemStart( &ptDevInstance->tSystemDevice, CIFX_TO_FIRMWARE_START, 0)))
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error during system start! (lRet=0x%08X)",
                     lRet);
         }
       } else
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_DEBUG,
+                    CIFX_TRACE_LEVEL_DEBUG,
                     "System start done!",
                     lRet);
         }
@@ -1976,7 +1927,7 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
     if( ptDevInstance->tSystemDevice.usNetxFlags & NSF_ERROR)
     {
       /* Trace system error */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         uint32_t                  ulError = 0;
         HIL_DPM_SYSTEM_CHANNEL_T* ptSysCh = (HIL_DPM_SYSTEM_CHANNEL_T*)ptDevInstance->tSystemDevice.pbDPMChannelStart;
@@ -1984,7 +1935,7 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
         if(0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemError))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System error information, (SystemError=0x%08X)!",
                       ulError);
         }
@@ -1992,7 +1943,7 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
         if( 0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemStatus))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System state information, (SystemState=0x%08X)!",
                       ulError);
         }
@@ -2000,10 +1951,10 @@ static int32_t cifXStartFlashFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHA
     }
 
     /* Display channel READY reached */
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "System channel is READY!");
     }
   }
@@ -2037,20 +1988,20 @@ static int32_t cifXStartFlashConfiguration(PDEVICEINSTANCE ptDevInstance, PDEVIC
 
         if(CIFX_NO_ERROR == lChannelRet)
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Successfully performed channel init on channel #%d!",
                       ulChannel);
           }
         } else
         {
           /* Error performing channel init */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error performing channel init on channel #%d (lRet=0x%08X)!",
                       ulChannel,
                       lChannelRet);
@@ -2063,6 +2014,24 @@ static int32_t cifXStartFlashConfiguration(PDEVICEINSTANCE ptDevInstance, PDEVIC
   /* Always return OK here, so the user is able to access the device later on.
      Any error during channel init is not fatal (e.g. maybe a missing master license) */
   return CIFX_NO_ERROR;
+}
+
+/*****************************************************************************/
+/*! Check the DPM/HIF for a compatible layout.
+*   \param ptDevInstance Instance to start up
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+static int32_t cifXCheckDpmLayout(PDEVICEINSTANCE ptDevInstance)
+{
+  uint8_t*                  pbDpm        = ptDevInstance->pbDPM;
+  HIL_DPM_SYSTEM_CHANNEL_T* ptSysChannel = (HIL_DPM_SYSTEM_CHANNEL_T*)pbDpm;
+  int32_t                   lRet         = CIFX_NO_ERROR;
+  uint8_t                   bDpmLayout   = HWIF_READ8(ptDevInstance, ptSysChannel->tSystemInfo.bHifLayout);
+
+  if (HIL_HIF_LAYOUT_NA != bDpmLayout) /* bDpmLayout must be 0 (HIL_HIF_LAYOUT_NA) */
+    lRet = CIFX_DEV_DPM_LAYOUT_UNKNOWN;
+
+  return lRet;
 }
 
 /*****************************************************************************/
@@ -2089,6 +2058,9 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
   void*                     pvInitMutex      = NULL;
   void*                     pvLock           = NULL;
 
+  if (CIFX_NO_ERROR != (lRet = cifXCheckDpmLayout(ptDevInstance)))
+    return lRet;
+
   if (NULL == (pvSendMBXMutex = OS_CreateMutex()) ||
       NULL == (pvRecvMBXMutex = OS_CreateMutex()) ||
       NULL == (pvInitMutex    = OS_CreateMutex()) ||
@@ -2105,10 +2077,10 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
     pvInitMutex    = NULL;
     pvLock         = NULL;
 
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_ERROR,
+                CIFX_TRACE_LEVEL_ERROR,
                 "Error creating buffers for system device!");
     }
 
@@ -2120,33 +2092,33 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
     ulSysChannelSize = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannelInfo->ulSizeOfChannel));
 
     /* Setup pointer to global netX register block */
-    ptDevInstance->ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)(ptDevInstance->pbDPM +
-                                                                ptDevInstance->ulDPMSize -
-                                                                sizeof(NETX_GLOBAL_REG_BLOCK));
+    ptDevInstance->pvGlobalRegisters = (void*)(ptDevInstance->pbDPM +
+                                               ptDevInstance->ulDPMSize -
+                                               sizeof(NETX_GLOBAL_REG_BLOCK));
 
     /* Initialize DEVICEINSTANCE */
     ptDevInstance->ulDeviceNumber = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemInfo.ulDeviceNumber));
     ptDevInstance->ulSerialNumber = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemInfo.ulSerialNumber));
     ptDevInstance->ulSlotNumber   = HWIF_READ8(ptDevInstance, ptSysChannel->tSystemInfo.bDevIdNumber);
 
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "Device Info:");
 
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 " - Device Number : %u",
                 ptDevInstance->ulDeviceNumber);
 
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 " - Serial Number : %u",
                 ptDevInstance->ulSerialNumber);
 
       USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 " - Slot Number   : %u",
                 ptDevInstance->ulSlotNumber);
     }
@@ -2169,10 +2141,10 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
                     ptDevInstance->szAlias) == 0)
         {
           /* Duplicate alias found */
-          if(g_ulTraceLevel & TRACE_LEVEL_WARNING)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_WARNING,
+                      CIFX_TRACE_LEVEL_WARNING,
                       "Duplicate alias '%s' passed (DevNr=%u, SerNr=%u), Alias will be removed!",
                       ptDevInstance->szAlias,
                       ptDevInstance->ulDeviceNumber,
@@ -2236,10 +2208,10 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
       lRet = CIFX_DEV_NOT_READY;
 
       /* READY state not reached */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error device does not reach READY state! (lRet=0x%08X)",
                   lRet);
       }
@@ -2249,7 +2221,7 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
     if( ptDevInstance->tSystemDevice.usNetxFlags & NSF_ERROR)
     {
       /* Trace system error */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         uint32_t                  ulError = 0;
         HIL_DPM_SYSTEM_CHANNEL_T* ptSysCh = (HIL_DPM_SYSTEM_CHANNEL_T*)ptDevInstance->tSystemDevice.pbDPMChannelStart;
@@ -2257,7 +2229,7 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
         if(0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemError))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System error information, (SystemError=0x%08X)!",
                       ulError);
         }
@@ -2265,7 +2237,7 @@ static int32_t cifXCreateSystemDevice(PDEVICEINSTANCE ptDevInstance)
         if( 0 != (ulError = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysCh->tSystemState.ulSystemStatus))))
         {
           USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "System state information, (SystemState=0x%08X)!",
                       ulError);
         }
@@ -2295,17 +2267,17 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
   OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
 
-  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
   {
     USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "Reading Channel Info on Channel#%d (DPM Start Offset=0x%08X Length=0x%08X)",
                 ptChannel->ulChannelNumber,
                 (uint32_t)(ptChannel->pbDPMChannelStart - ptDevInstance->pbDPM),
                 ptChannel->ulDPMChannelLength);
 
     USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "-------------------------------------------------------------------------");
   }
 
@@ -2337,10 +2309,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                                      NULL)) != CIFX_NO_ERROR)
     {
       /* Display errors */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error reading subblock information, Error: 0x%08X  (AreaIndex=%d, SubblockIndex=%d)",
                   lRet,
                   LE32_TO_HOST(tSendPkt.tData.ulAreaIndex),
@@ -2349,10 +2321,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
     } else if ( SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPkt.tHead.ulSta))
     {
       /* Display errors */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error reading subblock information, error firmware answer,  Error: 0x%08X  (AreaIndex=%d, SubblockIndex=%d)",
                   LE32_TO_HOST(tRecvPkt.tHead.ulSta),
                   LE32_TO_HOST(tSendPkt.tData.ulAreaIndex),
@@ -2371,10 +2343,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         case HIL_BLOCK_UNDEFINED:
         case HIL_BLOCK_UNKNOWN:
 
-        if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_DEBUG,
+                    CIFX_TRACE_LEVEL_DEBUG,
                     "Undefined/Unknown subblock type (Channel=%d, Block=%d, Type=0x%08X)",
                     ptChannel->ulChannelNumber,
                     LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2406,10 +2378,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 ptIOOutputInstance = NULL;
                 pvMutex            = NULL;
 
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error creating IO output instance buffer!");
                 }
 
@@ -2454,10 +2426,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 {
                   lRet = CIFX_INVALID_POINTER;
 
-                  if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_ERROR,
+                              CIFX_TRACE_LEVEL_ERROR,
                               "Error creating IO output area buffer!");
                   }
 
@@ -2465,10 +2437,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 {
                   ptChannel->pptIOOutputAreas[ptChannel->ulIOOutputAreas - 1] = ptIOOutputInstance;
 
-                  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_DEBUG,
+                              CIFX_TRACE_LEVEL_DEBUG,
                               "I/O Output Subblock found    (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                               ptChannel->ulChannelNumber,
                               LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2496,10 +2468,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 ptIOInputInstance = NULL;
                 pvMutex           = NULL;
 
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error creating IO input instance buffer!");
                 }
 
@@ -2544,10 +2516,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 {
                   lRet = CIFX_INVALID_POINTER;
 
-                  if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_ERROR,
+                              CIFX_TRACE_LEVEL_ERROR,
                               "Error creating IO input area buffer!");
                   }
 
@@ -2555,10 +2527,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 {
                   ptChannel->pptIOInputAreas[ptChannel->ulIOInputAreas- 1] = ptIOInputInstance;
 
-                  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_DEBUG,
+                              CIFX_TRACE_LEVEL_DEBUG,
                               "I/O Input Subblock found     (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                               ptChannel->ulChannelNumber,
                               LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2573,10 +2545,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
             default:
               /* Firmware returned an invalid IO subblock info (neither IN, nor OUT),
                 This should never happen */
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Invalid I/O direction found! (Channel=%d, Block=%d,Dir=0x%08X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2602,10 +2574,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 lRet = CIFX_INVALID_POINTER;
 
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error creating output mailbox buffer!");
                 }
               } else
@@ -2620,10 +2592,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 ptChannel->tSendMbx.bSendCMDBitoffset    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
                 ptChannel->tSendMbx.ulSendCMDBitmask     = (1 << ptChannel->tSendMbx.bSendCMDBitoffset);
 
-                if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_DEBUG,
+                            CIFX_TRACE_LEVEL_DEBUG,
                             "Output Mailbox found         (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                             ptChannel->ulChannelNumber,
                             LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2642,10 +2614,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 lRet = CIFX_INVALID_POINTER;
 
-                if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_ERROR,
+                            CIFX_TRACE_LEVEL_ERROR,
                             "Error creating input mailbox buffer!");
                 }
 
@@ -2660,10 +2632,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                 ptChannel->tRecvMbx.bRecvACKBitoffset   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
                 ptChannel->tRecvMbx.ulRecvACKBitmask    = (1 << ptChannel->tRecvMbx.bRecvACKBitoffset);
 
-                if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_DEBUG,
+                            CIFX_TRACE_LEVEL_DEBUG,
                             "Input Mailbox found          (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                             ptChannel->ulChannelNumber,
                             LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2676,10 +2648,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
 
             default:
               /* Firmware returned an invalid mailbox subblock info (neither IN, nor OUT)  */
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Invalid mailbox direction found! (Channel=%d, Block=%d,Dir=0x%08X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2700,10 +2672,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
           ptChannel->bControlBlockBit   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
           ptChannel->ulControlBlockSize = LE32_TO_HOST(tRecvPkt.tData.ulSize);
 
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Control block found          (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2723,10 +2695,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
           ptChannel->bCommonStatusBit    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
           ptChannel->ulCommonStatusSize  = LE32_TO_HOST(tRecvPkt.tData.ulSize);
 
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Common Status block found    (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2746,10 +2718,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
           ptChannel->bExtendedStatusBit    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
           ptChannel->ulExtendedStatusSize  = LE32_TO_HOST(tRecvPkt.tData.ulSize);
 
-          if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_DEBUG,
+                      CIFX_TRACE_LEVEL_DEBUG,
                       "Extended Status block found  (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2770,10 +2742,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
           {
             lRet = CIFX_INVALID_POINTER;
 
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error creating user block instance buffer!");
             }
 
@@ -2796,10 +2768,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               OS_Memfree(ptUserInstance);
               ptUserInstance = NULL;
 
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Error creating user area buffer!");
               }
 
@@ -2807,10 +2779,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
             {
               ptChannel->pptUserAreas[ptChannel->ulUserAreas- 1] = ptUserInstance;
 
-              if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_DEBUG,
+                          CIFX_TRACE_LEVEL_DEBUG,
                           "User block found             (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2827,10 +2799,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         /*-------------------------------*/
         default:
           /* Unknown block type, this should never happen */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Invalid subblock information found! (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X, Type=%u)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
@@ -2843,10 +2815,10 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
     }
   } /* End enumerate subblocks */
 
-  if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
   {
     USER_Trace(ptDevInstance,
-                TRACE_LEVEL_DEBUG,
+                CIFX_TRACE_LEVEL_DEBUG,
                 "-------------------------------------------------------------------------");
   }
 
@@ -2892,10 +2864,10 @@ static int32_t cifXHandleWarmstartParameter(PDEVICEINSTANCE ptDevInstance)
     if ( !USER_GetWarmstartParameters( &tDevInfo, &tPacket))
     {
       /* No warm start parameter available */
-      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_DEBUG,
+                  CIFX_TRACE_LEVEL_DEBUG,
                   "No warm start parameter found or available!");
       }
     } else
@@ -2913,10 +2885,10 @@ static int32_t cifXHandleWarmstartParameter(PDEVICEINSTANCE ptDevInstance)
           (SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPacket.tHeader.ulState)) )
       {
         /* Error sending warm start parameter */
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error sending warm start parameter to hardware! (lSendError=0x%08X,ulSta=0x%08X)",
                     lChannelError,
                     LE32_TO_HOST(tPacket.tHeader.ulState));
@@ -2929,20 +2901,20 @@ static int32_t cifXHandleWarmstartParameter(PDEVICEINSTANCE ptDevInstance)
         if (DEV_WaitForRunning_Poll( ptChannelInst, CIFX_TO_FIRMWARE_START))
         {
           /* Firmware started after warm start process */
-          if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_INFO,
+                      CIFX_TRACE_LEVEL_INFO,
                       "Successfully sent warm start parameters to Channel #%d!",
                       ulBlockID);
           }
         } else
         {
           /* Firmware not started after warm start process */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Hardware not Ready/Running after channel warm start!");
           }
         }
@@ -3036,10 +3008,10 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
       /* if the channel configuration does not match the maximum channel size */
       if( ptDevInstance->ulDPMSize < (LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptChannel->tCom.ulSizeOfChannel)) + ulDPMChannelStartAddress))
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Channel (%u) size exceeds the maximum DPM size!",
                      ulChannelID);
         }
@@ -3065,10 +3037,10 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
         pvInitMutex   = NULL;
         pvLock        = NULL;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error creating channel instance buffer!");
         }
 
@@ -3128,10 +3100,10 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
               /* Channel does not meet minimum system requirements and is ignored */
               fCreateChannel = 0;   /* Skip further processing */
 
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Channel (%u) does not meet minimum requirement and is ignored!",
                           ulBlockID);
               }
@@ -3166,10 +3138,10 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
                 if (!DEV_WaitForReady_Poll(ptChannelInst, CIFX_TO_FIRMWARE_START))
                 {
                   /* READY failed */
-                  if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_WARNING,
+                              CIFX_TRACE_LEVEL_WARNING,
                               "Error channel not READY, channel = %d)", ulChannelID);
                   }
                 } else
@@ -3188,10 +3160,10 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
             {
               lRet = CIFX_INVALID_POINTER;
 
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
                 USER_Trace(ptDevInstance,
-                          TRACE_LEVEL_ERROR,
+                          CIFX_TRACE_LEVEL_ERROR,
                           "Error creating communication channel buffer!");
               }
 
@@ -3211,18 +3183,18 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
                                                                            NULL,
                                                                            NULL)))
                 {
-                  if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+                  if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
                   {
                     USER_Trace(ptDevInstance,
-                              TRACE_LEVEL_ERROR,
+                              CIFX_TRACE_LEVEL_ERROR,
                               "Failed to read firmware identification for channel = %d, error: 0x%08X", ptChannelInst->ulChannelNumber, lTempError);
                   }
                 }
 
-                if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+                if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
                 {
                   USER_Trace(ptDevInstance,
-                            TRACE_LEVEL_INFO,
+                            CIFX_TRACE_LEVEL_INFO,
                             "Device successfully created for channel = %d", ptChannelInst->ulChannelNumber);
                 }
               }
@@ -3242,11 +3214,11 @@ static int32_t cifXCreateChannels(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANNEL
     ptChannel++;
   }
 
-  if( (g_ulTraceLevel & TRACE_LEVEL_INFO) &&
+  if( (g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO) &&
       (0 == ptDevInstance->ulCommChannelCount) )
   {
     USER_Trace(ptDevInstance,
-               TRACE_LEVEL_INFO,
+               CIFX_TRACE_LEVEL_INFO,
                "NO CHANNEL INFORMATION FOUND, No devices created!");
   }
 
@@ -3285,10 +3257,10 @@ static int32_t cifXCheckIRQEnable(PDEVICEINSTANCE ptDevInstance)
       {
         lRet = CIFX_INVALID_POINTER;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Error creating sync event buffer!");
         }
 
@@ -3316,10 +3288,10 @@ static int32_t cifXCheckIRQEnable(PDEVICEINSTANCE ptDevInstance)
           {
             lRet = CIFX_INVALID_POINTER;
 
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        TRACE_LEVEL_ERROR,
+                        CIFX_TRACE_LEVEL_ERROR,
                         "Error creating interrupt event buffer!");
             }
 
@@ -3374,10 +3346,10 @@ static int32_t cifXCheckCachedBufferEnable(PDEVICEINSTANCE ptDevInstance)
 
     default:
       lRet = CIFX_INVALID_PARAMETER;
-      if (g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_ERROR,
+                   CIFX_TRACE_LEVEL_ERROR,
                    "USER_GetCachedIOBufferMode() returned invalid caching mode");
       }
     break;
@@ -3449,10 +3421,10 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
         /* Activate DMA on all channels which are available */
         if ( CIFX_NO_ERROR != DEV_DMAState( ptChannel, CIFX_DMA_STATE_ON, &ulTemp))
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                       TRACE_LEVEL_ERROR,
+                       CIFX_TRACE_LEVEL_ERROR,
                        "Failed to activate DMA handling (Channel=%u)",
                        ulChannelIdx);
           }
@@ -3484,77 +3456,6 @@ static int32_t cifXCheckDMAEnable(PDEVICEINSTANCE ptDevInstance)
   }
 
   return CIFX_NO_ERROR;
-}
-#endif
-
-#ifdef CIFX_TOOLKIT_TIME
-/*****************************************************************************/
-/*! Initialize RTC
-*   \param ptDevInstance Instance to start up                                */
-/*****************************************************************************/
-void cifXInitTime(PDEVICEINSTANCE ptDevInstance)
-{
-  HIL_DPM_SYSTEM_CHANNEL_T*  ptSystemChannel = (HIL_DPM_SYSTEM_CHANNEL_T*)(ptDevInstance->tSystemDevice.pbDPMChannelStart);
-  uint32_t ulRTCInfo = (HIL_SYSTEM_HW_RTC_MSK & LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSystemChannel->tSystemState.ulHWFeatures)));
-
-  /* Check if RTC is available and not already set */
-  if( 0 != (HIL_SYSTEM_HW_RTC_TYPE_MSK & ulRTCInfo))
-  {
-    /* Check if it is already set */
-    if( 0 == (HIL_SYSTEM_HW_RTC_STATE & ulRTCInfo))
-    {
-      int32_t lRet = 0;
-
-      /* Create a time request*/
-      HIL_TIME_CMD_REQ_T  tSendPkt;
-      CIFX_PACKET         tRecvPkt;
-
-      OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-      OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-      /* Set the time on the device */
-      tSendPkt.tHead.ulDest = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
-      tSendPkt.tHead.ulSrc  = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-      tSendPkt.tHead.ulCmd  = HOST_TO_LE32(HIL_TIME_COMMAND_REQ);
-      tSendPkt.tHead.ulLen  = HOST_TO_LE32(sizeof(tSendPkt.tData));
-
-      tSendPkt.tData.ulTimeCmd = TIME_CMD_SETTIME;
-      /* Get actual system time */
-      tSendPkt.tData.ulData    = (uint32_t)OS_Time(NULL);
-
-      /* Transfer packet */
-      lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
-                                 (CIFX_PACKET*)&tSendPkt,
-                                 &tRecvPkt,
-                                 sizeof(tRecvPkt),
-                                 CIFX_TO_SEND_PACKET,
-                                 NULL,
-                                 NULL);
-
-      if( (CIFX_NO_ERROR  != lRet) ||
-          (SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPkt.tHeader.ulState)) )
-      {
-        if(g_ulTraceLevel & TRACE_LEVEL_WARNING)
-        {
-          USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_WARNING,
-                     "Error setting device time! (lRet=0x%08X, ulState=0x%08X)",
-                     lRet,
-                     LE32_TO_HOST(tRecvPkt.tHeader.ulState));
-        }
-      }else
-      {
-        if(g_ulTraceLevel & TRACE_LEVEL_INFO)
-        {
-          USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_INFO,
-                     "Setting RTC done: 0x%08X (%u)",
-                     tSendPkt.tData.ulData,
-                     tSendPkt.tData.ulData);
-        }
-      }
-    }
-  }
 }
 #endif
 
@@ -3621,17 +3522,17 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
 
     HWIF_READN(ptDevInstance, szCookie, ptDevInstance->pbDPM, 4);
 
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       if(eCIFX_DEVICE_FLASH_BASED == ptDevInstance->eDeviceType)
       {
         USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_DEBUG,
+                   CIFX_TRACE_LEVEL_DEBUG,
                    "Device Type is fix defined to: eCIFX_DEVICE_FLASH_BASED");
       }else
       {
         USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_DEBUG,
+                   CIFX_TRACE_LEVEL_DEBUG,
                    "Device Type is fix defined to: eCIFX_DEVICE_DONT_TOUCH");
       }
     }
@@ -3645,7 +3546,7 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
     }else
     {
       USER_Trace( ptDevInstance,
-            TRACE_LEVEL_ERROR,
+            CIFX_TRACE_LEVEL_ERROR,
             "Detect device type, invalid cookie found! (cookie='%02X','%02X','%02X','%02X')",
             szCookie[0],
             szCookie[1],
@@ -3659,10 +3560,10 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
   }else if( eCIFX_DEVICE_RAM_BASED == ptDevInstance->eDeviceType)
   {
     /* RAM based devices are always started by a hardware reset, followed by a BSL / FW download */
-    if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
     {
       USER_Trace(ptDevInstance,
-                 TRACE_LEVEL_DEBUG,
+                 CIFX_TRACE_LEVEL_DEBUG,
                  "Device Type is fixed defined to: eCIFX_DEVICE_RAM_BASED");
     }
 
@@ -3681,10 +3582,10 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
          NOTE: If the user builds a flash based PCI card, he must pass
                eCIFX_DEVICE_AUTODETECT */
 
-      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
       {
         USER_Trace(ptDevInstance,
-                   TRACE_LEVEL_DEBUG,
+                   CIFX_TRACE_LEVEL_DEBUG,
                    "Device Type autodetection: RAM Based Device found!");
       }
 
@@ -3711,10 +3612,10 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
         /* NOTE: If the driver is restarted and a RAM based FW was downloaded before this
                  will result in the device being handled as flash based.
                  Currently there is no way to detect this */
-        if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
         {
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_DEBUG,
+                     CIFX_TRACE_LEVEL_DEBUG,
                      "Device Type autodetection: Flash Based Device found!");
         }
 
@@ -3729,10 +3630,10 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
            start a firmware via the DPM and we could try to handle the device as a RAM based device.
            If the DPM size is less than 64 KByte we can't handle the device at all. */
 
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
           USER_Trace(ptDevInstance,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Device Type autodetection: DPM device with unknown cookie detected, try to handle it as a RAM based device (cookie='%02X','%02X','%02X','%02X').",
                      szCookie[0],
                      szCookie[1],
@@ -3745,20 +3646,20 @@ static int32_t cifXEvaluateDeviceType(PDEVICEINSTANCE ptDevInstance)
         {
           /* We don't have access to Global register block and no FW or Bootloader is running
              and we are not able to execute a reset and to work with this card */
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Device Type autodetection: Driver is unable to start a RAM based device with a DPM < 64kB.");
           }
 
         } else
         {
 
-          if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
           {
             USER_Trace(ptDevInstance,
-                       TRACE_LEVEL_INFO,
+                       CIFX_TRACE_LEVEL_INFO,
                        "Device Type autodetection: RAM based device forced (No FW / Bootloader active)! Card will be reset and all files downloaded!");
           }
 
@@ -3787,9 +3688,9 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
   ptDevInstance->lInitError = CIFX_NO_ERROR;
 
   /* Assume every card has the register block at the end of the DPM */
-  ptDevInstance->ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)(ptDevInstance->pbDPM +
-                                                              ptDevInstance->ulDPMSize -
-                                                              sizeof(NETX_GLOBAL_REG_BLOCK));
+  ptDevInstance->pvGlobalRegisters = (void*)(ptDevInstance->pbDPM +
+                                             ptDevInstance->ulDPMSize -
+                                             sizeof(NETX_GLOBAL_REG_BLOCK));
 
   /* Try to determine RAM or Flash based device configuration */
   if( CIFX_NO_ERROR == (lRet = cifXEvaluateDeviceType(ptDevInstance)) )
@@ -3848,7 +3749,7 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
               (CIFX_NO_ERROR != (lRet = cifXCreateSystemDevice( ptDevInstance))) )
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Unable to access the hardware while device type is set to eCIFX_DEVICE_FLASH_BASED. Aborting device handling!");
           }
 
@@ -3891,7 +3792,7 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
         if( CIFX_NO_ERROR != (lRet = cifXCreateSystemDevice( ptDevInstance)))
         {
           USER_Trace(ptDevInstance,
-                    TRACE_LEVEL_ERROR,
+                    CIFX_TRACE_LEVEL_ERROR,
                     "Unable to access the hardware while device type is set to eCIFX_DEVICE_DONT_TOUCH. Aborting device handling!");
         }
         break;
@@ -3909,10 +3810,10 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
     {
       lRet = CIFX_INVALID_POINTER;
 
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error creating sync resources!");
       }
 
@@ -3933,10 +3834,10 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
       {
         if( CIFX_NO_ERROR != cifXReadHardwareIdent( ptDevInstance, NULL, NULL))
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
             USER_Trace(ptDevInstance,
-                      TRACE_LEVEL_ERROR,
+                      CIFX_TRACE_LEVEL_ERROR,
                       "Error reading chip type!");
           }
         }
@@ -4005,9 +3906,12 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
 /*****************************************************************************/
 static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
 {
-  int32_t          lRet = CIFX_NO_ERROR;
+  int32_t          lRet           = CIFX_NO_ERROR;
   uint32_t         ulIdx          = 0;
   PCHANNELINSTANCE ptSystemDevice = &ptDevInstance->tSystemDevice;
+
+  if (HIL_HIF_LAYOUT_NA != ptDevInstance->bDPMLayout)
+    return CIFX_DEV_DPM_LAYOUT_UNKNOWN;
 
   /* Process all created communication channels */
   for(ulIdx = 0; ulIdx < ptDevInstance->ulCommChannelCount; ++ulIdx)
@@ -4091,10 +3995,10 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
     {
       lRet = CIFX_INVALID_POINTER;
 
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error creating device buffer!");
       }
     }
@@ -4109,7 +4013,7 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
 *   \param ptDevInstance Holding the DMA buffer configuration
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
+static int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t  lRet = CIFX_NO_ERROR;
   uint32_t ulBufferIdx;
@@ -4142,22 +4046,549 @@ int32_t cifXTKitCheckDMABufferConfig(PDEVICEINSTANCE ptDevInstance)
   return lRet;
 }
 #endif
+/*****************************************************************************/
+/*! Low-Level interrupt handler
+*   \param ptDevInstance Instance that probably generated an IRQ (on PCI devices
+*                        the routine decides if it was an IRQ for shared interrupt lines)
+*   \param fPCIIgnoreGlobalIntFlag  Ignore the global interrupt flag on PCI cards,
+*                                   to detect shared interrupts. This might be necessary
+*                                   if the user has already filtered out all shared IRQs
+*   \return CIFX_TKIT_IRQ_DSR_REQUESTED/CIFX_TKIT_IRQ_HANDLED on success
+*           CIFX_TKIT_IRQ_OTHERDEVICE if the IRQ is not from the device      */
+/*****************************************************************************/
+static int DPMcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag)
+{
+  int iRet;
+
+  /* Check if DPM is available, if not, it cannot be our card, that caused the interrupt */
+  if( HWIF_READ32(ptDevInstance, *(uint32_t*)ptDevInstance->pbDPM) == CIFX_DPM_INVALID_CONTENT)
+    return CIFX_TKIT_IRQ_OTHERDEVICE;
+
+  if(!ptDevInstance->fIrqEnabled)
+  {
+    /* Irq is disabled on device, so we assume the user activated the interrupts,
+       but wants to poll the card. */
+
+    USER_Trace(ptDevInstance,
+               CIFX_TRACE_LEVEL_ERROR,
+               "cifXTKitISRHandler() : We received an interrupt, but IRQs are disabled!");
+
+    iRet = CIFX_TKIT_IRQ_OTHERDEVICE;
+
+  } else
+  {
+    /* We are working in interrupt mode */
+    uint32_t                    ulChannel;
+    int                         iIrqToDsrBuffer   = ptDevInstance->iIrqToDsrBuffer;
+    IRQ_TO_DSR_BUFFER_T*        ptIsrToDsrBuffer  = &ptDevInstance->atIrqToDsrBuffer[iIrqToDsrBuffer];
+    HIL_DPM_HANDSHAKE_ARRAY_T*  ptHandshakeBuffer = &ptIsrToDsrBuffer->tHandshakeBuffer;
+
+    /* on a DPM module every handshake cell can be read individually,
+       on a PCI module the complete handshake register block must be read sequentially */
+    if( (!ptDevInstance->fPCICard) ||
+        (!ptDevInstance->pbHandshakeBlock) )
+    {
+      /* DPM card */
+
+      ++ptDevInstance->ulIrqCounter;
+      ptIsrToDsrBuffer->fValid = 1;
+
+      /* Check if we have a handshake block, if so, we read it completely on DPM hardwares
+         to make sure, illegally activated handshake cells, don't cause interrupts */
+      if (NULL != ptDevInstance->pbHandshakeBlock)
+      {
+        HWIF_READN( ptDevInstance,
+                    ptHandshakeBuffer,
+                    ptDevInstance->pbHandshakeBlock,
+                    sizeof(*ptHandshakeBuffer));
+      } else
+      {
+        /* We do not have a handshake block, so we have to read them one by one */
+        /* and only for the available channels */
+        ptHandshakeBuffer->atHsk[0].ulValue = HWIF_READ32(ptDevInstance, ptDevInstance->tSystemDevice.ptHandshakeCell->ulValue);
+
+        for(ulChannel = 0; ulChannel < ptDevInstance->ulCommChannelCount; ++ulChannel)
+        {
+          PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)ptDevInstance->pptCommChannels[ulChannel];
+          uint32_t         ulBlockID = ptChannel->ulBlockID;
+
+          ptHandshakeBuffer->atHsk[ulBlockID].ulValue = HWIF_READ32(ptDevInstance, ptChannel->ptHandshakeCell->ulValue);
+        }
+      }
+
+      /* we need to check in DSR which handshake bits have changed */
+      iRet = CIFX_TKIT_IRQ_DSR_REQUESTED;
+
+    } else
+    {
+      /* PCI card */
+
+      PNETX_GLOBAL_REG_BLOCK ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)ptDevInstance->pvGlobalRegisters;
+      uint32_t ulIrqState0 = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptGlobalRegisters->ulIRQState_0));
+      uint32_t ulIrqState1 = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptGlobalRegisters->ulIRQState_1));
+
+      /* First check if we have generated this interrupt by reading the global IRQ status bit */
+      if(  !fPCIIgnoreGlobalIntFlag &&
+          (0 == (ulIrqState0 & MSK_IRQ_STA0_INT_REQ)) )
+      {
+        /* we have not generated this interrupt, so it must be another device on shared IRQ */
+        iRet = CIFX_TKIT_IRQ_OTHERDEVICE;
+
+      } else
+      {
+        HIL_DPM_HANDSHAKE_ARRAY_T* ptHandshakeBlock = (HIL_DPM_HANDSHAKE_ARRAY_T*)ptDevInstance->pbHandshakeBlock;
+
+        /* confirm all interrupts.
+           We can safely clear handshake interrupts here, as we are reading the handshake flags below,
+           so we won't miss an IRQ.*/
+        HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQState_0, HOST_TO_LE32(ulIrqState0));
+        HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQState_1, HOST_TO_LE32(ulIrqState1));
+
+        ++ptDevInstance->ulIrqCounter;
+        ptIsrToDsrBuffer->fValid = 1;
+
+        /* Only read first 8 Handshake cells, due to a netX hardware issue. Reading flags 8-15 may
+           also confirm IRQs for Handshake cell 0-7 due to an netX internal readahead buffer */
+        ptHandshakeBuffer->atHsk[HIL_DPM_SYSTEM_CHANNEL_INDEX].ulValue    = HWIF_READ32( ptDevInstance, ptHandshakeBlock->atHsk[HIL_DPM_SYSTEM_CHANNEL_INDEX].ulValue);
+        ptHandshakeBuffer->atHsk[HIL_DPM_HANDSHAKE_CHANNEL_INDEX].ulValue = HWIF_READ32( ptDevInstance, ptHandshakeBlock->atHsk[HIL_DPM_HANDSHAKE_CHANNEL_INDEX].ulValue);
+
+        for(ulChannel = 0; ulChannel < ptDevInstance->ulCommChannelCount; ++ulChannel)
+          ptHandshakeBuffer->atHsk[HIL_DPM_COM_CHANNEL_START_INDEX + ulChannel].ulValue = HWIF_READ32(ptDevInstance, ptHandshakeBlock->atHsk[HIL_DPM_COM_CHANNEL_START_INDEX + ulChannel].ulValue);
+
+        /* we need to check in DSR which handshake bits have changed */
+        iRet = CIFX_TKIT_IRQ_DSR_REQUESTED;
+      }
+    }
+  }
+
+  return iRet;
+}
+
+/*****************************************************************************/
+/*! Process IO Areas for changes / callbacks
+*   \param ptChannel      Channel Instance
+*   \param ptIoArea       IO Area
+*   \param usChangedBits  Bits that have changed since last IRQ
+*   \param usUnequalBits  Bits that are unequal between host and netX
+*   \param fOutput        !=0 if an output area is processed                 */
+/*****************************************************************************/
+static void ProcessIOArea(PCHANNELINSTANCE  ptChannel,
+                          PIOINSTANCE       ptIoArea,
+                          uint16_t          usChangedBits,
+                          uint16_t          usUnequalBits,
+                          int               fOutput)
+{
+  uint16_t usBitMask = (uint16_t)(1 << ptIoArea->bHandshakeBit);
+
+  if(usChangedBits & usBitMask)
+  {
+    PFN_NOTIFY_CALLBACK pfnCallback = NULL;
+    uint8_t             bIOBitState = DEV_GetIOBitstate(ptChannel, ptIoArea, fOutput);
+
+    switch(bIOBitState)
+    {
+    case HIL_FLAGS_EQUAL:
+      if(0 == (usUnequalBits & usBitMask))
+        pfnCallback = ptIoArea->pfnCallback;
+      break;
+
+    case HIL_FLAGS_NOT_EQUAL:
+      if(usUnequalBits & usBitMask)
+        pfnCallback = ptIoArea->pfnCallback;
+      break;
+
+    case HIL_FLAGS_CLEAR:
+      if(0 == (ptChannel->usNetxFlags & usBitMask))
+        pfnCallback = ptIoArea->pfnCallback;
+      break;
+
+    case HIL_FLAGS_SET:
+      if(ptChannel->usNetxFlags & usBitMask)
+        pfnCallback = ptIoArea->pfnCallback;
+      break;
+    }
+
+    if(pfnCallback)
+      pfnCallback(ptIoArea->ulNotifyEvent, 0, NULL, ptIoArea->pvUser);
+
+    OS_SetEvent(ptChannel->ahHandshakeBitEvents[ptIoArea->bHandshakeBit]);
+  }
+}
+
+/*****************************************************************************/
+/*! Deferred interrupt handler
+*   \param ptDevInstance Instance the DSR is requested for                   */
+/*****************************************************************************/
+static void DPMcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
+{
+  if(!ptDevInstance->fResetActive)
+  {
+    /* Get actual data buffer index */
+    uint32_t              ulChannel        = 0;
+    PCHANNELINSTANCE      ptChannel        = &ptDevInstance->tSystemDevice;
+    int                   iIrqToDsrBuffer  = 0;
+    IRQ_TO_DSR_BUFFER_T*  ptIrqToDsrBuffer = NULL;
+
+#ifdef CIFX_TOOLKIT_ENABLE_DSR_LOCK
+    /* Lock against ISR */
+    OS_IrqLock(ptDevInstance->pvOSDependent);
+#else
+
+    /* ATTENTION: The IrqToDsr Buffer handling implies a "always" higher priority */
+    /*            of the ISR function. This does usually happens on physical ISR functions */
+    /*            but does not work if the ISR and DSR are handled as a threads! */
+
+#endif
+
+    iIrqToDsrBuffer  = ptDevInstance->iIrqToDsrBuffer;
+    ptIrqToDsrBuffer = &ptDevInstance->atIrqToDsrBuffer[iIrqToDsrBuffer];
+
+    if(!ptIrqToDsrBuffer->fValid)
+    {
+      /* Interrupt did not provide data yet */
+
+#ifdef CIFX_TOOLKIT_ENABLE_DSR_LOCK
+      /* Release lock against ISR */
+      OS_IrqUnlock(ptDevInstance->pvOSDependent);
+#endif
+
+      return;
+    } else
+    {
+      /* Flip data buffer so IRQ uses the other buffer */
+      ptDevInstance->iIrqToDsrBuffer ^= 0x01;
+
+      /* Invalidate the buffer, we are now handling */
+      ptIrqToDsrBuffer->fValid        = 0;
+    }
+
+#ifdef CIFX_TOOLKIT_ENABLE_DSR_LOCK
+    /* Release lock against ISR */
+    OS_IrqUnlock(ptDevInstance->pvOSDependent);
+#endif
+
+    /* Only process rest of flags if NSF_READY is set. This must be done to prevent
+       confusion of the toolkit during a system start (xSysdeviceReset) */
+    if(ptIrqToDsrBuffer->tHandshakeBuffer.atHsk[0].t8Bit.bNetxFlags & NSF_READY)
+    {
+      /*--------------------------------------------------------------------*/
+      /* Evaluate device synchronisation flags, the flags are fixed 16 Bit  */
+      /*--------------------------------------------------------------------*/
+      uint16_t  usChangedSyncBits;
+      uint16_t  usOldNSyncFlags = ptDevInstance->tSyncData.usNSyncFlags; /* Remember last known netX flags */
+
+      /* Get pointer to the new flag data from ISR */
+      HIL_DPM_HANDSHAKE_CELL_T*  ptSyncCell  = &ptIrqToDsrBuffer->tHandshakeBuffer.atHsk[NETX_HSK_SYNCH_FLAG_POS];
+
+      /* Get the actual flags */
+      ptDevInstance->tSyncData.usNSyncFlags = LE16_TO_HOST(ptSyncCell->t16Bit.usNetxFlags);
+
+      /* Check if there are changed bits since last interrupt from netX side,  */
+      /* and only process sync if bits have chanded! */
+      if ( 0 != (usChangedSyncBits = usOldNSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags))
+      {
+        uint32_t  ulBitPos;
+        uint16_t  usUnequalSyncBits;
+
+        /* Create unequal bit mask */
+        usUnequalSyncBits = ptDevInstance->tSyncData.usNSyncFlags ^ ptDevInstance->tSyncData.usHSyncFlags;
+
+        /* Signal sync events */
+        for(ulBitPos = 0; ulBitPos < NETX_NUM_OF_SYNCH_FLAGS; ++ulBitPos)
+        {
+          /* There is a valid channel */
+          uint16_t          usBitMask     = (uint16_t)(1 << ulBitPos);
+          PCHANNELINSTANCE  ptSyncChannel = NULL;
+
+          if (ulBitPos >= ptDevInstance->ulCommChannelCount)
+            break;
+
+          ptSyncChannel = (PCHANNELINSTANCE)ptDevInstance->pptCommChannels[ulBitPos];
+
+          if ( usChangedSyncBits & usBitMask)
+          {
+            uint8_t bState   = HIL_FLAGS_NOT_EQUAL;
+            int     fProcess = 0;
+
+            /* Handle Sync interrupts, read actual state and set bState accordingly */
+            if( HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptDevInstance, ptSyncChannel->ptCommonStatusBlock->bSyncHskMode))
+              bState = HIL_FLAGS_EQUAL;
+
+            /* Check which mode to handle */
+            /* HIL_FLAGS_NOT_EQUAL corresponds to DEVICE_CONTROLLED */
+            if( (bState == HIL_FLAGS_NOT_EQUAL) &&
+                (usUnequalSyncBits & usBitMask) )
+            {
+              fProcess = 1;
+
+            } else if( (bState == HIL_FLAGS_EQUAL) &&
+                       (0 == (usUnequalSyncBits & usBitMask)) )
+            {
+              fProcess = 1;
+            }
+
+            if(fProcess)
+            {
+              /* There is a valid channel */
+              /* Check if we have a callback assigned */
+              if (ptSyncChannel->tSynch.pfnCallback)
+                ptSyncChannel->tSynch.pfnCallback( CIFX_NOTIFY_SYNC, 0, NULL, ptSyncChannel->tSynch.pvUser);
+
+              /* Signal event to allow waiting for sync state without callback */
+              if( ptDevInstance->tSyncData.ahSyncBitEvents[ulBitPos])
+                OS_SetEvent(ptDevInstance->tSyncData.ahSyncBitEvents[ulBitPos]);
+            }
+          }
+        }
+      }
+
+      /*-----------------------------------------------------*/
+      /* Evaluate all changed handshake bits on all channels */
+      /* Start with SYSTEM channel                           */
+      do
+      {
+        uint16_t usChangedBits;
+        uint16_t usUnequalBits;
+        uint16_t usOldNetxFlags = ptChannel->usNetxFlags; /* Remember last known netX flags */
+        uint32_t ulIdx;
+
+        /* Address the handshake cell */
+        HIL_DPM_HANDSHAKE_CELL_T* ptHskCell = &ptIrqToDsrBuffer->tHandshakeBuffer.atHsk[ptChannel->ulBlockID];
+
+        if(ptChannel->bHandshakeWidth == HIL_HANDSHAKE_SIZE_8BIT)
+        {
+          ptChannel->usNetxFlags = ptHskCell->t8Bit.bNetxFlags;
+        } else
+        {
+          ptChannel->usNetxFlags = LE16_TO_HOST(ptHskCell->t16Bit.usNetxFlags);
+        }
+
+        /* Check which bits have changed since last interrupt from netX side */
+        usChangedBits = usOldNetxFlags ^ ptChannel->usNetxFlags;
+        usUnequalBits = ptChannel->usNetxFlags ^ ptChannel->usHostFlags;
+
+        /* Check if we have a valid channel (not for the bootloader) */
+        if(ptChannel->fIsChannel)
+        {
+          /*------------------------------------------*/
+          /* Process CHANNEL flags                    */
+          /*------------------------------------------*/
+
+          /* -----------------------------------------*/
+          /* Check COM Flag and I/O areas             */
+          /* -----------------------------------------*/
+          if(usChangedBits & NCF_COMMUNICATING)
+          {
+            OS_SetEvent(ptChannel->ahHandshakeBitEvents[NCF_COMMUNICATING_BIT_NO]);
+
+            /* check if notification is registered */
+            if (NULL != ptChannel->tComState.pfnCallback)
+            {
+              CIFX_NOTIFY_COM_STATE_T tData;
+
+              tData.ulComState = (ptChannel->usNetxFlags & NCF_COMMUNICATING);
+
+              ptChannel->tComState.pfnCallback( CIFX_NOTIFY_COM_STATE,
+                                                sizeof(tData),
+                                                &tData,
+                                                ptChannel->tComState.pvUser);
+            }
+          }
+
+          /* Check IO - Input Areas */
+          for(ulIdx = 0; ulIdx < ptChannel->ulIOInputAreas; ++ulIdx)
+          {
+            ProcessIOArea(ptChannel,
+                          ptChannel->pptIOInputAreas[ulIdx],
+                          usChangedBits,
+                          usUnequalBits,
+                          0);
+          }
+
+          /* Check IO - Output Areas */
+          for(ulIdx = 0; ulIdx < ptChannel->ulIOOutputAreas; ++ulIdx)
+          {
+            ProcessIOArea(ptChannel,
+                          ptChannel->pptIOOutputAreas[ulIdx],
+                          usChangedBits,
+                          usUnequalBits,
+                          1);
+          }
+
+          /* -----------------------------------------*/
+          /* Check COS Flags                          */
+          /* -----------------------------------------*/
+          /* Check netX for new COS flags             */
+          /* -----------------------------------------*/
+          if( usUnequalBits & NCF_NETX_COS_CMD)
+          {
+            uint32_t ulNewCOSFlags = 0;
+
+            /* Lock flag access */
+            OS_EnterLock(ptChannel->pvLock);
+
+            /* Read the flags and acknowledge them */
+            ulNewCOSFlags = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptChannel->ptCommonStatusBlock->ulCommunicationCOS));
+
+            /* Check if they have changed */
+            if(ptChannel->ulDeviceCOSFlags != ulNewCOSFlags)
+            {
+              ptChannel->ulDeviceCOSFlagsChanged  = ptChannel->ulDeviceCOSFlags ^ ulNewCOSFlags;
+              ptChannel->ulDeviceCOSFlags         = ulNewCOSFlags;
+            }
+
+            DEV_ToggleBit(ptChannel, HCF_NETX_COS_ACK);
+
+            /* Unlock flag access */
+            OS_LeaveLock(ptChannel->pvLock);
+          }
+
+          /* Signal netX COS command flag change */
+          if( usChangedBits & NCF_NETX_COS_CMD)
+            OS_SetEvent(ptChannel->ahHandshakeBitEvents[NCF_NETX_COS_CMD_BIT_NO]);
+
+          /* --------------------------------------------------*/
+          /* Process our own COS flags (Write them to device)  */
+          /* --------------------------------------------------*/
+          /* Check if we have new COS flags to write */
+          if ( ptChannel->ulHostCOSFlagsSaved != ptChannel->ulHostCOSFlags)
+          {
+            /* Check if it is allowed to write new flags */
+            if( !(usUnequalBits & NCF_HOST_COS_ACK))
+            {
+              /* Lock flag access */
+              OS_EnterLock(ptChannel->pvLock);
+
+              /* Update COS flags */
+              HWIF_WRITE32(ptDevInstance, ptChannel->ptControlBlock->ulApplicationCOS, HOST_TO_LE32(ptChannel->ulHostCOSFlags));
+
+              /* Store the written values */
+              ptChannel->ulHostCOSFlagsSaved = ptChannel->ulHostCOSFlags;
+
+              /* Signal new COS flags */
+              DEV_ToggleBit(ptChannel, HCF_HOST_COS_CMD);
+
+              /* Remove all enable flags from the local COS flags */
+              ptChannel->ulHostCOSFlags &= ~(HIL_APP_COS_BUS_ON_ENABLE | HIL_APP_COS_INITIALIZATION_ENABLE | HIL_APP_COS_LOCK_CONFIGURATION_ENABLE);
+
+              /* Unlock flag access */
+              OS_LeaveLock(ptChannel->pvLock);
+            }
+          }
+
+          /* Signal host COS acknowledge flag change */
+          if( usChangedBits & NCF_HOST_COS_ACK)
+            OS_SetEvent(ptChannel->ahHandshakeBitEvents[NCF_HOST_COS_ACK_BIT_NO]);
+
+        } else
+        {
+          /*------------------------------------------*/
+          /* Process SYSTEM DEVICE Hardware COS flags */
+          /*------------------------------------------*/
+          /*----------------------------------------------------*/
+          /* Check if the hardware signals new system COS flags */
+          /*----------------------------------------------------*/
+          if( usUnequalBits & NSF_NETX_COS_CMD)
+          {
+            /* Read the flags and acknowledge them */
+            HIL_DPM_SYSTEM_CHANNEL_T* ptSyschannel   = (HIL_DPM_SYSTEM_CHANNEL_T*)ptChannel->pbDPMChannelStart;
+            uint32_t                  ulNewCOSFlags  = 0;
+
+            /* Lock flag access */
+            OS_EnterLock(ptChannel->pvLock);
+
+            /* Read the actual "System COS" flags */
+            ulNewCOSFlags  = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSyschannel->tSystemState.ulSystemCOS));
+
+            /* Read the flags and acknowledge them */
+            if(ptChannel->ulDeviceCOSFlags != ulNewCOSFlags)
+            {
+              ptChannel->ulDeviceCOSFlagsChanged  = ptChannel->ulDeviceCOSFlags ^ ulNewCOSFlags;
+              ptChannel->ulDeviceCOSFlags         = ulNewCOSFlags;
+            }
+
+            DEV_ToggleBit(ptChannel, HSF_NETX_COS_ACK);
+
+            /* Unlock flag access */
+            OS_LeaveLock(ptChannel->pvLock);
+          }
+
+            /* Signal COS CMD bits */
+          if(usChangedBits & NSF_NETX_COS_CMD)
+            OS_SetEvent(ptChannel->ahHandshakeBitEvents[NSF_NETX_COS_CMD_BIT_NO]);
+
+          /* Signal COS ACK bits */
+          if(usChangedBits & NSF_HOST_COS_ACK)
+            OS_SetEvent(ptChannel->ahHandshakeBitEvents[NSF_HOST_COS_ACK_BIT_NO]);
+        }
+
+        /*------------------------------------------*/
+        /* Process the send receive MBX flags       */
+        /*------------------------------------------*/
+        /* Check Receive Mailbox */
+        if( usChangedBits & ptChannel->tRecvMbx.ulRecvACKBitmask)
+        {
+          if( (usUnequalBits & ptChannel->tRecvMbx.ulRecvACKBitmask) &&
+              (NULL != ptChannel->tRecvMbx.pfnCallback) )
+          {
+            CIFX_NOTIFY_RX_MBX_FULL_DATA_T tRxData;
+
+            tRxData.ulRecvCount = LE16_TO_HOST(HWIF_READ16(ptDevInstance, ptChannel->tRecvMbx.ptRecvMailboxStart->usWaitingPackages));
+
+            ptChannel->tRecvMbx.pfnCallback(CIFX_NOTIFY_RX_MBX_FULL,
+                                            sizeof(tRxData),
+                                            &tRxData,
+                                            ptChannel->tRecvMbx.pvUser);
+          }
+          OS_SetEvent(ptChannel->ahHandshakeBitEvents[ptChannel->tRecvMbx.bRecvACKBitoffset]);
+        }
+
+        /* Check Send Mailbox */
+        if( usChangedBits & ptChannel->tSendMbx.ulSendCMDBitmask)
+        {
+          if( (0    == (usUnequalBits & ptChannel->tSendMbx.ulSendCMDBitmask)) &&
+              (NULL != ptChannel->tSendMbx.pfnCallback) )
+          {
+            CIFX_NOTIFY_TX_MBX_EMPTY_DATA_T tTxData;
+
+            tTxData.ulMaxSendCount = LE16_TO_HOST(HWIF_READ16(ptDevInstance, ptChannel->tSendMbx.ptSendMailboxStart->usPackagesAccepted));
+
+            ptChannel->tSendMbx.pfnCallback(CIFX_NOTIFY_TX_MBX_EMPTY,
+                                            sizeof(tTxData),
+                                            &tTxData,
+                                            ptChannel->tSendMbx.pvUser);
+          }
+          OS_SetEvent(ptChannel->ahHandshakeBitEvents[ptChannel->tSendMbx.bSendCMDBitoffset]);
+        }
+
+        /* Next channel */
+        if(ulChannel < ptDevInstance->ulCommChannelCount)
+          ptChannel = ptDevInstance->pptCommChannels[ulChannel];
+
+        ulChannel++;
+
+      } while(ulChannel <= ptDevInstance->ulCommChannelCount);
+    }
+  }
+}
 
 /*****************************************************************************/
 /*! Physically Enable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void DPMcifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   /* Set interrupt enable bits in PCI mode only if the complete 64KByte DPM is available */
   if( (ptDevInstance->fPCICard) ||
       (ptDevInstance->ulDPMSize >= NETX_DPM_MEMORY_SIZE) )
   {
+    PNETX_GLOBAL_REG_BLOCK ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)ptDevInstance->pvGlobalRegisters;
+
     /* Enable global and handshake interrupts */
-    HWIF_WRITE32(ptDevInstance, ptDevInstance->ptGlobalRegisters->ulIRQEnable_0,
+    HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQEnable_0,
                  HOST_TO_LE32((MSK_IRQ_EN0_INT_REQ | MSK_IRQ_EN0_HANDSHAKE) ));
 
-    HWIF_WRITE32(ptDevInstance, ptDevInstance->ptGlobalRegisters->ulIRQEnable_1, 0);
+    HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQEnable_1, 0);
   }
 }
 
@@ -4165,15 +4596,17 @@ void cifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 /*! Physically Disable Interrupts on hardware
 *   \param ptDevInstance Device instance                                     */
 /*****************************************************************************/
-void cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
+static void DPMcifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   /* Clear interrupt enable bits in PCI mode or if the complete 64Kb DPM is available */
   if( (ptDevInstance->fPCICard) ||
       (ptDevInstance->ulDPMSize == NETX_DPM_MEMORY_SIZE) )
   {
+    PNETX_GLOBAL_REG_BLOCK ptGlobalRegisters = (PNETX_GLOBAL_REG_BLOCK)ptDevInstance->pvGlobalRegisters;
+
     /* Disable all interrupts */
-    HWIF_WRITE32(ptDevInstance, ptDevInstance->ptGlobalRegisters->ulIRQEnable_0, 0);
-    HWIF_WRITE32(ptDevInstance, ptDevInstance->ptGlobalRegisters->ulIRQEnable_1, 0);
+    HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQEnable_0, 0);
+    HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->ulIRQEnable_1, 0);
   }
 }
 
@@ -4183,7 +4616,7 @@ void cifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 *                        the DPM)
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
+static int32_t DPMcifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t lRet;
 
@@ -4193,6 +4626,10 @@ int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 
   /* Disable interrupts during startup phase. Just in case the user has set this flag! */
   ptDevInstance->fIrqEnabled = 0;
+
+  ptDevInstance->ptTkitFun = cifXTkitGetDpmTkitFunctionList();
+  ptDevInstance->ptCifxFun = cifXTkitGetDpmApiFunctionList();
+  ptDevInstance->ptDevFun  = cifXTkitGetDpmDevFunctionList();
 
 #ifdef CIFX_TOOLKIT_HWIF
   /* Validate hardware access function pointers != NULL */
@@ -4228,10 +4665,10 @@ int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
     {
       lRet = CIFX_INVALID_POINTER;
 
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInstance,
-                  TRACE_LEVEL_ERROR,
+                  CIFX_TRACE_LEVEL_ERROR,
                   "Error creating device list buffer!");
       }
 
@@ -4244,12 +4681,12 @@ int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
       if(0 != (ptDevInstance->fIrqEnabled))
       {
         /* Perform a dummy interrupt cycle to get handshake flags in Sync for proper operation */
-        if(CIFX_TKIT_IRQ_DSR_REQUESTED == cifXTKitISRHandler(ptDevInstance, 1))
-          cifXTKitDSRHandler(ptDevInstance);
+        if(CIFX_TKIT_IRQ_DSR_REQUESTED == DPMcifXTKitISRHandler(ptDevInstance, 1))
+          DPMcifXTKitDSRHandler(ptDevInstance);
 
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
         OS_EnableInterrupts(ptDevInstance->pvOSDependent);
-        cifXTKitEnableHWInterrupt(ptDevInstance);
+        DPMcifXTKitEnableHWInterrupt(ptDevInstance);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
       }
     }
@@ -4268,7 +4705,7 @@ int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 *                         any references to the device are open
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
+static int32_t DPMcifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 {
   int32_t  lRet   = CIFX_INVALID_BOARD;
   int      fFound = 0;
@@ -4297,7 +4734,7 @@ int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
     if(ptDevInst->fIrqEnabled)
     {
 #ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
-      cifXTKitDisableHWInterrupt(ptDevInst);
+      DPMcifXTKitDisableHWInterrupt(ptDevInst);
       OS_DisableInterrupts(ptDevInst->pvOSDependent);
 #endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
 
@@ -4347,15 +4784,59 @@ int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 }
 
 /*****************************************************************************/
+/*! Un-Initializes the cifX Toolkit                                          */
+/*****************************************************************************/
+static void DPMcifXTKitDeinit( void)
+{
+  int32_t lIdx = 0;
+
+  if(g_pvTkitLock)
+  {
+    OS_EnterLock(g_pvTkitLock);
+  }
+
+  /* g_ulDeviceCount is decremented inside cifXStopDevice() */
+  for(lIdx = g_ulDeviceCount-1; lIdx >= 0; lIdx--)
+  {
+    (void)cifXStopDevice(g_pptDevices[lIdx]);
+  }
+
+  if (0 == g_ulDeviceCount)
+  {
+    if(g_pptDevices)
+    {
+      OS_Memfree(g_pptDevices);
+      g_pptDevices    = NULL;
+    }
+
+    if(g_pvTkitLock)
+    {
+      OS_LeaveLock(g_pvTkitLock);
+      OS_DeleteLock(g_pvTkitLock);
+      g_pvTkitLock = NULL;
+    }
+
+    /* Uninitialize OS functions */
+    OS_Deinit();
+
+    g_tDriverInfo.fInitialized = 0;
+    g_tDriverInfo.ulOpenCount  = 0;
+  } else
+  {
+    OS_LeaveLock(g_pvTkitLock);
+  }
+}
+
+/*****************************************************************************/
 /*! Initializes the cifX Toolkit
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t cifXTKitInit( void)
+static int32_t DPMcifXTKitInit( void)
 {
   int32_t lRet = CIFX_NO_ERROR;
 
   /* Uninitialize toolkit, just in case it was not correctly closed before */
-  cifXTKitDeinit();
+  DPMcifXTKitDeinit();
 
   /* Initialize OS functions */
   lRet = OS_Init();
@@ -4381,41 +4862,24 @@ int32_t cifXTKitInit( void)
 }
 
 /*****************************************************************************/
-/*! Un-Initializes the cifX Toolkit                                          */
+/*! Local structure for cifX Toolkit function pointers                       */
 /*****************************************************************************/
-void cifXTKitDeinit( void)
+static CIFX_TKIT_FUNCTION_LIST_T s_tCifxDpmTkitFuns =
 {
-  uint32_t ulIdx = 0;
+  DPMcifXTKitInit,
+  DPMcifXTKitDeinit,
+  DPMcifXTKitAddDevice,
+  DPMcifXTKitRemoveDevice,
+  DPMcifXTKitEnableHWInterrupt,
+  DPMcifXTKitDisableHWInterrupt,
+  DPMcifXTKitISRHandler,
+  DPMcifXTKitDSRHandler,
+  DPMcifXTKitCyclicTimer,
+};
 
-  if(g_pvTkitLock)
-  {
-    OS_EnterLock(g_pvTkitLock);
-  }
-
-  for(ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
-  {
-    (void)cifXStopDevice(g_pptDevices[ulIdx]);
-  }
-
-  if(g_pptDevices)
-  {
-    OS_Memfree(g_pptDevices);
-    g_pptDevices    = NULL;
-  }
-  g_ulDeviceCount = 0;
-
-  if(g_pvTkitLock)
-  {
-    OS_LeaveLock(g_pvTkitLock);
-    OS_DeleteLock(g_pvTkitLock);
-    g_pvTkitLock = NULL;
-  }
-
-  /* Uninitialize OS functions */
-  OS_Deinit();
-
-  g_tDriverInfo.fInitialized = 0;
-  g_tDriverInfo.ulOpenCount  = 0;
+PCIFX_TKIT_FUNCTION_LIST_T cifXTkitGetDpmTkitFunctionList(void)
+{
+  return &s_tCifxDpmTkitFuns;
 }
 
 /*****************************************************************************/

@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_Types.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_Types.h $: *//*!
 
   \file Hil_Types.h
 
@@ -52,6 +52,35 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_TASK_UID_Ttag
 #define HIL_TASK_UID_TASK_TYPE_WINCE            (0x0004)
 /** XPEC channel that has not yet been allocated by a protocol stack (legacy only) */
 #define HIL_TASK_UID_TASK_TYPE_XPEC             (0x0005)
+
+/*********************** Task Types for HIL_TASK_UID_T ***********************/
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_SYSTEM_INFO_Ttag
+{
+  uint8_t   abCookie[4];                                         /*!< "netX" cookie */
+  uint32_t  ulDpmTotalSize;                                      /*!< Total Size of the whole dual-port memory in bytes */
+  uint32_t  ulDeviceNumber;                                      /*!< Device number */
+  uint32_t  ulSerialNumber;                                      /*!< Serial number */
+  uint16_t  ausHwOptions[4];                                     /*!< Hardware options, xC port 0..3 */
+  uint16_t  usManufacturer;                                      /*!< Manufacturer Location */
+  uint16_t  usProductionDate;                                    /*!< Date of production */
+  uint32_t  ulLicenseFlags1;                                     /*!< License code flags 1 */
+  uint32_t  ulLicenseFlags2;                                     /*!< License code flags 2 */
+  uint16_t  usNetxLicenseID;                                     /*!< netX license identification */
+  uint16_t  usNetxLicenseFlags;                                  /*!< netX license flags */
+  uint16_t  usDeviceClass;                                       /*!< netX device class */
+  uint8_t   bHwRevision;                                         /*!< Hardware revision index */
+  uint8_t   bHwCompatibility;                                    /*!< Hardware compatibility index */
+  uint8_t   bDevIdNumber;                                        /*!< Device identification number (rotary switch) */
+  uint8_t   bHifLayout;                                          /*!< Host Interface Layout identifier */
+  uint16_t  usReserved;                                          /*!< Reserved */
+} HIL_SYSTEM_INFO_T;
+
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_WATCHDOG_Ttag
+{
+  uint32_t  ulWatchdogTime;                                      /*!< Configured watchdog time */
+  uint32_t  ulHostWatchdog;                                      /*!< Host watchdog counter    */
+  uint32_t  ulDeviceWatchdog;                                    /*!< Device watchdog counter  */
+} HIL_WATCHDOG_T;
 
 
 #ifdef __HIL_PRAGMA_PACK_ENABLE

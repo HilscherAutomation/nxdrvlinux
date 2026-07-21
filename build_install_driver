@@ -72,12 +72,15 @@ cur_path=$PWD
 kernelversion=""
 ret=0
 
+export USE_VFIO_DRIVER="0"
+# default to netx912 support
+USE_VFIO_DRIVER="-fl 0x15cf:0x0900"
 
 echo -e "\n************************************************************"
 echo "**** Please type 'y'/'n' to enable/disable DMA support   ***"
 echo "************************************************************"
 export CIFX_DMA_SUPPORT="0"
-export USE_VFIO_DRIVER="0"
+
 read dma_enable
 if [ "${dma_enable}" = "y" ]; then
   CIFX_DMA_SUPPORT="1"
@@ -85,7 +88,8 @@ if [ "${dma_enable}" = "y" ]; then
   echo -e "\n************************************************************"
   echo "**** Please type 'y' if IOMMU support is enabled and not set to 'passthrough' or the driver is running on a system with \"EFI Secure Boot\" enabled."
   echo "************************************************************"
-  echo "NOTE: This will disable support for PCI devices of the uio_netx driver. Instead vfio-pci will be used."
+  echo "NOTE: This will disable support for all Hilscher PCI devices of the uio_netx driver. Instead vfio-pci will be used."
+  echo "      In the unlikly case you want an arbitrary assignment say 'no' and run the manual installation/assignment."
   read iommu_enable
   if [ "${iommu_enable}" = "y" ]; then
     USE_VFIO_DRIVER="1"
@@ -137,18 +141,17 @@ if ! "${scripts_dir}/"install_uio_netx unload ; then
   echo "Error unloading driver!"
   install_step="error"
 fi
-if [ "${USE_VFIO_DRIVER}" == "0" ]; then
-  # No vfio driver means uio_netx is compiled with PCI support - make sure no PCI
-  # device is still occupied by the vfio-pci driver before loading uio_netx.
+if [ "${USE_VFIO_DRIVER}" != "0" ]; then
+  [ "${USE_VFIO_DRIVER}" != "1" ] && register_args="${USE_VFIO_DRIVER}"
+  # vfio driver is enabled - depending on config register all or only netx912 devices
+  ${scripts_dir}/register_vfio_device ${register_args}
+else
+  # make sure no Hilscher device is linked to vfio-pci
   ${scripts_dir}/register_vfio_device -d
 fi
 if ! "${scripts_dir}/"install_uio_netx load; then
     echo "Error loading driver!"
     install_step="error"
-fi
-if [ "${USE_VFIO_DRIVER}" == "1" ]; then
-  # vfio driver is enabled - so register all Hilscher PCI ids to the vfio-pci driver
-  ${scripts_dir}/register_vfio_device
 fi
 ;;
 libcifx)

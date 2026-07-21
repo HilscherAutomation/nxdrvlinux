@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_ApplicationCmd.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_ApplicationCmd.h $: *//*!
 
   \file Hil_ApplicationCmd.h
 
@@ -163,6 +163,11 @@
 #define HIL_SET_LOG_BOOK_SEVERITY_LEVEL_CNF           0x00002F9B  /*!< Set severity level of logbook confirmation */
 /*! \} */
 
+/*! \defgroup HIL_GET_COMPONENT_IDS_doc  Get Component IDs
+ * \{ */
+#define HIL_GET_COMPONENT_IDS_REQ                     0x0000AD00  /*!< Get Component IDs request */
+#define HIL_GET_COMPONENT_IDS_CNF                     0x0000AD01  /*!< Get Component IDs confirmation */
+/*! \} */
 
 /******************************************************************************
  * Packet Definition
@@ -1352,6 +1357,75 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST
 typedef HIL_EMPTY_PACKET_T      HIL_SET_LOG_BOOK_SEVERITY_LEVEL_CNF_T;
 
 #define HIL_SET_LOG_BOOK_SEVERITY_LEVEL_CNF_SIZE   (0)
+
+/*! \} ************************************************************************/
+
+
+
+
+
+/******************************************************************************/
+/*! \addtogroup HIL_GET_COMPONENT_IDS_doc
+ *
+ * This service provides information about the number of protocol stack components
+ * reacheable via a specific Communication Channel mailbox.
+ * In case, the host application requires to store remanent data,
+ * the host application has to iterate over all components that indicate
+ * remanent data (ulRemanentDataSize > 0) and generate a HIL_SET_REMANENT_DATA_REQ
+ * with the respective Component ID during the configuration phase.
+ * If the component has no remanent data (ulRemanentDataSize = 0),
+ * the application does not need to use the HIL_SET_REMANENT_DATA_REQ for this component.
+ *
+ * \note In case component states remanent data size to be 0 no
+ *       HIL_SET_REMANENT_DATA_REQ needs to be created for the component.
+ * \note Details regarding remanent data handling are obtained from
+ *       \ref HIL_SET_REMANENT_DATA_REQ.
+ *
+ * \{ */
+
+/*! Get ComponentIDs Request structure. */
+typedef HIL_EMPTY_PACKET_T      HIL_GET_COMPONENT_IDS_REQ_T;
+
+/*! Packet data size. */
+#define HIL_GET_COMPONENT_IDS_REQ_SIZE  (0)
+
+
+/*! Component Details data structure */
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_COMPONENT_DETAILS_DATA_Ttag
+{
+  /*! Component ID */
+  uint32_t ulComponentId;
+  /*! Remanent Data size in bytes.
+   * \note In case of zero the component has no remanent data.  */
+  uint32_t ulRemanentDataSize;
+  /*! Major version */
+  uint16_t usVersionMajor;
+  /*! Minor version */
+  uint16_t usVersionMinor;
+  /*! Build version */
+  uint16_t usVersionBuild;
+  /*! Revision version */
+  uint16_t usVersionRevision;
+} HIL_GET_COMPONENT_DETAILS_DATA_T;
+
+/*! Get ComponentIDs Confirmation data structure */
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_COMPONENT_IDS_CNF_DATA_Ttag
+{
+  /*! Number of components in this confirmation */
+  uint32_t ulNumberComponents;
+  /*! Array of components registered at GenAP */
+  HIL_GET_COMPONENT_DETAILS_DATA_T atComponents[__HIL_VARIABLE_LENGTH_ARRAY];
+} HIL_GET_COMPONENT_IDS_CNF_DATA_T;
+
+/*! Get ComponentIDs Confirmation */
+typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_GET_COMPONENT_IDS_CNF_Ttag
+{
+  HIL_PACKET_HEADER_T                 tHead;  /*!< Packet header. */
+  HIL_GET_COMPONENT_IDS_CNF_DATA_T    tData;  /*!< Packet data. */
+} HIL_GET_COMPONENT_IDS_CNF_T;
+
+/*! Packet data size. */
+#define HIL_GET_COMPONENT_IDS_CNF_SIZE  (sizeof(HIL_GET_COMPONENT_IDS_CNF_DATA_T))
 
 /*! \} ************************************************************************/
 

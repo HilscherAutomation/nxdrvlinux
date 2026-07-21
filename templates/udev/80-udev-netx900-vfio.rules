@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x15cf", ATTR{device}=="0x0900", ATTR{driver_override}="vfio-pci", RUN+="/bin/sh -c 'echo $kernel > /sys/bus/pci/drivers_probe'"

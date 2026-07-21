@@ -1,6 +1,31 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.4.0
+-----------------
+  - Fix build issues when using Waf build environment
+
+  V2.8.3.0
+-----------------
+  - Added wrapper layer for cifX API
+  - IO-Read should always be possible without error (netX900)
+  - Call OS_Spi* functions with pvOSDependent instead of pvDevInstance
+  - Fix NULL pointer access in xChannelIORead()
+  - Fixed compiler warnings when using CIFX_TOOLKIT_BIGENDIAN
+
+  V2.8.2.0
+-----------------
+  - Switch to level triggered interrupt handling (netX900)
+
+  V2.8.1.0
+-----------------
+  - Calculate download timeout value instead of using a constant one
+  - Add support for new HIF layout (for netX900 based devices)
+
+  V2.8.0.2
+-----------------
+  - Fixed compiler warnings when using CIFX_TOOLKIT_BIGENDIAN
+
   V2.8.0.1
 -----------------
   - Added missng ulOption parameter in SerialDPM example functions (Read_NXxx / Write_NXxx)

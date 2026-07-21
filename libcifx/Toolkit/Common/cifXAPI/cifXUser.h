@@ -12,6 +12,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
   Changes:
     Date        Description
     -----------------------------------------------------------------------------------
+    2025-08-05  Added defines for new HIF layout
     2022-06-14  Added CIFX_IO_AREA_MASK definition
     2019-03-26  Added timeout definition for firmware update
     2018-11-19  - Update definitions and structures concerning xSysdeviceResetEx()
@@ -151,9 +152,11 @@ typedef void* CIFXHANDLE;
 #define CIFX_TO_FIRMWARE_UPDATE               30000UL
 
 /* Maximum channel number */
-#define CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION 8
-#define CIFX_MAX_NUMBER_OF_CHANNELS           6
-#define CIFX_NO_CHANNEL                       0xFFFFFFFF
+#define CIFX_MAX_NUMBER_OF_CHANNEL_DEFINITION     8
+#define CIFX_MAX_NUMBER_OF_CHANNELS               6
+#define CIFX_MAX_NUMBER_OF_HIF_CHANNEL_DEFINITION 3
+#define CIFX_MAX_NUMBER_OF_HIF_CHANNELS           1
+#define CIFX_NO_CHANNEL                           0xFFFFFFFF
 
 /* Maximum file name length */
 #define CIFX_MAX_FILE_NAME_LENGTH             260
@@ -249,6 +252,10 @@ typedef struct CIFX_NOTIFY_COM_STATE_Ttag
 #define CIFX_NOTIFY_PD1_OUT                   6
 #define CIFX_NOTIFY_SYNC                      7
 #define CIFX_NOTIFY_COM_STATE                 8
+#define CIFX_NOTIFY_PD2_IN                    9
+#define CIFX_NOTIFY_PD3_IN                    10
+#define CIFX_NOTIFY_PD2_OUT                   11
+#define CIFX_NOTIFY_PD3_OUT                   12
 
 /* Extended memory commands */
 #define CIFX_GET_EXTENDED_MEMORY_INFO         1
@@ -321,7 +328,7 @@ typedef __CIFx_PACKED_PRE struct SYSTEM_CHANNEL_SYSTEM_INFO_BLOCKtag
   uint8_t   bHwRevision;                                   /*!< 0x2A Hardware revision index */
   uint8_t   bHwCompatibility;                              /*!< 0x2B Hardware compatibility index */
   uint8_t   bDevIdNumber;                                  /*!< 0x2C Device identification number (rotary switch) */
-  uint8_t   bReserved;                                     /*!< 0x2D Reserved byte */
+  uint8_t   bHifLayout;                                    /*!< 0x2D HIF: Host Interface Layout identifier, DPM: Reserved (0) */
   uint16_t  usReserved;                                    /*!< 0x2E:0x2F Reserved */
 } __CIFx_PACKED_POST SYSTEM_CHANNEL_SYSTEM_INFO_BLOCK;
 
@@ -446,9 +453,13 @@ typedef __CIFx_PACKED_PRE struct PLC_MEMORY_INFORMATIONtag
 /***************************************************************************/
 /* Driver dependent information */
 
-#define CIFX_MAX_PACKET_SIZE               1596                  /*!< Maximum size of the RCX packet in bytes */
-#define CIFX_PACKET_HEADER_SIZE            40                    /*!< Maximum size of the RCX packet header in bytes */
-#define CIFX_MAX_DATA_SIZE   (CIFX_MAX_PACKET_SIZE - CIFX_PACKET_HEADER_SIZE) /*!< Maximum RCX packet data size */
+#ifdef HIF_SUPPORT
+#define CIFX_MAX_PACKET_SIZE               2176                  /*!< Maximum size of the packet in bytes */
+#else
+#define CIFX_MAX_PACKET_SIZE               1596                  /*!< Maximum size of the packet in bytes */
+#endif
+#define CIFX_PACKET_HEADER_SIZE            40                    /*!< Maximum size of the packet header in bytes */
+#define CIFX_MAX_DATA_SIZE   (CIFX_MAX_PACKET_SIZE - CIFX_PACKET_HEADER_SIZE) /*!< Maximum packet data size */
 
 #define CIFX_MSK_PACKET_ANSWER             0x00000001            /*!< Packet answer bit */
 
@@ -571,6 +582,7 @@ int32_t APIENTRY xChannelRegisterNotification  ( CIFXHANDLE  hChannel, uint32_t 
 int32_t APIENTRY xChannelUnregisterNotification( CIFXHANDLE  hChannel, uint32_t ulNotification);
 int32_t APIENTRY xChannelSyncState             ( CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t ulTimeout, uint32_t* pulErrorCount);
 /***************************************************************************/
+
 
 /***************************************************************************
 * API Functionpointer definitions

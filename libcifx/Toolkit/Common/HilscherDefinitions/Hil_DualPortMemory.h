@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/20230403-00/includes/Hil_DualPortMemory.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_DualPortMemory.h $: *//*!
 
   \file Hil_DualPortMemory.h
 
@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include "Hil_Compiler.h"
 #include "Hil_SharedDefines.h"
+#include "Hil_Types.h"
 
 #ifdef __HIL_PRAGMA_PACK_ENABLE
   #pragma __HIL_PRAGMA_PACK_1(HIL_DUALPORTMEMORY)
@@ -136,26 +137,7 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_DPM_APPLICATION_CHANNEL_IN
 /*****************************************************************************/
 /*! System information block (Size = 48 Byte)                                */
 /*****************************************************************************/
-typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_DPM_SYSTEM_INFO_BLOCK_Ttag
-{
-  uint8_t   abCookie[4];                                         /*!< 0x00 "netX" cookie */
-  uint32_t  ulDpmTotalSize;                                      /*!< 0x04 Total Size of the whole dual-port memory in bytes */
-  uint32_t  ulDeviceNumber;                                      /*!< 0x08 Device number */
-  uint32_t  ulSerialNumber;                                      /*!< 0x0C Serial number */
-  uint16_t  ausHwOptions[4];                                     /*!< 0x10 Hardware options, xC port 0..3 */
-  uint16_t  usManufacturer;                                      /*!< 0x18 Manufacturer Location */
-  uint16_t  usProductionDate;                                    /*!< 0x1A Date of production */
-  uint32_t  ulLicenseFlags1;                                     /*!< 0x1C License code flags 1 */
-  uint32_t  ulLicenseFlags2;                                     /*!< 0x20 License code flags 2 */
-  uint16_t  usNetxLicenseID;                                     /*!< 0x24 netX license identification */
-  uint16_t  usNetxLicenseFlags;                                  /*!< 0x26 netX license flags */
-  uint16_t  usDeviceClass;                                       /*!< 0x28 netX device class */
-  uint8_t   bHwRevision;                                         /*!< 0x2A Hardware revision index */
-  uint8_t   bHwCompatibility;                                    /*!< 0x2B Hardware compatibility index */
-  uint8_t   bDevIdNumber;                                        /*!< 0x2C Device identification number (rotary switch) */
-  uint8_t   bReserved;                                           /*!< 0x2D Reserved byte */
-  uint16_t  usReserved;                                          /*!< 0x2E:0x2F Reserved */
-} HIL_DPM_SYSTEM_INFO_BLOCK_T;
+typedef HIL_SYSTEM_INFO_T HIL_DPM_SYSTEM_INFO_BLOCK_T;
 
 /*****************************************************************************/
 /*! Channel information block (Size always 16 Byte)                          */
@@ -769,6 +751,7 @@ typedef __HIL_PACKED_PRE struct __HIL_PACKED_POST HIL_DPM_8K_DPM_COMM_CHANNEL_Tt
 #define HIL_HANDSHAKE_SIZE_NOT_AVAILABLE                    0x00      /*!< No handshake cells */
 #define HIL_HANDSHAKE_SIZE_8BIT                             0x01      /*!< Handshake cell size 8bit */
 #define HIL_HANDSHAKE_SIZE_16BIT                            0x02      /*!< Handshake cell size 16bit */
+#define HIL_HANDSHAKE_SIZE_32BIT                            0x03      /*!< Handshake cell size 32bit */
 
 #define HIL_HANDSHAKE_POSITION_MASK                         0xF0      /*!< Handshake position mask */
 #define HIL_HANDSHAKE_POSITION_BEGINNING                    0x00      /*!< Handshake cells located at the start of each channel */

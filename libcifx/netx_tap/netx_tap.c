@@ -35,6 +35,7 @@
 #include "DrvEth_GCI_API.h"
 #include "cifXUser.h"
 #include "cifXErrors.h"
+#include "cifXFunctionList.h"
 #include "cifXHWFunctions.h"
 #include "netx_tap.h"
 #include "cifxlinux_internal.h"
@@ -107,9 +108,9 @@ static void set_cb(struct nl_object *obj, void *arg)
 
   if (rtnl_link_change(link_arg->sock, link, link_arg->change, 0))
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
-      USER_Trace( link_arg->priv->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed for %s", link_arg->priv->cifxeth_name);
+      USER_Trace( link_arg->priv->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed for %s", link_arg->priv->cifxeth_name);
     }
   }
 }
@@ -122,9 +123,9 @@ void nl_signal_link_change( NETX_ETH_DEV_T* internal_dev, int state) {
 
   if (NULL == (sock = nl_cli_alloc_socket()))
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
-      USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed - failed to allocate socket", internal_dev->cifxeth_name);
+      USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed - failed to allocate socket", internal_dev->cifxeth_name);
     }
     return;
   }
@@ -147,9 +148,9 @@ void nl_signal_link_change( NETX_ETH_DEV_T* internal_dev, int state) {
     nl_cache_foreach_filter(link_cache, OBJ_CAST(link), set_cb, &link_arg);
   } else
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
-      USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed - failed to connect socket", internal_dev->cifxeth_name);
+      USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Link-update failed - failed to connect socket", internal_dev->cifxeth_name);
     }
   }
 }
@@ -230,9 +231,9 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
         internal_dev->eth_fd = -1;
         if( (internal_dev->eth_fd = cifxeth_allocate_tap( internal_dev, prefix)) < 0)
         {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error allocating tap device for '%s'. Error=%d", config->cifx_name, internal_dev->eth_fd);
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error allocating tap device for '%s'. Error=%d", config->cifx_name, internal_dev->eth_fd);
           }
         } else
         {
@@ -241,9 +242,9 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
           eth_no++;
           strcpy( config->eth_dev_name, internal_dev->cifxeth_name);
 
-          if(g_ulTraceLevel & TRACE_LEVEL_INFO)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO)
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_INFO, "Ethernet-IF Info: Successfully created '%s' at channel %d on device '%s'", internal_dev->cifxeth_name, channel_no, config->cifx_name);
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_INFO, "Ethernet-IF Info: Successfully created '%s' at channel %d on device '%s'", internal_dev->cifxeth_name, channel_no, config->cifx_name);
           }
           /* de-register application since may not be de-registered */
           cifxeth_register_app( internal_dev, 0);
@@ -253,9 +254,9 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
             /* Create threads for packet exchange */
             if(cifxeth_create_cifx_thread( internal_dev) != 0)
             {
-              if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+              if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
               {
-                USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating cifX ethernet channel thread for %s.", internal_dev->cifxeth_name);
+                USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating cifX ethernet channel thread for %s.", internal_dev->cifxeth_name);
               }
             } else
             {
@@ -282,9 +283,9 @@ void* cifxeth_create_device(NETX_ETH_DEV_CFG_T* config)
       }
     } else
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Not enough memory to create cifx virtual ethernet interface!");
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Not enough memory to create cifx virtual ethernet interface!");
       }
     }
     channel_no++;
@@ -468,10 +469,10 @@ int32_t cifxeth_search_eth_channel( char*  szDeviceName,
                                                 &tChannelInfoBlock)))
     {
       /* Error reading system info block */
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
         USER_Trace(ptDevInst,
-                   TRACE_LEVEL_ERROR,
+                   CIFX_TRACE_LEVEL_ERROR,
                    "Ethernet-IF Error: Error reading channel info block to detect channels usable for ethernet interface (lRet=0x%08X).",
                    lRet);
       }
@@ -552,9 +553,9 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
 
     if( (err = ioctl(ret, TUNSETIFF, (void *) &ifr)) < 0 )
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating tap device (TUNSETIFF) '%s'.    Error=%d", prefix, errno);
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating tap device (TUNSETIFF) '%s'.    Error=%d", prefix, errno);
       }
       close(ret);
       ret = err;
@@ -574,9 +575,9 @@ static int cifxeth_allocate_tap( NETX_ETH_DEV_T* internal_dev, char* prefix)
     }
   } else
   {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
-      USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening tun interface '%s'. Error=%d", TUNTAP_DEVICEPATH, errno);
+      USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening tun interface '%s'. Error=%d", TUNTAP_DEVICEPATH, errno);
     }
     ret = -errno;
   }
@@ -683,9 +684,9 @@ static void* eth_to_cifx_thread(void* arg)
     {
       if(FD_ISSET(fd, &exceptfds))
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
         {
-          USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Exception on Ethernet Device file descriptor, exiting thread");
+          USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Exception on Ethernet Device file descriptor, exiting thread");
         }
         break;
       }
@@ -726,15 +727,15 @@ static void* eth_to_cifx_thread(void* arg)
             }
           } while ((--retry>0) && (cifx_error == CIFX_DEV_MAILBOX_FULL));
 
-          if ((g_ulTraceLevel & TRACE_LEVEL_DEBUG) && (retry != NETX_TAP_SEND_RETRIES))
+          if ((g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) && (retry != NETX_TAP_SEND_RETRIES))
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF Debug: Retried sending packet %d time(s)!", (NETX_TAP_SEND_RETRIES-retry));
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_DEBUG, "Ethernet-IF Debug: Retried sending packet %d time(s)!", (NETX_TAP_SEND_RETRIES-retry));
           }
           if (CIFX_NO_ERROR != cifx_error)
           {
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
-              USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending packet to cifX Device. (Error=0x%08X)", cifx_error);
+              USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending packet to cifX Device. (Error=0x%08X)", cifx_error);
             }
 
           } else
@@ -748,9 +749,9 @@ static void* eth_to_cifx_thread(void* arg)
       //continue;
     } else
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error on select/or stop requested for Ethernet Device file descriptor, exiting thread");
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error on select/or stop requested for Ethernet Device file descriptor, exiting thread");
       }
       break;
     }
@@ -784,8 +785,8 @@ int32_t send_confirmation( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket, 
     do {
       ret = xChannelPutPacket(internal_dev->cifx_channel, ptPacket, ulTimeout);
     } while((ret != CIFX_NO_ERROR) && (bRetry-- > 0));
-    if ((ret != CIFX_NO_ERROR) && (g_ulTraceLevel & TRACE_LEVEL_ERROR)) {
-      USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to send confirmation - Error=0x%X (ulCmd=0x%X / ulState=0x%X)!\n",
+    if ((ret != CIFX_NO_ERROR) && (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)) {
+      USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to send confirmation - Error=0x%X (ulCmd=0x%X / ulState=0x%X)!\n",
                  ret,
                  ptPacket->tHeader.ulCmd,
                  ptPacket->tHeader.ulState);
@@ -812,8 +813,8 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
       OS_LeaveLock( internal_dev->com_lock);
 
       if (ptPacket->tHeader.ulState != CIFX_NO_ERROR) {
-        if(g_ulTraceLevel & TRACE_LEVEL_WARNING) {
-          USER_Trace( internal_dev->devinst, TRACE_LEVEL_WARNING, "Ethernet-IF Error: Error signaled by confirmation packet (0x%X)\n", ptPacket->tHeader.ulState);
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING) {
+          USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_WARNING, "Ethernet-IF Error: Error signaled by confirmation packet (0x%X)\n", ptPacket->tHeader.ulState);
         }
       } else {
         internal_dev->sent_packets++;
@@ -829,8 +830,8 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
 
         /* New RX packet */
         if(send_res != (ret = write(internal_dev->eth_fd, ptPacket->abData, data_len))) {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR) {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending incoming data to ethernet device (%d)\n", ret);
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR) {
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error sending incoming data to ethernet device (%d)\n", ret);
           }
         }
         internal_dev->recv_packets++;
@@ -847,8 +848,8 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
     default:
     {
       ulState = ERR_HIL_UNKNOWN_COMMAND;
-      if(g_ulTraceLevel & TRACE_LEVEL_INFO) {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_INFO, "Ethernet-IF Error: Error receiving unknown packet cmd=0x%X\n", ptPacket->tHeader.ulCmd);
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_INFO) {
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_INFO, "Ethernet-IF Error: Error receiving unknown packet cmd=0x%X\n", ptPacket->tHeader.ulCmd);
       }
     }
     break;
@@ -861,7 +862,7 @@ void handle_incoming_packet( NETX_ETH_DEV_T* internal_dev, CIFX_PACKET* ptPacket
  *   \param internal_dev Pointer to internal device
  *****************************************************************************/
 void cifxeth_dump_statistics( NETX_ETH_DEV_T* internal_dev) {
-  USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG,
+  USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_DEBUG,
             "Ethernet-IF Debug: packet statistic send/sent/recv = %d/%d/%d\n",
             internal_dev->send_packets,
             internal_dev->sent_packets,
@@ -903,7 +904,7 @@ static void* cifx_to_eth_thread(void* arg)
     }
     if (difftime( time(NULL), last_update) > LINK_STATE_POLL_INTERVAL) {
       cifxeth_update_link_state( internal_dev);
-      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG) {
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) {
         cifxeth_dump_statistics( internal_dev);
       }
       last_update = time(NULL);
@@ -937,8 +938,8 @@ static int32_t cifxeth_update_link_state( NETX_ETH_DEV_T* internal_dev)
     if (fSkipUpdate == 0) {
       if (tLinkState.bLinkState)
       {
-        if(g_ulTraceLevel & TRACE_LEVEL_DEBUG) {
-          USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Link up on '%s'", internal_dev->cifxeth_name);
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) {
+          USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_DEBUG, "Link up on '%s'", internal_dev->cifxeth_name);
         }
         /* notify link state change */
         internal_dev->link_up = 1;
@@ -946,9 +947,9 @@ static int32_t cifxeth_update_link_state( NETX_ETH_DEV_T* internal_dev)
 
         if (cifxeth_create_com_thread( internal_dev) != 0) {
           lRet = CIFX_FUNCTION_FAILED;
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating cifX Ethernet communication thread for %s.",internal_dev->cifxeth_name);
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error creating cifX Ethernet communication thread for %s.",internal_dev->cifxeth_name);
           }
         } else {
           FILE *file = NULL;
@@ -961,9 +962,9 @@ static int32_t cifxeth_update_link_state( NETX_ETH_DEV_T* internal_dev)
             fclose(file);
           } else {
             lRet = CIFX_FUNCTION_FAILED;
-            if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+            if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
-              USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening event path of cifX Ethernet IF %s (online event).",internal_dev->cifxeth_name);
+              USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening event path of cifX Ethernet IF %s (online event).",internal_dev->cifxeth_name);
             }
           }
         }
@@ -972,8 +973,8 @@ static int32_t cifxeth_update_link_state( NETX_ETH_DEV_T* internal_dev)
         FILE *file = NULL;
         internal_dev->link_up = 0;
 
-        if(g_ulTraceLevel & TRACE_LEVEL_DEBUG) {
-          USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Link down on '%s'", internal_dev->cifxeth_name);
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) {
+          USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_DEBUG, "Link down on '%s'", internal_dev->cifxeth_name);
         }
 
         /* stop eth-if to cifx communication since we we will remove the handle */
@@ -991,9 +992,9 @@ static int32_t cifxeth_update_link_state( NETX_ETH_DEV_T* internal_dev)
           fprintf(file, "offline");
           fclose(file);
         } else {
-          if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+          if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
           {
-            USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening event path of cifX Ethernet IF %s (offline event).",internal_dev->cifxeth_name);
+            USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Error opening event path of cifX Ethernet IF %s (offline event).",internal_dev->cifxeth_name);
           }
           lRet = CIFX_FUNCTION_FAILED;
         }
@@ -1020,9 +1021,9 @@ static int32_t cifxeth_update_device_config( NETX_ETH_DEV_T* internal_dev)
     memset( &ifr, 0, sizeof(ifr));
 
     if (0 == memcmp( ifr.ifr_hwaddr.sa_data, tExtInfo.abEthernetMACAddr, 6)) {
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Receiving invalid MAC address from device %s. " \
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Receiving invalid MAC address from device %s. " \
                     "Make sure that the firmware is correctly configured and it's ethernet interface is enabled.",
                     internal_dev->cifxeth_name);
       }
@@ -1035,18 +1036,18 @@ static int32_t cifxeth_update_device_config( NETX_ETH_DEV_T* internal_dev)
     if( (ioctl( internal_dev->eth_fd, SIOCSIFHWADDR, (void *) &ifr)) < 0 )
     {
       lRet = CIFX_FUNCTION_FAILED;
-      if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to set MAC address %02x:%02x:%02x:%02x:%02x:%02x of %s (%d)",
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to set MAC address %02x:%02x:%02x:%02x:%02x:%02x of %s (%d)",
                     tExtInfo.abEthernetMACAddr[0], tExtInfo.abEthernetMACAddr[1], tExtInfo.abEthernetMACAddr[2],
                     tExtInfo.abEthernetMACAddr[3], tExtInfo.abEthernetMACAddr[4], tExtInfo.abEthernetMACAddr[5],
                     internal_dev->cifxeth_name, errno);
       }
     } else
     {
-      if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
+      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
       {
-        USER_Trace( internal_dev->devinst, TRACE_LEVEL_DEBUG, "Ethernet-IF: Successfully set MAC address to %02x:%02x:%02x:%02x:%02x:%02x on %s",
+        USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_DEBUG, "Ethernet-IF: Successfully set MAC address to %02x:%02x:%02x:%02x:%02x:%02x on %s",
                     tExtInfo.abEthernetMACAddr[0], tExtInfo.abEthernetMACAddr[1], tExtInfo.abEthernetMACAddr[2],
                     tExtInfo.abEthernetMACAddr[3], tExtInfo.abEthernetMACAddr[4], tExtInfo.abEthernetMACAddr[5],
                     internal_dev->cifxeth_name);
@@ -1103,11 +1104,11 @@ static int32_t cifxeth_register_app( NETX_ETH_DEV_T* internal_dev, int fRegister
   if( CIFX_NO_ERROR != lRet)
   {
     /* This is a transport error */
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
     {
       /* This is a transport error */
       USER_Trace(internal_dev->devinst,
-                TRACE_LEVEL_ERROR,
+                CIFX_TRACE_LEVEL_ERROR,
                  "Ethernet-IF Error: Error in cifXEthTransferPacket()(lRet=0x%08X).",
                 lRet);
     }
@@ -1117,9 +1118,9 @@ static int32_t cifxeth_register_app( NETX_ETH_DEV_T* internal_dev, int fRegister
     if (fRegister) {
       /* Check if we have a state error from the stack */
       if(SUCCESS_HIL_OK != (lRet = tRecvPkt.tHeader.ulState)) {
-        if(g_ulTraceLevel & TRACE_LEVEL_ERROR) {
+        if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR) {
           USER_Trace(internal_dev->devinst,
-                     TRACE_LEVEL_ERROR,
+                     CIFX_TRACE_LEVEL_ERROR,
                      "Ethernet-IF Error: Error sending Register-Application-Request (lRet=0x%08X).",
                      lRet);
         }
@@ -1216,8 +1217,8 @@ static int32_t cifxeth_get_extended_info( NETX_ETH_DEV_T* internal_dev, uint32_t
     }
   }
   if (CIFX_NO_ERROR != lRet) {
-    if(g_ulTraceLevel & TRACE_LEVEL_ERROR) {
-      USER_Trace( internal_dev->devinst, TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to retrieve extended info of %s (0x%X)", internal_dev->cifxeth_name, lRet);
+    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR) {
+      USER_Trace( internal_dev->devinst, CIFX_TRACE_LEVEL_ERROR, "Ethernet-IF Error: Failed to retrieve extended info of %s (0x%X)", internal_dev->cifxeth_name, lRet);
     }
   }
   return lRet;
