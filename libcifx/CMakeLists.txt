@@ -179,7 +179,7 @@ add_custom_target(libcifx_sbom
 )
 
 set(update_sbom ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/update_sbom)
-set(TKIT_VERSION "2.8.4.0")
+set(TKIT_VERSION "2.8.7.0")
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Toolkit/LICENSE.md TKIT_LICENSE_TEXT)
 if(NOT "${TKIT_LICENSE_TEXT}" STREQUAL "")
     string(REGEX REPLACE "\ " "\\\\ "  TKIT_LICENSE_TEXT_SAN "${TKIT_LICENSE_TEXT}")

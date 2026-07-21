@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionsHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
+  $Id: cifXFunctionsHIF.c 15589 2026-07-13 09:56:02Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -367,6 +367,23 @@ static int32_t APIENTRY HIFxSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd,
   return lRet;
 }
 
+
+/*****************************************************************************/
+/*! Get/Return a memory pointer to an extended board memory if available
+*   \param hSysdevice   Handle to system device
+*   \param ulCmd        Command for get/free
+*   \param ptExtMemInfo Pointer to a user buffer to return the information
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+static int32_t APIENTRY HIFxSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
+{
+  UNREFERENCED_PARAMETER(hSysdevice);
+  UNREFERENCED_PARAMETER(ulCmd);
+  UNREFERENCED_PARAMETER(ptExtMemInfo);
+  return CIFX_FUNCTION_NOT_AVAILABLE;
+}
+
+
 /*****************************************************************************/
 /*! Download a file (Firmware, Configuration, etc) to the device
 *   \param hChannel           Handle to the channel
@@ -513,108 +530,20 @@ static int32_t APIENTRY HIFxChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t u
 }
 
 /*****************************************************************************/
-/*! Send a packet to the device to lock/unlock the configuration
-*   \param ptChannel  Channel instance
-*   \param ulState    State to change to
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-static int32_t DoConfigLock(PCHANNELINSTANCE ptChannel, uint32_t ulState)
-{
-  PDEVICEINSTANCE              ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  HIL_LOCK_UNLOCK_CONFIG_REQ_T tSendPkt;
-  HIL_LOCK_UNLOCK_CONFIG_CNF_T tRecvPkt;
-  int32_t                      lRet          = CIFX_NO_ERROR;
-
-  OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-  /* Read firmware information */
-  tSendPkt.tHead.ulDest   = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
-  tSendPkt.tHead.ulSrc    = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-  tSendPkt.tHead.ulCmd    = HOST_TO_LE32(HIL_LOCK_UNLOCK_CONFIG_REQ);
-  tSendPkt.tHead.ulLen    = HOST_TO_LE32(sizeof(tSendPkt.tData));
-  tSendPkt.tData.ulParam  = HOST_TO_LE32(ulState);
-
-  /* Transfer packet */
-  lRet = DEV_TransferPacket(
-      ptChannel,
-      (CIFX_PACKET*)&tSendPkt,
-      (CIFX_PACKET*)&tRecvPkt,
-      sizeof(tRecvPkt),
-      CIFX_TO_SEND_PACKET,
-      NULL,
-      NULL);
-
-  if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
-  {
-    if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
-    {
-      USER_Trace(ptDevInstance,
-                CIFX_TRACE_LEVEL_WARNING,
-                "Error changing lock/unlock state! (lRet=0x%08X)",
-                lRet);
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
 /*! Lock the configuration on a communication channel
-*   \param hChannel         Channel handle
-*   \param ulCmd            CIFX_CONFIGURATION_XXX defines
-*   \param pulState         Return locking state
-*   \param ulTimeout        Timeout in [ms]
-*   \return CIFX_NO_ERROR on success                                         */
+ *   \param hChannel         Channel handle
+ *   \param ulCmd            CIFX_CONFIGURATION_XXX defines
+ *   \param pulState         Return locking state
+ *   \param ulTimeout        Timeout in [ms]
+ *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-static int32_t APIENTRY HIFxChannelConfigLock(CIFXHANDLE  hChannel, uint32_t ulCmd, uint32_t* pulState, uint32_t ulTimeout)
+static int32_t APIENTRY HIFxChannelConfigLock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t *pulState, uint32_t ulTimeout)
 {
-  int32_t           lRet      = CIFX_NO_ERROR;
-  PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pulState);
-
+  UNREFERENCED_PARAMETER(hChannel);
+  UNREFERENCED_PARAMETER(ulCmd);
+  UNREFERENCED_PARAMETER(pulState);
   UNREFERENCED_PARAMETER(ulTimeout);
-
-  /* Read actual BUS state */
-  *pulState = (LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->ulCommunicationState)) & HIL_HIF_COMM_STATE_CONFIG_LOCK) ?
-      CIFX_CONFIGURATION_LOCK : CIFX_CONFIGURATION_UNLOCK;
-
-  switch (ulCmd)
-  {
-    case CIFX_CONFIGURATION_LOCK:
-    {
-      /* Only change if UNLOCKED */
-      if (CIFX_CONFIGURATION_LOCK != *pulState)
-      {
-        lRet = DoConfigLock(ptChannel, HIL_LOCK_UNLOCK_CONFIG_PARAM_LOCK);
-      }
-    }
-    break;
-
-    case CIFX_CONFIGURATION_UNLOCK:
-    {
-      /* Only change if LOCKED */
-      if (CIFX_CONFIGURATION_UNLOCK != *pulState)
-      {
-        lRet = DoConfigLock(ptChannel, HIL_LOCK_UNLOCK_CONFIG_PARAM_UNLOCK);
-      }
-    }
-    break;
-
-    case CIFX_CONFIGURATION_GETLOCKSTATE:
-      /* State already read above */
-    break;
-
-    default:
-      /* Unknown command */
-      lRet = CIFX_INVALID_COMMAND;
-    break;
-  }
-
-  return lRet;
+  return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
 /*****************************************************************************/
@@ -682,6 +611,30 @@ static int32_t APIENTRY HIFxChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, u
 }
 
 /*****************************************************************************/
+/*! Wait for IO events
+*   \param hChannel         Channel handle acquired by xChannelOpen
+*   \param ulEvents         Events to wait for
+*   \param pulActiveEvents  Buffer for actually set events
+*   \param ulTimeout        Timeout in ms to wait for
+*   \return CIFX_NO_ERROR on success                                         */
+/*****************************************************************************/
+static int32_t APIENTRY HIFxChannelIOWaitEvent(CIFXHANDLE  hChannel, uint32_t ulEvents, uint32_t* pulActiveEvents, uint32_t ulTimeout)
+{
+  int32_t  lRet       = CIFX_NO_ERROR;
+  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
+
+  CHECK_CHANNELHANDLE(hChannel);
+  CHECK_POINTER(pulActiveEvents);
+
+  if (!DEV_WaitForIoBitState(ptChannel, ulEvents, pulActiveEvents, ulTimeout))
+  {
+    lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
+  }
+
+  return lRet;
+}
+
+/*****************************************************************************/
 /*! Reads the Input data from the channel
 *   \param hChannel     Channel handle acquired by xChannelOpen
 *   \param ulAreaNumber Number of the I/O Area (0..n)
@@ -697,6 +650,7 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
   PDEVICEINSTANCE  ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
   NETX_IO_BLOCK_T* ptIOArea      = NULL;
   int32_t          lRet          = CIFX_NO_ERROR;
+  uint8_t          bStatus       = 0;
 #if 0 // TODO
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 #endif
@@ -744,14 +698,8 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
       lRet = CIFX_DEV_EXCHANGE_FAILED;
     } else
     {
-      /* Lock flag access */
-      OS_EnterLock(ptChannel->pvLock);
-
       /* Read data done */
       DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
-
-      /* Unlock flag access */
-      OS_LeaveLock(ptChannel->pvLock);
 
       /* Read data */
       OS_Memcpy(  pvData,
@@ -779,20 +727,33 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
     if ( !OS_WaitMutex( ptIOArea->tBlock.pvMutex, ulTimeout))
       return CIFX_DRV_CMD_ACTIVE;
 
-    /* Lock flag access */
-    OS_EnterLock(ptChannel->pvLock);
-
     /* Read data done */
     DEV_ToggleIoAction(ptChannel, ptIOArea);
-
-    /* Unlock flag access */
-    OS_LeaveLock(ptChannel->pvLock);
 
     /* Read data */
     HWIF_READN( ptChannel->pvDeviceInstance,
                 pvData,
                 &ptIOArea->tBlock.pbBlockStart[ulOffset],
                 ulDataLen);
+
+    bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, *ptIOArea->tIoCtl.pbStatus);
+    bStatus = (bStatus & NETX_IO_STATUS_BALANCECNT_MSK)>>1;
+    ptIOArea->tStat.ulExchangeCnt++;
+    /* Balance count 1 -> Buffer was exchanged once */
+    if (1 != bStatus )
+    {
+      /* Balance count 0, 7,6,5,4 -> Buffer was not exchanged */
+      if ((0 == bStatus ) || (4 > bStatus ))
+      {
+        ptIOArea->tStat.ulErrCnt++;
+        ptIOArea->tStat.ulNoUpateCnt++;
+      }
+      else /* Balance count 2,3 -> Buffer was exchanged 2 or multiple times */
+      {
+        ptIOArea->tStat.ulErrCnt++;
+        ptIOArea->tStat.ulMissDataCnt++;
+      }
+    }
 
     /* Check COMM Flag for return value */
     (void)DEV_IsCommunicating(ptChannel, &lRet);
@@ -819,6 +780,7 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PNETX_IO_BLOCK_T ptIOArea      = NULL;
   int32_t          lRet          = CIFX_NO_ERROR;
+  uint8_t          bStatus       = 0;
 #if 0 // TODO
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 #endif
@@ -868,14 +830,8 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
                  pvData,
                  ulDataLen);
 
-      /* Lock flag access */
-      OS_EnterLock(ptChannel->pvLock);
-
       /* Read data done */
       DEV_ToggleBit(ptChannel, (uint32_t)(1UL << ptIOArea->bHandshakeBit));
-
-      /* Unlock flag access */
-      OS_LeaveLock(ptChannel->pvLock);
 
       /* Check COMM Flag for return value */
       (void)DEV_IsCommunicating(ptChannel, &lRet);
@@ -910,14 +866,27 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
                     pvData,
                     ulDataLen);
 
-      /* Lock flag access */
-      OS_EnterLock(ptChannel->pvLock);
-
       /* Write data done */
       DEV_ToggleIoAction(ptChannel, ptIOArea);
 
-      /* Unlock flag access */
-      OS_LeaveLock(ptChannel->pvLock);
+      bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, *ptIOArea->tIoCtl.pbStatus);
+      bStatus = (bStatus & NETX_IO_STATUS_BALANCECNT_MSK) >> 1;
+      ptIOArea->tStat.ulExchangeCnt++;
+      /* Balance count 0 -> previous buffer was consumed */
+      if (0 != bStatus)
+      {
+          /* Balance count 3, 2, 1 -> previous buffer was not consumed */
+          if ((3 > bStatus))
+          {
+              ptIOArea->tStat.ulErrCnt++;
+              ptIOArea->tStat.ulMissDataCnt++;
+          }
+          else /* Balance count 4,5,6,7 -> new buffer was requested without update */
+          {
+              ptIOArea->tStat.ulErrCnt++;
+              ptIOArea->tStat.ulNoUpateCnt++;
+          }
+      }
 
       /* Check COMM Flag for return value */
       (void)DEV_IsCommunicating(ptChannel, &lRet);
@@ -1075,63 +1044,12 @@ static int32_t APIENTRY HIFxChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32
 /*****************************************************************************/
 static int32_t APIENTRY HIFxChannelExtendedStatusBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ulOffset, uint32_t ulDataLen, void* pvData)
 {
-  PCHANNELINSTANCE  ptChannel     = (PCHANNELINSTANCE)hChannel;
-  PDEVICEINSTANCE   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
-  int32_t           lRet          = CIFX_NO_ERROR;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvData);
-
+  UNREFERENCED_PARAMETER(hChannel);
   UNREFERENCED_PARAMETER(ulCmd);
-
-  /* Check if device installed and active */
-  if(ptChannel->ulOpenCount == 0)
-  {
-    lRet = CIFX_DRV_CHANNEL_NOT_INITIALIZED;
-  } else
-  {
-    HIL_DPM_GET_EXTENDED_STATE_REQ_T tSendPkt;
-    HIL_DPM_GET_EXTENDED_STATE_CNF_T tRecvPkt;
-
-    OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-    OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
-
-    /* Read firmware information */
-    tSendPkt.tHead.ulDest         = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
-    tSendPkt.tHead.ulSrc          = HOST_TO_LE32(ptDevInstance->ulPhysicalAddress);
-    tSendPkt.tHead.ulCmd          = HOST_TO_LE32(HIL_DPM_GET_EXTENDED_STATE_REQ);
-    tSendPkt.tHead.ulLen          = HOST_TO_LE32(sizeof(tSendPkt.tData));
-    tSendPkt.tData.ulOffset       = HOST_TO_LE32(ulOffset);
-    tSendPkt.tData.ulDataLen      = HOST_TO_LE32(ulDataLen);
-    tSendPkt.tData.ulChannelIndex = HOST_TO_LE32(ptChannel->ulChannelNumber);
-
-    /* Transfer packet */
-    lRet = DEV_TransferPacket(
-        ptChannel,
-        (CIFX_PACKET*)&tSendPkt,
-        (CIFX_PACKET*)&tRecvPkt,
-        sizeof(tRecvPkt),
-        CIFX_TO_SEND_PACKET,
-        NULL,
-        NULL);
-
-    if( (CIFX_NO_ERROR  != lRet) ||
-        (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
-    {
-      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
-      {
-        USER_Trace(ptDevInstance,
-                  CIFX_TRACE_LEVEL_WARNING,
-                  "Error querying extended status block! (lRet=0x%08X)",
-                  lRet);
-      }
-    } else
-    {
-      OS_Memcpy(pvData, tRecvPkt.tData.abData, ulDataLen);
-    }
-  }
-
-  return lRet;
+  UNREFERENCED_PARAMETER(ulOffset);
+  UNREFERENCED_PARAMETER(ulDataLen);
+  UNREFERENCED_PARAMETER(pvData);
+  return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
 /*****************************************************************************/
@@ -1531,14 +1449,9 @@ static int32_t APIENTRY HIFxChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_
         OS_FlushCacheMemory_ToDevice(ptChannel->tCachedIOOutputArea.pvMemPtr, ptChannel->tCachedIOOutputArea.ulAreaSize);
       }
 
-      /* Lock flag access */
-      OS_EnterLock(ptChannel->pvLock);
-
       /* Write data done */
       DEV_ToggleIoAction(ptChannel, ptChannel->tIoArea.aptIOOutputAreas[ulAreaNumber]);
 
-      /* Unlock flag access */
-      OS_LeaveLock(ptChannel->pvLock);
     }
   }
 
@@ -1577,14 +1490,8 @@ static int32_t APIENTRY HIFxChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t
     if( (lRet != CIFX_DEV_NOT_READY) &&
         (lRet != CIFX_DEV_NOT_RUNNING) )
     {
-      /* Lock flag access */
-      OS_EnterLock(ptChannel->pvLock);
-
       /* Read data done */
       DEV_ToggleIoAction(ptChannel, ptChannel->tIoArea.aptIOInputAreas[ulAreaNumber]);
-
-      /* Unlock flag access */
-      OS_LeaveLock(ptChannel->pvLock);
     }
   }
 
@@ -1805,7 +1712,7 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
   int32_t          lRet             = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel        = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance    = NULL;
-
+  uint32_t         ulBitState       = 0;
   CHECK_CHANNELHANDLE(hChannel);
   CHECK_POINTER(pfnCallback);
 
@@ -1886,7 +1793,7 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
         ptBlock->tIoCtl.pvUser      = pvUser;
         ptBlock->tIoCtl.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForIoBitState(ptChannel, ptBlock, 0))
+        if(DEV_WaitForIoBitState(ptChannel, ptBlock->tBlock.ulBitmask, &ulBitState, 0))
         {
           pfnCallback(ulNotification, 0, NULL, pvUser);
         }
@@ -1922,7 +1829,7 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
         ptBlock->tIoCtl.pvUser      = pvUser;
         ptBlock->tIoCtl.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForIoBitState(ptChannel, ptBlock, 0))
+        if(DEV_WaitForIoBitState(ptChannel, ptBlock->tBlock.ulBitmask, &ulBitState, 0))
         {
           pfnCallback(ulNotification, 0, NULL, pvUser);
         }
@@ -1958,7 +1865,7 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
         ptBlock->tIoCtl.pvUser      = pvUser;
         ptBlock->tIoCtl.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForIoBitState(ptChannel, ptBlock, 0))
+        if(DEV_WaitForIoBitState(ptChannel, ptBlock->tBlock.ulBitmask, &ulBitState, 0))
         {
           pfnCallback(ulNotification, 0, NULL, pvUser);
         }
@@ -1994,7 +1901,7 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
         ptBlock->tIoCtl.pvUser      = pvUser;
         ptBlock->tIoCtl.pfnCallback = pfnCallback;
 
-        if(DEV_WaitForIoBitState(ptChannel, ptBlock, 0))
+        if(DEV_WaitForIoBitState(ptChannel, ptBlock->tBlock.ulBitmask, &ulBitState, 0))
         {
           pfnCallback(ulNotification, 0, NULL, pvUser);
         }
@@ -2003,29 +1910,37 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
     break;
 
     case CIFX_NOTIFY_SYNC:
-#if 0 // TODO
-      if( NULL != ptChannel->tSynch.pfnCallback)
+      if( NULL != ptChannel->atSynch[0].pfnCallback)
       {
         /* Already registered */
         lRet = CIFX_CALLBACK_ALREADY_USED;
       } else
       {
         /* Add the callback */
-        uint8_t bState = HIL_FLAGS_NOT_EQUAL;
-
-        ptChannel->tSynch.pvUser      = pvUser;
-        ptChannel->tSynch.pfnCallback = pfnCallback;
-
-        /* Add callback for sync on startup */
-        if( HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptDevInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode))
-          bState = HIL_FLAGS_EQUAL;
-
-        if(DEV_WaitForSyncState(ptChannel, bState, 0))
+        ptChannel->atSynch[0].pvUser      = pvUser;
+        ptChannel->atSynch[0].pfnCallback = pfnCallback;
+        if(DEV_WaitForIoBitState(ptChannel, ptChannel->atSynch[0].ulBitmask, &ulBitState, 0))
         {
           pfnCallback(ulNotification, 0, NULL, pvUser);
         }
       }
-#endif
+    break;
+
+    case CIFX_NOTIFY_SYNC1:
+      if( NULL != ptChannel->atSynch[1].pfnCallback)
+      {
+        /* Already registered */
+        lRet = CIFX_CALLBACK_ALREADY_USED;
+      } else
+      {
+        /* Add the callback */
+        ptChannel->atSynch[1].pvUser      = pvUser;
+        ptChannel->atSynch[1].pfnCallback = pfnCallback;
+        if(DEV_WaitForIoBitState(ptChannel, ptChannel->atSynch[1].ulBitmask, &ulBitState, 0))
+        {
+          pfnCallback(ulNotification, 0, NULL, pvUser);
+        }
+      }
     break;
 
     case CIFX_NOTIFY_COM_STATE:
@@ -2227,18 +2142,30 @@ static int32_t APIENTRY HIFxChannelUnregisterNotification(CIFXHANDLE hChannel,
     break;
 
     case CIFX_NOTIFY_SYNC:
-#if 0 // TODO
-      if( NULL == ptChannel->tSynch.pfnCallback)
+      if( NULL == ptChannel->atSynch[0].pfnCallback)
       {
         /* Not registered before */
         lRet = CIFX_CALLBACK_NOT_REGISTERED;
       } else
       {
         /* Add the callback */
-        ptChannel->tSynch.pfnCallback = NULL;
-        ptChannel->tSynch.pvUser      = NULL;
+        ptChannel->atSynch[0].pfnCallback = NULL;
+        ptChannel->atSynch[0].pvUser      = NULL;
       }
-#endif
+    break;
+
+    case CIFX_NOTIFY_SYNC1:
+        if (NULL == ptChannel->atSynch[1].pfnCallback)
+        {
+            /* Not registered before */
+            lRet = CIFX_CALLBACK_NOT_REGISTERED;
+        }
+        else
+        {
+            /* Add the callback */
+            ptChannel->atSynch[1].pfnCallback = NULL;
+            ptChannel->atSynch[1].pvUser = NULL;
+      }
     break;
 
     case CIFX_NOTIFY_COM_STATE:
@@ -2275,6 +2202,7 @@ static int32_t APIENTRY HIFxChannelSyncState(CIFXHANDLE  hChannel,
                                              uint32_t    ulTimeout,
                                              uint32_t*   pulErrorCount)
 {
+  // TODO: function need to be adapt to netX9x2
   int32_t           lRet      = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
 
@@ -2293,90 +2221,11 @@ static int32_t APIENTRY HIFxChannelSyncState(CIFXHANDLE  hChannel,
     switch (ulCmd)
     {
       case CIFX_SYNC_SIGNAL_CMD:
-#if 0 // TODO
-        /* Check if SYNC mode is host controlled */
-        if(HIL_SYNC_MODE_HST_CTRL != HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode))
-        {
-          /* Invalid Device mode */
-          lRet = CIFX_DEV_SYNC_STATE_INVALID_MODE;
-
-        } else if(!DEV_WaitForSyncState(ptChannel, HIL_FLAGS_EQUAL, ulTimeout))
-        {
-          /* Sync cannot be signalled as bits are in wrong state */
-          lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
-        } else
-        {
-          /* Signal new sync */
-          DEV_ToggleSyncBit( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
-
-          /* Return actual error counter */
-          *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bErrorSyncCnt);
-
-          /* Check if the device is communication */
-          (void)DEV_IsCommunicating(ptChannel, &lRet);
-        }
-#endif
-      break;
-
+        /* fall through */
       case CIFX_SYNC_ACKNOWLEDGE_CMD:
-        /* Check if SYNC mode is device controlled */
-#if 0 // TODO
-        if(HIL_SYNC_MODE_DEV_CTRL != HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode))
-        {
-          /* Invalid Device mode */
-          lRet = CIFX_DEV_SYNC_STATE_INVALID_MODE;
-
-        } else if(!DEV_WaitForSyncState(ptChannel, HIL_FLAGS_NOT_EQUAL, ulTimeout))
-        {
-          /* Sync cannot be signalled as bits are in wrong state */
-          lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
-        } else
-        {
-          /* Acknowledge an device sys */
-          DEV_ToggleSyncBit( (PDEVICEINSTANCE)ptChannel->pvDeviceInstance, (1 << ptChannel->ulChannelNumber));
-
-          /* Return actual error counter */
-          *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bErrorSyncCnt);
-
-          /* Check if the device is communication */
-          (void)DEV_IsCommunicating(ptChannel, &lRet);
-        }
-#endif
-      break;
-
+        /* fall through */
       case CIFX_SYNC_WAIT_CMD:
-        {
-#if 0 // TODO
-          if( (HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode) != HIL_SYNC_MODE_HST_CTRL) &&
-              (HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode) != HIL_SYNC_MODE_DEV_CTRL) )
-          {
-            /* Invalid Device mode */
-            lRet = CIFX_DEV_SYNC_STATE_INVALID_MODE;
-          } else
-          {
-            uint8_t bState = HIL_FLAGS_NOT_EQUAL;
-
-            if( HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bSyncHskMode))
-              bState = HIL_FLAGS_EQUAL;
-
-            /* Wait for sync */
-            if(!DEV_WaitForSyncState(ptChannel, bState, ulTimeout))
-            {
-              /* Sync timeout */
-              lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
-            } else
-            {
-              /* Return actual error counter */
-              *pulErrorCount = HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommunicationStatusBlock->bErrorSyncCnt);
-
-              /* Check if the device is communication */
-              (void)DEV_IsCommunicating(ptChannel, &lRet);
-            }
-          }
-#endif
-        }
-      break;
-
+        /* fall through */
       default:
         lRet = CIFX_INVALID_COMMAND;
       break;
@@ -2412,7 +2261,7 @@ static CIFX_API_FUNCTION_LIST_T s_tCifxHifApiFuns =
   xSysdeviceReset,
   xSysdeviceResetEx,
   xSysdeviceBootstart,
-  xSysdeviceExtendedMemory,
+  HIFxSysdeviceExtendedMemory,
   xChannelOpen,
   xChannelClose,
   xChannelFindFirstFile,
@@ -2431,6 +2280,7 @@ static CIFX_API_FUNCTION_LIST_T s_tCifxHifApiFuns =
   xChannelBusState,
   HIFxChannelDMAState,
   HIFxChannelIOInfo,
+  HIFxChannelIOWaitEvent,
   HIFxChannelIORead,
   HIFxChannelIOWrite,
   HIFxChannelIOReadSendData,

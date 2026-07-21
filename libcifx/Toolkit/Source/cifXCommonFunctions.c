@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXCommonFunctions.c 15325 2025-11-21 13:31:48Z AMinor $:
+  $Id: cifXCommonFunctions.c 15556 2026-06-15 09:39:15Z MNoll $:
 
   Description:
     Common cifX functions and variables shared by DPM and HIF
@@ -350,6 +350,7 @@ int32_t APIENTRY xDriverEnumChannels(CIFXHANDLE hDriver, uint32_t ulBoard, uint3
   return lRet; /*lint !e438 */
 }
 
+#ifndef CIFX_TOOLKIT_USE_CUSTOM_DRV_FUNCS
 /*! **************************************************************************
 * Get/Return a memory pointer to the boards dual-port memory
 *   \param hDriver      Driver handle
@@ -440,6 +441,7 @@ int32_t APIENTRY xDriverMemoryPointer(CIFXHANDLE hDriver, uint32_t ulBoard, uint
 
   return lRet; /*lint !e438 */
 }
+#endif
 
 #if 0 /* OS specific, implemented by user. */
 int32_t APIENTRY xDriverRestartDevice(CIFXHANDLE hDriver, char* szBoardName, void* pvData)
@@ -741,7 +743,12 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
     HIL_DIR_LIST_REQ_T tDirListReq;
 
   }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
+  union
+  {
+    CIFX_PACKET         tRecvPkt;
+    HIL_DIR_LIST_CNF_T  tDirListCnf;
+  } uRecvPkt;
+
 
 #ifdef CIFX_TOOLKIT_PARAMETER_CHECK
   if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
@@ -752,7 +759,7 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
   CHECK_POINTER(ptDirectoryInfo);
 
   OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
   if(OS_Strlen(ptDirectoryInfo->szFilename) > 0)
   {
@@ -774,18 +781,18 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
   lRet = DEV_TransferPacket(
       ptChannel,
       &uSendPacket.tPacket,
-      (CIFX_PACKET*)&tDirListCnf,
-      sizeof(tDirListCnf),
+      (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+      sizeof(uRecvPkt.tRecvPkt),
       CIFX_TO_SEND_PACKET,
       pfnRecvPktCallback,
       pvUser);
 
   if( CIFX_NO_ERROR == lRet)
   {
-    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(tDirListCnf.tHead.ulSta)) )
+    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulSta)) )
     {
       uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
-      if ((tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      if ((uRecvPkt.tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
       {
         /* this is the last packet */
         lRet = CIFX_NO_MORE_ENTRIES;
@@ -797,11 +804,11 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE            hSysdevice,
         *pbListEntry = 1;
 
         (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
+                         (const char*)uRecvPkt.tDirListCnf.tData.szName,
                          sizeof(ptDirectoryInfo->szFilename));
 
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+        ptDirectoryInfo->bFiletype  = uRecvPkt.tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(uRecvPkt.tDirListCnf.tData.ulFileSize);
       }
     }
   }
@@ -831,8 +838,14 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
     CIFX_PACKET         tPacket;
     HIL_DIR_LIST_REQ_T  tDirListReq;
 
-  }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
+  } uSendPacket;
+  union
+  {
+    CIFX_PACKET           tRecvPkt;
+    HIL_DIR_LIST_CNF_T    tDirListCnf;
+  } uRecvPkt;
+
+
   uint16_t            usDirNameLen = 0;
 
 #ifdef CIFX_TOOLKIT_PARAMETER_CHECK
@@ -844,7 +857,7 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
   CHECK_POINTER(ptDirectoryInfo);
 
   OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
   usDirNameLen = (uint16_t)(OS_Strlen(ptDirectoryInfo->szFilename) + 1);
   uSendPacket.tDirListReq.tData.usDirNameLength = HOST_TO_LE16(usDirNameLen);
@@ -863,17 +876,17 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
   lRet = DEV_TransferPacket(
       ptChannel,
       &uSendPacket.tPacket,
-      (CIFX_PACKET*)&tDirListCnf,
-      sizeof(tDirListCnf),
+      (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+      sizeof(uRecvPkt.tRecvPkt),
       CIFX_TO_SEND_PACKET,
       pfnRecvPktCallback,
       pvUser);
 
   if(CIFX_NO_ERROR == lRet)
   {
-    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(tDirListCnf.tHead.ulSta))) )
+    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulSta))) )
     {
-      if(( LE32_TO_HOST(tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      if(( LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
       {
         uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
 
@@ -886,11 +899,11 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE            hSysdevice,
       } else
       {
         (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
-                         sizeof(tDirListCnf.tData.szName));
+                         (const char*)uRecvPkt.tDirListCnf.tData.szName,
+                         sizeof(uRecvPkt.tDirListCnf.tData.szName));
 
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+        ptDirectoryInfo->bFiletype  = uRecvPkt.tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(uRecvPkt.tDirListCnf.tData.ulFileSize);
       }
     }
   }
@@ -920,6 +933,11 @@ int32_t APIENTRY xSysdeviceResetEx(CIFXHANDLE hSysdevice, uint32_t ulTimeout, ui
   else if(CIFX_RESETEX_BOOTSTART == (HIL_RESET_MODE_CMD_MSK & ulMode))
   {
     lRet = DEV_DoSystemBootstart(ptSysDevice, ulTimeout, (HIL_RESET_PARAM_MSK|HIL_RESET_FLAG_MSK) & ulMode);
+    if(CIFX_FUNCTION_NOT_AVAILABLE == lRet)
+    {
+      /* if not bootstart function is available return invalid command at this point */
+      lRet = CIFX_INVALID_COMMAND;
+    }
   }
   else if(CIFX_RESETEX_UPDATESTART == (HIL_RESET_MODE_CMD_MSK & ulMode))
   {
@@ -975,124 +993,6 @@ int32_t APIENTRY xSysdeviceBootstart(CIFXHANDLE hSysdevice, uint32_t ulTimeout)
   CHECK_SYSDEVICEHANDLE(hSysdevice);
 
   lRet = DEV_DoSystemBootstart(ptSysDevice, ulTimeout, 0);
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Get/Return a memory pointer to an extended board memory if available
-*   \param hSysdevice   Handle to system device
-*   \param ulCmd        Command for get/free
-*   \param ptExtMemInfo Pointer to a user buffer to return the information
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
-{
-  PCHANNELINSTANCE            ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
-  PDEVICEINSTANCE             ptDevInstance = (PDEVICEINSTANCE)ptSysDevice->pvDeviceInstance;
-  HIL_HIF_SYSTEM_CHANNEL_T*   ptSysChannel  = NULL;
-  int32_t                     lRet          = CIFX_NO_ERROR;
-
-  CHECK_SYSDEVICEHANDLE(hSysdevice);
-  CHECK_POINTER(ptExtMemInfo);
-
-  ptSysChannel = (HIL_HIF_SYSTEM_CHANNEL_T*)ptSysDevice->pbDPMChannelStart;
-
-  if(0 == g_tDriverInfo.ulOpenCount)
-    return CIFX_DRV_NOT_OPENED;
-
-  switch(ulCmd)
-  {
-    case CIFX_GET_EXTENDED_MEMORY_POINTER:
-      {
-        void* pvMemoryPtr = NULL;
-
-        if( (NULL == ptDevInstance->pbExtendedMemory)    ||
-            (0    == ptDevInstance->ulExtendedMemorySize))
-        {
-          lRet = CIFX_MEMORY_MAPPING_FAILED;
-        }else
-        {
-          ptExtMemInfo->pvMemoryID    = NULL;
-          ptExtMemInfo->pvMemoryPtr   = NULL;
-          ptExtMemInfo->ulMemorySize  = 0;
-          ptExtMemInfo->ulMemoryType  = 0;
-
-          /* Return global memory information */
-          if(NULL == (ptExtMemInfo->pvMemoryID = OS_MapUserPointer(ptDevInstance->pbExtendedMemory,
-                                                                   ptDevInstance->ulExtendedMemorySize,
-                                                                   &pvMemoryPtr,
-                                                                   ptDevInstance->pvOSDependent,
-                                                                   0)))
-          {
-            lRet = CIFX_MEMORY_MAPPING_FAILED;
-          } else
-          {
-            uint32_t ulHWFeatures;
-
-            /* The location of the ulSystemError is different in DPM and HIF. Use the
-             * correct structure according to the layout information retrieved. */
-            if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
-              ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures));
-            else
-              ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ((HIL_HIF_SYSTEM_CHANNEL_T*)ptSysChannel)->tSystemState.ulHWFeatures));
-
-            ptExtMemInfo->pvMemoryPtr  = pvMemoryPtr;
-            ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize;
-            ptExtMemInfo->ulMemoryType = ulHWFeatures & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
-
-            if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-              ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
-            else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-              ptExtMemInfo->ulMemorySize = 0;
-          }
-        }
-      }
-      break;
-
-    case CIFX_FREE_EXTENDED_MEMORY_POINTER:
-      {
-        /* Clear user area */
-        if(!OS_UnmapUserPointer(ptExtMemInfo->pvMemoryID, ptDevInstance->pvOSDependent))
-        {
-          lRet = CIFX_INVALID_HANDLE;
-        } else
-        {
-          ptExtMemInfo->pvMemoryID    = NULL;
-          ptExtMemInfo->pvMemoryPtr   = NULL;
-          ptExtMemInfo->ulMemorySize  = 0;
-          ptExtMemInfo->ulMemoryType  = 0;
-        }
-      }
-      break;
-
-    case CIFX_GET_EXTENDED_MEMORY_INFO:
-      {
-        uint32_t ulHWFeatures;
-
-        /* The location of the ulSystemError is different in DPM and HIF. Use the
-          * correct structure according to the layout information retrieved. */
-        if (HIL_HIF_LAYOUT_NA == ptDevInstance->bDPMLayout)
-          ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ptSysChannel->tSystemState.ulHWFeatures));
-        else
-          ulHWFeatures = LE32_TO_HOST(HWIF_READ32(ptDevInstance, ((HIL_HIF_SYSTEM_CHANNEL_T*)ptSysChannel)->tSystemState.ulHWFeatures));
-
-        ptExtMemInfo->pvMemoryID    = NULL;
-        ptExtMemInfo->pvMemoryPtr   = NULL;
-        ptExtMemInfo->ulMemorySize  = ptDevInstance->ulExtendedMemorySize;
-        ptExtMemInfo->ulMemoryType  = ulHWFeatures & (HIL_SYSTEM_EXTMEM_ACCESS_MSK | HIL_SYSTEM_EXTMEM_TYPE_MSK);
-
-        if( HIL_SYSTEM_EXTMEM_ACCESS_BOTH == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-          ptExtMemInfo->ulMemorySize = ptDevInstance->ulExtendedMemorySize  / 2;
-        else if( HIL_SYSTEM_EXTMEM_ACCESS_INTERNAL == (ptExtMemInfo->ulMemoryType & HIL_SYSTEM_EXTMEM_ACCESS_MSK))
-          ptExtMemInfo->ulMemorySize = 0;
-      }
-      break;
-
-    default:
-      lRet = CIFX_INVALID_COMMAND;
-      break;
-  } /* end switch */
 
   return lRet;
 }

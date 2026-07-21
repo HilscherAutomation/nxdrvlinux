@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_ComponentID.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_ComponentID.h $: *//*!
 
   \file Hil_ComponentID.h
 
@@ -174,14 +174,14 @@
 #define HIL_COMPONENT_ID_EIP_OBJECT      ((uint32_t)0x001F0001L)
 
 /***********************************************************************************/
-/* EtherNet/Ip HAL EDD 2PS task identifiers */
+/* EtherNet/IP HAL EDD 2PS task identifiers */
 /***********************************************************************************/
 /* MessageId: HIL_COMPONENT_ID_EIP_EDD_LOW */
-/* MessageText: EtherNet/Ip Low Priority EDD Task. */
+/* MessageText: EtherNet/IP Low Priority EDD Task. */
 #define HIL_COMPONENT_ID_EIP_EDD_LOW     ((uint32_t)0x00EF0001L)
 
 /* MessageId: HIL_COMPONENT_ID_EIP_EDD_HIGH */
-/* MessageText: EtherNet/Ip High Priority EDD Task. */
+/* MessageText: EtherNet/IP High Priority EDD Task. */
 #define HIL_COMPONENT_ID_EIP_EDD_HIGH    ((uint32_t)0x00EE0001L)
 
 /***********************************************************************************/
@@ -613,17 +613,17 @@
 #define HIL_COMPONENT_ID_SERCOSIII_SL_IDN ((uint32_t)0x00850000L)
 
 /***********************************************************************************/
-/* Ethernet/Ip Adapter Application task identifier */
+/* EtherNet/IP Adapter Application task identifier */
 /***********************************************************************************/
 /* MessageId: HIL_COMPONENT_ID_EIP_APS */
-/* MessageText: EtherNet/Ip Adapter Application-Task. */
+/* MessageText: EtherNet/IP Adapter Application-Task. */
 #define HIL_COMPONENT_ID_EIP_APS         ((uint32_t)0x00590000L)
 
 /***********************************************************************************/
-/* Ethernet/Ip Scanner Application task identifier */
+/* EtherNet/IP Scanner Application task identifier */
 /***********************************************************************************/
 /* MessageId: HIL_COMPONENT_ID_EIP_APM */
-/* MessageText: EtherNet/Ip Scanner Application-Task. */
+/* MessageText: EtherNet/IP Scanner Application-Task. */
 #define HIL_COMPONENT_ID_EIP_APM         ((uint32_t)0x005A0000L)
 
 /***********************************************************************************/

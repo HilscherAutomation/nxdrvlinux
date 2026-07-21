@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctions.c 15329 2025-11-24 13:34:32Z AMinor $:
+  $Id: cifXHWFunctions.c 15517 2026-04-02 12:27:19Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -587,6 +587,130 @@ static int DEV_WaitForBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitNumber,
   else
     return DEV_WaitForBitState_Poll(ptChannel, ulBitNumber, bState, ulTimeout);
 }
+
+/*****************************************************************************/
+/*! Waits for a given state for I/O handling (polling mode)
+*   \param ptChannel    Channel instance to wait for
+*   \param ulBitMask    BitMask of events to wait for
+*   \param pulBitState  Buffer for actually set events
+*   \param ulTimeout    Maximum time in ms to wait for the desired bit state
+*   \return 0 on error/timeout, 1 on success                                 */
+/*****************************************************************************/
+static int DEV_WaitForIoBitState(PCHANNELINSTANCE ptChannel, uint32_t ulBitMask, uint32_t* pulBitState, uint32_t ulTimeout)
+{
+  PDEVICEINSTANCE ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
+  int32_t lStartTime = 0;
+  int iRet = 0;
+  uint32_t aulBitMask[8] = { 0 };
+  uint32_t ulEqualMask = 0;
+  uint32_t ulNotEqualMask = 0;
+  uint8_t  bIOBitState = 0;
+  uint32_t ulActualState;
+
+  uint32_t ulActualSyncState = 0;
+  uint32_t ulSyncState = 0;
+  uint32_t ulSyncMask = 0;
+
+  uint32_t ulDiffTime = 0L;
+
+  /* prepare wait events for input areas*/
+  for (uint32_t i = 0; i < ptChannel->ulIOInputAreas; i++)
+  {
+    if (ulBitMask & (CIFX_EVENT_RX_DATA_RECEIVED_PD0 << i))
+    {
+      bIOBitState = DEV_GetIOBitstate(ptChannel, ptChannel->pptIOInputAreas[i], 0);
+      aulBitMask[i] = 1 << ptChannel->pptIOInputAreas[i]->bHandshakeBit;
+      if (HIL_FLAGS_EQUAL == bIOBitState)
+      {
+        ulEqualMask |= aulBitMask[i];
+      }
+      else if (HIL_FLAGS_NOT_EQUAL == bIOBitState)
+      {
+        ulNotEqualMask |= aulBitMask[i];
+      }
+    }
+  }
+
+  /* prepare wait events for output areas*/
+  for (uint32_t i = 0; i < ptChannel->ulIOOutputAreas; i++)
+  {
+    if (ulBitMask & (CIFX_EVENT_READY_FOR_TX_DATA_PD0 << i))
+    {
+      bIOBitState = DEV_GetIOBitstate(ptChannel, ptChannel->pptIOOutputAreas[i], 0);
+      aulBitMask[4 + i] = 1 << ptChannel->pptIOOutputAreas[i]->bHandshakeBit;
+      if (HIL_FLAGS_EQUAL == bIOBitState)
+      {
+        ulEqualMask |= aulBitMask[4 + i];
+      }
+      else if (HIL_FLAGS_NOT_EQUAL == bIOBitState)
+      {
+        ulNotEqualMask |= aulBitMask[4 + i];
+      }
+    }
+  }
+
+  /* prepare wait events for time sync. On netX90 only 1 event is available */
+  if (ulBitMask & (CIFX_EVENT_TIMED_LATCH | CIFX_EVENT_TIMED_ACTIVATION))
+  {
+    ulSyncMask = 1 << ptChannel->ulChannelNumber;
+    if (HIL_SYNC_MODE_DEV_CTRL == HWIF_READ8(ptChannel->pvDeviceInstance, ptChannel->ptCommonStatusBlock->bSyncHskMode))
+    {
+      /* Check sync handshake for HIL_FLAGS_NOT_EQUAL state */
+      ulSyncState = ulSyncMask;
+    }
+  }
+
+  lStartTime = (int32_t)OS_GetMilliSecCounter();
+  do
+  {
+    DEV_ReadHandshakeFlags(ptChannel, 1, 1);
+
+    /* get sync events */
+    if (ulSyncMask)
+    {
+      if(ulSyncState ==  ((ptDevInstance->tSyncData.usHSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags) & ulSyncMask))
+      {
+        ulActualSyncState = CIFX_EVENT_TIMED_LATCH | CIFX_EVENT_TIMED_ACTIVATION;
+      }
+    }
+
+    /* get I/O events */
+    ulActualState = ptChannel->usHostFlags ^ ptChannel->usNetxFlags;
+    ulActualState = ((~ulActualState & ulEqualMask) | ((ulActualState) & ulNotEqualMask));
+
+
+    if (ulActualState | ulActualSyncState)
+    {
+      /* prepare bit list of occurred events */
+      *pulBitState = ulActualSyncState;
+      for (int i = 0; i < 4; i++)
+      {
+          if (aulBitMask[i] & ulActualState)
+          {
+              *pulBitState |= (CIFX_EVENT_RX_DATA_RECEIVED_PD0 << i);
+          }
+          if (aulBitMask[4+i] & ulActualState)
+          {
+              *pulBitState |= (CIFX_EVENT_READY_FOR_TX_DATA_PD0 << i);
+          }
+      }
+      iRet = 1;
+      break;
+    }
+
+    /* Check for timeout */
+    ulDiffTime = OS_GetMilliSecCounter() - lStartTime;
+    if (ulDiffTime > ulTimeout)
+    {
+        break;
+    }
+
+    OS_Sleep(0);
+  } while (ulDiffTime < ulTimeout);
+
+return iRet;
+}
+
 
 /*****************************************************************************/
 /*! Checks if the channel is running
@@ -3028,7 +3152,7 @@ static CIFX_DEV_FUNCTION_LIST_T s_tCifxDpmDevFuns =
   DEV_ReadHandshakeFlags,
   DEV_GetIOBitstate,
   DEV_WaitForBitState,
-  NULL,
+  DEV_WaitForIoBitState,
   NULL,
   DEV_ToggleBit,
   NULL,

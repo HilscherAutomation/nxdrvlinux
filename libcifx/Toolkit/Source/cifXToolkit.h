@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkit.h 15448 2025-12-17 15:31:20Z AMinor $:
+  $Id: cifXToolkit.h 15590 2026-07-15 13:39:48Z AMinor $:
 
   Description:
     cifX toolkit function declaration.
@@ -37,7 +37,7 @@ extern "C"
 {
 #endif
 
-#define TOOLKIT_VERSION   "cifX Toolkit 2.8.4.0"
+#define TOOLKIT_VERSION   "cifX Toolkit 2.8.7.0"
 
 /*****************************************************************************/
 /*! \addtogroup CIFX_TK_GLOBAL_API Toolkit global API functions              */

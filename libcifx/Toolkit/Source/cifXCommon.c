@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXCommon.c 15335 2025-11-26 09:42:58Z AMinor $:
+  $Id: cifXCommon.c 15484 2026-03-06 12:04:43Z RHornung $:
 
   Description:
     Common cifX functions and variables shared used by DPM and HIF
@@ -174,7 +174,7 @@ void cifXInitTime(PDEVICEINSTANCE ptDevInstance)
 
       /* Create a time request*/
       HIL_TIME64_CMD_REQ_T  tSendPkt;
-      HIL_TIME64_CMD_CNF_T  tRecvPkt;
+      CIFX_PACKET           tRecvPkt;
 
       OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
       OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
@@ -199,7 +199,7 @@ void cifXInitTime(PDEVICEINSTANCE ptDevInstance)
           NULL);
 
       if( (CIFX_NO_ERROR  != lRet) ||
-          (SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPkt.tHead.ulSta)) )
+          (SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPkt.tHeader.ulState)) )
       {
         if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
         {
@@ -207,7 +207,7 @@ void cifXInitTime(PDEVICEINSTANCE ptDevInstance)
                      CIFX_TRACE_LEVEL_WARNING,
                      "Error setting device time! (lRet=0x%08X, ulState=0x%08X)",
                      lRet,
-                     LE32_TO_HOST(tRecvPkt.tHead.ulSta));
+                     LE32_TO_HOST(tRecvPkt.tHeader.ulState));
         }
       }else
       {
@@ -242,10 +242,15 @@ int32_t cifXReadFirmwareIdent(PDEVICEINSTANCE       ptDevInstance,
   PCHANNELINSTANCE ptChannelInst = ptDevInstance->pptCommChannels[ulChannel];
 
   HIL_FIRMWARE_IDENTIFY_REQ_T tSendPkt;
-  HIL_FIRMWARE_IDENTIFY_CNF_T tRecvPkt;
+  union
+  {
+    CIFX_PACKET                 tRecvPkt;
+    HIL_FIRMWARE_IDENTIFY_CNF_T tRecPktIdent;
+  } uRecvPkt;
+
 
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
   /* Read firmware information */
   tSendPkt.tHead.ulDest       = HOST_TO_LE32(HIL_PACKET_DEST_DEFAULT_CHANNEL);
@@ -258,14 +263,14 @@ int32_t cifXReadFirmwareIdent(PDEVICEINSTANCE       ptDevInstance,
   lRet = DEV_TransferPacket(
       &ptDevInstance->tSystemDevice,
       (CIFX_PACKET*)&tSendPkt,
-      (CIFX_PACKET*)&tRecvPkt,
-      sizeof(tRecvPkt),
+      (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+      sizeof(uRecvPkt.tRecvPkt),
       CIFX_TO_SEND_PACKET,
       pfnRecvPktCallback,
       pvUser);
 
   if( (CIFX_NO_ERROR  != lRet) ||
-      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
+      (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tRecvPkt.tHeader.ulState))) )
   {
     if(g_ulTraceLevel & CIFX_TRACE_LEVEL_WARNING)
     {
@@ -277,7 +282,7 @@ int32_t cifXReadFirmwareIdent(PDEVICEINSTANCE       ptDevInstance,
   } else
   {
     OS_Memcpy( &ptChannelInst->tFirmwareIdent,
-               &tRecvPkt.tData.tFirmwareIdentification,
+               &uRecvPkt.tRecPktIdent.tData.tFirmwareIdentification,
                sizeof(ptChannelInst->tFirmwareIdent));
 
     (void)cifXConvertEndianess(0,

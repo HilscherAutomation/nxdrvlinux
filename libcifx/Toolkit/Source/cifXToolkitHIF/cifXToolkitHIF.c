@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkitHIF.c 15447 2025-12-17 15:02:22Z AMinor $:
+  $Id: cifXToolkitHIF.c 15528 2026-04-10 12:54:24Z RHornung $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -193,20 +193,16 @@ static void cifXDeleteChannelInstance(PCHANNELINSTANCE ptChannel)
     ptChannel->tFromHostMbx.tCom.tCtl.pvEvent = NULL;
   }
 
-#if 0 // TODO
+
   /* Remove sync resources */
-  for(ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptDevInstance->tSyncData.ahSyncBitEvents); ++ulIdx)
+  for(ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptChannel->atSynch); ++ulIdx)
   {
-    if(NULL != ptDevInstance->tSyncData.ahSyncBitEvents[ulIdx])
+    if(NULL != ptChannel->atSynch[ulIdx].pvEvent)
     {
-      OS_DeleteEvent(ptDevInstance->tSyncData.ahSyncBitEvents[ulIdx]);
-      ptDevInstance->tSyncData.ahSyncBitEvents[ulIdx] = NULL;
+      OS_DeleteEvent(ptChannel->atSynch[ulIdx].pvEvent);
+      ptChannel->atSynch[ulIdx].pvEvent = NULL;
     }
   }
-
-  OS_DeleteLock(ptDevInstance->tSyncData.pvLock);
-  ptDevInstance->tSyncData.pvLock = NULL;
-#endif
 
   /*-------------------------------------------------*/
   /* Delete lock object                              */
@@ -696,108 +692,104 @@ static int32_t cifXCheckIRQEnable(PDEVICEINSTANCE ptDevInstance)
     uint32_t ulChannel = 0;
     uint32_t ulIdx;
 
-#if 0 // TODO
-    /* Create interrupt events for sync handling */
-    for (ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptDevInstance->tSyncData.ahSyncBitEvents); ++ulIdx)
+    /* Create events for all channels */
+    do
     {
-      if (NULL == (ptDevInstance->tSyncData.ahSyncBitEvents[ulIdx] = OS_CreateEvent()))
+      /* Create interrupt events if we are working in interrupt mode */
+      for (ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptChannel->apvHsBitEvent); ++ulIdx)
       {
-        lRet = CIFX_INVALID_POINTER;
-
-        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+        if (NULL == (ptChannel->apvHsBitEvent[ulIdx] = OS_CreateEvent()))
         {
-          USER_Trace(ptDevInstance,
-                    CIFX_TRACE_LEVEL_ERROR,
-                    "Error creating sync event buffer!");
+          lRet = CIFX_INVALID_POINTER;
+
+          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+          {
+            USER_Trace(ptDevInstance,
+                       CIFX_TRACE_LEVEL_ERROR,
+                       "Error creating interrupt event buffer!");
+          }
+
+          break;
+        }
+      }
+
+      if (CIFX_NO_ERROR == lRet && !ptChannel->fIsSysDevice)
+      {
+        /* Create interrupt events for the communication mailbox */
+        if (NULL == (ptChannel->tToHostMbx.tCom.tCtl.pvEvent   = OS_CreateEvent()) ||
+            NULL == (ptChannel->tFromHostMbx.tCom.tCtl.pvEvent = OS_CreateEvent())) // TODO
+        {
+          lRet = CIFX_INVALID_POINTER;
+
+          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+          {
+            USER_Trace(ptDevInstance,
+                       CIFX_TRACE_LEVEL_ERROR,
+                       "Error creating interrupt event buffer for communication mailbox!");
+          }
         }
 
-        break;
-      }
-    }
-#endif
-
-    if (CIFX_NO_ERROR == lRet)
-    {
-      /* Create events for all channels */
-      do
-      {
-        /* Create interrupt events if we are working in interrupt mode */
-        for (ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptChannel->apvHsBitEvent); ++ulIdx)
+        /* Create interrupt events for IO input area */
+        for (ulIdx = 0; ulIdx < ptChannel->tIoArea.ulIOInputAreas; ++ulIdx)
         {
-          if (NULL == (ptChannel->apvHsBitEvent[ulIdx] = OS_CreateEvent()))
+          if (NULL == (ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.pvEvent  = OS_CreateEvent()))
           {
             lRet = CIFX_INVALID_POINTER;
 
             if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
             {
               USER_Trace(ptDevInstance,
-                        CIFX_TRACE_LEVEL_ERROR,
-                        "Error creating interrupt event buffer!");
+                         CIFX_TRACE_LEVEL_ERROR,
+                         "Error creating interrupt event buffer for IO input area!");
+            }
+          }
+        }
+
+        /* Create interrupt events for IO output area */
+        for (ulIdx = 0; ulIdx < ptChannel->tIoArea.ulIOOutputAreas; ++ulIdx)
+        {
+          if (NULL == (ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.pvEvent = OS_CreateEvent()))
+          {
+            lRet = CIFX_INVALID_POINTER;
+
+            if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+            {
+              USER_Trace(ptDevInstance,
+                         CIFX_TRACE_LEVEL_ERROR,
+                         "Error creating interrupt event buffer for IO output area!");
+            }
+          }
+        }
+        /* Create interrupt events for sync handling */
+        for (ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptChannel->atSynch); ++ulIdx)
+        {
+          ptChannel->atSynch[ulIdx].ulNotifyEvent = CIFX_EVENT_TIMED_LATCH << ulIdx;
+          ptChannel->atSynch[ulIdx].ulBitmask = CIFX_EVENT_TIMED_LATCH << ulIdx;
+          if (NULL == (ptChannel->atSynch[ulIdx].pvEvent = OS_CreateEvent()))
+          {
+            lRet = CIFX_INVALID_POINTER;
+
+            if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
+            {
+              USER_Trace(ptDevInstance,
+                         CIFX_TRACE_LEVEL_ERROR,
+                         "Error creating sync event buffer!");
             }
 
             break;
           }
         }
+      }
 
-        if (CIFX_NO_ERROR == lRet && !ptChannel->fIsSysDevice)
-        {
-          /* Create interrupt events for the communication mailbox */
-          if (NULL == (ptChannel->tToHostMbx.tCom.tCtl.pvEvent   = OS_CreateEvent()) ||
-              NULL == (ptChannel->tFromHostMbx.tCom.tCtl.pvEvent = OS_CreateEvent())) // TODO
-          {
-            lRet = CIFX_INVALID_POINTER;
+      /* Stop processing of further channels if lRet is set. */
+      if (CIFX_NO_ERROR != lRet)
+        break;
 
-            if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-            {
-              USER_Trace(ptDevInstance,
-                        CIFX_TRACE_LEVEL_ERROR,
-                        "Error creating interrupt event buffer for communication mailbox!");
-            }
-          }
+      /* Check if we have such a channel */
+      if(ulChannel < ptDevInstance->ulCommChannelCount)
+        ptChannel = ptDevInstance->pptCommChannels[ulChannel];
 
-          /* Create interrupt events for IO input area */
-          for (ulIdx = 0; ulIdx < ptChannel->tIoArea.ulIOInputAreas; ++ulIdx)
-          {
-            if (NULL == (ptChannel->tIoArea.aptIOInputAreas[ulIdx]->tIoCtl.pvEvent  = OS_CreateEvent()))
-            {
-              lRet = CIFX_INVALID_POINTER;
-
-              if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-              {
-                USER_Trace(ptDevInstance,
-                          CIFX_TRACE_LEVEL_ERROR,
-                          "Error creating interrupt event buffer for IO input area!");
-              }
-            }
-          }
-
-          /* Create interrupt events for IO output area */
-          for (ulIdx = 0; ulIdx < ptChannel->tIoArea.ulIOOutputAreas; ++ulIdx)
-          {
-            if (NULL == (ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.pvEvent = OS_CreateEvent()))
-            {
-              lRet = CIFX_INVALID_POINTER;
-
-              if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-              {
-                USER_Trace(ptDevInstance,
-                          CIFX_TRACE_LEVEL_ERROR,
-                          "Error creating interrupt event buffer for IO output area!");
-              }
-            }
-          }
-        }
-
-        /* Stop processing of further channels if lRet is set. */
-        if (CIFX_NO_ERROR != lRet)
-          break;
-
-        /* Check if we have such a channel */
-        if(ulChannel < ptDevInstance->ulCommChannelCount)
-          ptChannel = ptDevInstance->pptCommChannels[ulChannel];
-
-      } while(ulChannel++ < ptDevInstance->ulCommChannelCount);
-    }
+    } while(ulChannel++ < ptDevInstance->ulCommChannelCount);
   }
 
   return lRet;
@@ -970,24 +962,8 @@ static int32_t cifXStartDevice(PDEVICEINSTANCE ptDevInstance)
 
   if(CIFX_NO_ERROR == lRet)
   {
-#if 0 // TODO
-    /* Create sync resources  */
-    if (NULL == (ptDevInstance->tSyncData.pvLock = OS_CreateLock()))
-    {
-      lRet = CIFX_INVALID_POINTER;
-
-      if(g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-      {
-        USER_Trace(ptDevInstance,
-                  CIFX_TRACE_LEVEL_ERROR,
-                  "Error creating sync resources!");
-      }
-    } else
-#endif
-    {
-      /* Read the channel layouts, and build the CHANNELINSTANCES for this device */
-      lRet = cifXCreateChannelInstance(ptDevInstance);
-    }
+    /* Read the channel layouts, and build the CHANNELINSTANCES for this device */
+    lRet = cifXCreateChannelInstance(ptDevInstance);
   }
 
 #ifdef CIFX_TOOLKIT_TIME
@@ -1224,6 +1200,9 @@ static int HIFcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGl
       /* disable IO-Buffer IRQs if set */
       HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x0000ff00);
 
+      /* achnowledge SYNC IRQs if set */
+      HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqLatchReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x00030000);
+
       /* Read the complete handshake block on DPM hardwares to make sure illegally activated
        * handshake cells don't cause interrupts. */
       HWIF_READN(ptDevInstance,
@@ -1258,6 +1237,9 @@ static int HIFcifXTKitISRHandler(PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGl
 
         /* disable IO-Buffer IRQs if set */
         HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x0000ff00);
+
+        /* achnowledge SYNC IRQs if set */
+        HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqLatchReset, HOST_TO_LE32(ptIsrToDsrBuffer->ulTlbStatus) & 0x00030000);
 
         /* Read the complete handshake block on DPM hardwares to make sure illegally activated
          * handshake cells don't cause interrupts. */
@@ -1309,7 +1291,7 @@ static void ProcessInputAreas(PCHANNELINSTANCE ptChannel, IRQ_TO_DSR_BUFFER_T* p
 /*! Process Output Areas for changes / callbacks
 *   \param  ptChannel  Channel Instance                                      */
 /*****************************************************************************/
-static void ProcessOutputAreas(PCHANNELINSTANCE ptChannel)
+static void ProcessOutputAreas(PCHANNELINSTANCE ptChannel, IRQ_TO_DSR_BUFFER_T* ptIsrToDsrBuffer)
 {
   uint32_t ulIdx;
   uint8_t bStatus;
@@ -1321,8 +1303,12 @@ static void ProcessOutputAreas(PCHANNELINSTANCE ptChannel)
     bStatus = (bStatus & NETX_IO_STATUS_LOCKSTATE_MSK);
 
     /* Check IO - Output Area */
-    if (0 == bStatus)
+    if (0 != (ptIsrToDsrBuffer->ulTlbStatus &
+        ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tBlock.ulBitmask) &&
+        0 == ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.bIrqState &&
+        0 == bStatus)
     {
+      ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.bIrqState = 1;
       if (NULL != ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.pfnCallback)
       {
         ptChannel->tIoArea.aptIOOutputAreas[ulIdx]->tIoCtl.pfnCallback(
@@ -1393,80 +1379,6 @@ static void HIFcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
        confusion of the toolkit during a system start (xSysdeviceReset) */
     if (ptIsrToDsrBuffer->aulHsk[HIL_HIF_HSC_NETX_SYS] & HIL_HIF_NSF_READY)
     {
-#if 0 // TODO sync handling
-      /*--------------------------------------------------------------------*/
-      /* Evaluate device synchronization flags, the flags are fixed 16 Bit  */
-      /*--------------------------------------------------------------------*/
-      uint16_t  usChangedSyncBits;
-      uint16_t  usOldNSyncFlags = ptDevInstance->tSyncData.usNSyncFlags; /* Remember last known netX flags */
-
-      /* Get pointer to the new flag data from ISR */
-      HIL_DPM_HANDSHAKE_CELL_T* ptSyncCell = &ptIsrToDsrBuffer->tHandshakeBuffer.atHsk[NETX_HSK_SYNCH_FLAG_POS];
-
-      /* Get the actual flags */
-      ptDevInstance->tSyncData.usNSyncFlags = LE16_TO_HOST(ptSyncCell->t16Bit.ulNetxFlags);
-
-      /* Check if there are changed bits since last interrupt from netX side,  */
-      /* and only process sync if bits have chanded! */
-      if (0 != (usChangedSyncBits = usOldNSyncFlags ^ ptDevInstance->tSyncData.usNSyncFlags))
-      {
-        uint32_t  ulBitPos;
-        uint16_t  usUnequalSyncBits;
-
-        /* Create unequal bit mask */
-        usUnequalSyncBits = ptDevInstance->tSyncData.usNSyncFlags ^ ptDevInstance->tSyncData.usHSyncFlags;
-
-        /* Signal sync events */
-        for (ulBitPos = 0; ulBitPos < NETX_NUM_OF_SYNCH_FLAGS; ++ulBitPos)
-        {
-          /* There is a valid channel */
-          uint16_t          usBitMask = (uint16_t)(1 << ulBitPos);
-          PCHANNELINSTANCE  ptSyncChannel = NULL;
-
-          if (ulBitPos >= ptDevInstance->ulCommChannelCount)
-            break;
-
-          ptSyncChannel = (PCHANNELINSTANCE)ptDevInstance->pptCommChannels[ulBitPos];
-
-          if (usChangedSyncBits & usBitMask)
-          {
-            uint8_t bState = HIL_FLAGS_NOT_EQUAL;
-            int     fProcess = 0;
-
-            /* Handle Sync interrupts, read actual state and set bState accordingly */
-            if (HIL_SYNC_MODE_HST_CTRL == HWIF_READ8(ptDevInstance, ptSyncChannel->ptCommunicationStatusBlock->bSyncHskMode))
-              bState = HIL_FLAGS_EQUAL;
-
-            /* Check which mode to handle */
-            /* HIL_FLAGS_NOT_EQUAL corresponds to DEVICE_CONTROLLED */
-            if ((bState == HIL_FLAGS_NOT_EQUAL) &&
-              (usUnequalSyncBits & usBitMask))
-            {
-              fProcess = 1;
-
-            }
-            else if ((bState == HIL_FLAGS_EQUAL) &&
-              (0 == (usUnequalSyncBits & usBitMask)))
-            {
-              fProcess = 1;
-            }
-
-            if (fProcess)
-            {
-              /* There is a valid channel */
-              /* Check if we have a callback assigned */
-              if (ptSyncChannel->tSynch.pfnCallback)
-                ptSyncChannel->tSynch.pfnCallback(CIFX_NOTIFY_SYNC, 0, NULL, ptSyncChannel->tSynch.pvUser);
-
-              /* Signal event to allow waiting for sync state without callback */
-              if (ptDevInstance->tSyncData.ahSyncBitEvents[ulBitPos])
-                OS_SetEvent(ptDevInstance->tSyncData.ahSyncBitEvents[ulBitPos]);
-            }
-          }
-        }
-      }
-#endif
-
       /*-----------------------------------------------------*/
       /* Evaluate all changed handshake bits on all cells    */
       /*-----------------------------------------------------*/
@@ -1476,6 +1388,23 @@ static void HIFcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
         {
           uint32_t ulChangedBits;
           uint32_t ulOldNetxFlags;
+
+          for (uint32_t ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptChannel->atSynch); ++ulIdx)
+          {
+            if (0 != (ptIsrToDsrBuffer->ulTlbStatus & ptChannel->atSynch[ulIdx].ulBitmask))
+            {
+              if (NULL != ptChannel->atSynch[ulIdx].pfnCallback)
+              {
+                ptChannel->atSynch[ulIdx].pfnCallback(
+                          ptChannel->atSynch[ulIdx].ulNotifyEvent,
+                          0,
+                          NULL,
+                          ptChannel->atSynch[ulIdx].pvUser);
+              }
+              OS_SetEvent(ptChannel->atSynch[ulIdx].pvEvent);
+            }
+          }
+
 
           /* COMMUNICATION flags */
 
@@ -1505,7 +1434,7 @@ static void HIFcifXTKitDSRHandler(PDEVICEINSTANCE ptDevInstance)
           /* Store current TlbStatus and reset the changes. */
           ptChannel->tIoArea.tTlbCtl.ulTlbNetxStatus = ptIsrToDsrBuffer->ulTlbStatus;
           ProcessInputAreas(ptChannel, ptIsrToDsrBuffer);
-          ProcessOutputAreas(ptChannel);
+          ProcessOutputAreas(ptChannel, ptIsrToDsrBuffer);
 
           /* Check COMM Send Mailbox */
           ulOldNetxFlags = ptChannel->tFromHostMbx.tCom.tCtl.ulNetxFlags; /* Remember last known netX flags */
@@ -1595,7 +1524,7 @@ static void HIFcifXTKitEnableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
       (HIL_HIF_CHIP_CONTROL_CHANNEL_T*)ptDevInstance->pvGlobalRegisters;
-  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskSet, 0x0000FFFF);
+  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskSet, 0x0003FFFF);
 }
 
 /*****************************************************************************/
@@ -1606,7 +1535,7 @@ static void HIFcifXTKitDisableHWInterrupt(PDEVICEINSTANCE ptDevInstance)
 {
   HIL_HIF_CHIP_CONTROL_CHANNEL_T* ptGlobalRegisters =
       (HIL_HIF_CHIP_CONTROL_CHANNEL_T*)ptDevInstance->pvGlobalRegisters;
-  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, 0x0000FFFF);
+  HWIF_WRITE32(ptDevInstance, ptGlobalRegisters->tHostIrq.ulIrqMaskReset, 0x0003FFFF);
 }
 
 /*****************************************************************************/

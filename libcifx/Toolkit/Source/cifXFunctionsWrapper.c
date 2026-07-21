@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionsWrapper.c 15335 2025-11-26 09:42:58Z AMinor $:
+  $Id: cifXFunctionsWrapper.c 15554 2026-06-12 13:59:57Z MNoll $:
 
   Description:
     cifX API Wrapper module
@@ -33,6 +33,12 @@ int32_t APIENTRY xSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd, uint32_t 
 {
   CHECK_SYSDEVICEHANDLE(hSysdevice);
   return CALL_API_FUNC(hSysdevice, xSysdeviceInfo, hSysdevice, ulCmd, ulSize, pvInfo);
+}
+
+int32_t APIENTRY xSysdeviceExtendedMemory(CIFXHANDLE hSysdevice, uint32_t ulCmd, CIFX_EXTENDED_MEMORY_INFORMATION* ptExtMemInfo)
+{
+  CHECK_SYSDEVICEHANDLE(hSysdevice);
+  return CALL_API_FUNC(hSysdevice, xSysdeviceExtendedMemory, hSysdevice, ulCmd, ptExtMemInfo);
 }
 
 int32_t APIENTRY xSysdeviceDownload(CIFXHANDLE            hSysdevice,
@@ -169,6 +175,12 @@ int32_t APIENTRY xChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t ul
 {
   CHECK_CHANNELHANDLE(hChannel);
   return CALL_API_FUNC(hChannel, xChannelIOInfo, hChannel, ulCmd, ulAreaNumber, ulSize, pvData);
+}
+
+int32_t APIENTRY xChannelIOWaitEvent(CIFXHANDLE hChannel, uint32_t ulEvents, uint32_t* pulActiveEvents, uint32_t ulTimeout)
+{
+  CHECK_CHANNELHANDLE(hChannel);
+  return CALL_API_FUNC(hChannel, xChannelIOWaitEvent, hChannel, ulEvents, pulActiveEvents, ulTimeout);
 }
 
 int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint32_t ulOffset, uint32_t ulDataLen, void* pvData, uint32_t ulTimeout)

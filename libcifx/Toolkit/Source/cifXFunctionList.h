@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionList.h 15453 2025-12-18 06:57:16Z AMinor $:
+  $Id: cifXFunctionList.h 15484 2026-03-06 12:04:43Z RHornung $:
 
   Description:
     cifX toolkit function list.
@@ -105,6 +105,7 @@ typedef struct CIFX_API_FUNCTION_LIST_Ttag
   PFN_XCHANNELBUSSTATE                pfnxChannelBusState;
   PFN_XCHANNELDMASTATE                pfnxChannelDMAState;
   PFN_XCHANNELIOINFO                  pfnxChannelIOInfo;
+  PFN_XCHANNELIOWAITEVENT             pfnxChannelIOWaitEvent;
   PFN_XCHANNELIOREAD                  pfnxChannelIORead;
   PFN_XCHANNELIOWRITE                 pfnxChannelIOWrite;
   PFN_XCHANNELIOREADSENDDATA          pfnxChannelIOReadSendData;
@@ -130,7 +131,7 @@ typedef void    (*PFN_DEV_READHANDSHAKEFLAGS)             (PCHANNELINSTANCE ptCh
 
 typedef uint8_t (*PFN_DEV_GETIOBITSTATE)                  (PCHANNELINSTANCE ptChannel, PIOINSTANCE ptIOInstance, int fOutput);
 typedef int     (*PFN_DEV_WAITFORBITSTATE)                (PCHANNELINSTANCE ptChannel, uint32_t ulBitNumber, uint8_t bState, uint32_t ulTimeout);
-typedef int     (*PFN_DEV_WAITFORIOBITSTATE)              (PCHANNELINSTANCE ptChannel, NETX_IO_BLOCK_T* ptInst, uint32_t ulTimeout);
+typedef int     (*PFN_DEV_WAITFORIOBITSTATE)              (PCHANNELINSTANCE ptChannel, uint32_t ulBitMask, uint32_t* pulBitState, uint32_t ulTimeout);
 typedef int     (*PFN_DEV_WAITFORMBXSTATE)                (PCHANNELINSTANCE ptChannel, PNETX_MAILBOX_BLOCK_T ptInst, uint32_t ulState, uint32_t ulTimeout);
 typedef void    (*PFN_DEV_TOGGLEBIT)                      (PCHANNELINSTANCE ptChannel, uint32_t ulBitMask);
 typedef void    (*PFN_DEV_TOGGLEIOACTION)                 (PCHANNELINSTANCE ptChannel, NETX_IO_BLOCK_T* ptInst);

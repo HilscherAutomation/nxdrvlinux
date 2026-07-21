@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.0.0/includes/Hil_SharedDefines.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_SharedDefines.h $: *//*!
 
   \file Hil_SharedDefines.h
 
@@ -229,6 +229,8 @@
 #define HIL_HW_DEV_CLASS_NETJACK_52                         0x004C
 #define HIL_HW_DEV_CLASS_NETFIELD_DEV_IOLM_W_SMI_1_1_3      0x004D /* Hilscher netFIELD Wireless SMI V1.1.3 */
 #define HIL_HW_DEV_CLASS_NETSWITCH_90_RE_SPE                0x004E /* Hilscher NS 90-RE-SPE devices */
+#define HIL_HW_DEV_CLASS_CHIP_NETX_9XX_COM                  0x004F
+
 
 /* NOTE: The device class will be assigned by TD department. */
 
