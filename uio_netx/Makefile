@@ -33,7 +33,9 @@ ifndef DMA_DISABLE
 endif
 
 PWD := $(shell pwd)
+VERSION := $(shell ../scripts/drv_version.sh -g)
 default:
+	@echo "#define UIO_NETX_VERSION \"${VERSION}"\" > uio_netx_version.h
 	$(MAKE) -C $(TMPKDIR) M=$(PWD) modules
 
 clean:

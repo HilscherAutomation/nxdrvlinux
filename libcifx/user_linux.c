@@ -337,10 +337,12 @@ int USER_GetFirmwareFile(PCIFX_DEVICE_INFORMATION ptDevInfo, uint32_t ulIdx,  PC
         {
           if(ulFile++ == ulIdx)
           {
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
             snprintf(ptFileInfo->szFullFileName, sizeof(ptFileInfo->szFullFileName),
                      "%s/%s", szPath, dirent->d_name);
             strncpy(ptFileInfo->szShortFileName, dirent->d_name,
                     sizeof(ptFileInfo->szShortFileName));
+#pragma GCC diagnostic push
             ret = 1;
             break;
           }
@@ -417,10 +419,12 @@ int USER_GetConfigurationFile(PCIFX_DEVICE_INFORMATION ptDevInfo, uint32_t ulIdx
         {
           if(ulFile++ == ulIdx)
           {
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
             snprintf(ptFileInfo->szFullFileName, sizeof(ptFileInfo->szFullFileName),
                      "%s/%s", szPath, dirent->d_name);
             strncpy(ptFileInfo->szShortFileName, dirent->d_name,
                     sizeof(ptFileInfo->szShortFileName));
+#pragma GCC diagnostic push
             ret = 1;
             break;
           }
@@ -643,10 +647,12 @@ int USER_GetOSFile(PCIFX_DEVICE_INFORMATION ptDevInfo, PCIFX_FILE_INFORMATION pt
       {
         if(0 == strncasecmp(szExt, HIL_FILE_EXTENSION_FIRMWARE, 4))
         {
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
           snprintf(ptFileInfo->szFullFileName, sizeof(ptFileInfo->szFullFileName),
                   "%s/%s", szPath, dirent->d_name);
           strncpy(ptFileInfo->szShortFileName, dirent->d_name,
                   sizeof(ptFileInfo->szShortFileName));
+#pragma GCC diagnostic push
           ret = 1;
           break;
         }

@@ -402,7 +402,7 @@ static void* CreateTxnRsrc(CIFXHANDLE hDevice, BOARD_INFORMATION* ptBoardInfo,
     ptTxnRsrc->ptConfPkt      = NULL;
     ptTxnRsrc->tBoardInfo     = *ptBoardInfo;
 
-    OS_STRNCPY(ptTxnRsrc->szFilename, pszFileName, sizeof(ptTxnRsrc->szFilename)/sizeof(ptTxnRsrc->szFilename[0]));
+    OS_STRNCPY(ptTxnRsrc->szFilename, pszFileName, sizeof(ptTxnRsrc->szFilename)/sizeof(ptTxnRsrc->szFilename[0])-1);
     
     /* Join the transaction resource list */
     ptTxnRsrc->pNext = s_ptTxnList;

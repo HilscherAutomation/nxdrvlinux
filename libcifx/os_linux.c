@@ -487,7 +487,8 @@ static void *netx_irq_thread(void *ptr) {
             /* we don't have access to the device IRQ control within DPM, */
             /* so let the kernel module enable the device's system irq    */
             uint32_t enable_irq = 1;
-            write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq));
+            if (write(info->userdevice->uio_fd, &enable_irq, sizeof(enable_irq)) != sizeof(enable_irq))
+              ERR( "Error enabling IRQ!\n");
           }
         }
       }
