@@ -1,9 +1,10 @@
 #!/bin/bash
 
 kernel_dir=/lib/modules/$(uname -r)/build/
+script_dir=$(dirname $(realpath $0))
 
 # do not change
-default_path=$(dirname $(realpath $0))"/../uio_netx/"
+default_path="${script_dir}/../uio_netx/"
 cur_dir=$PWD
 
 buildfolder="${default_path}"
@@ -17,7 +18,7 @@ fi
 case "$1" in
   "build")
   if [ -e "${buildfolder}/uio_netx.c" ]; then
-    build_param=""
+    build_param="CIFXDRV_ROOT_PATH=${script_dir}/../"
     if [ "${USE_VFIO_DRIVER}" == "1"  ]; then
       echo "Compile kernel module uio_netx.ko (PCI support disabled)"
       build_param="${build_param} DISABLE_PCI_SUPPORT=1"

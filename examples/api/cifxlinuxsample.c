@@ -33,12 +33,15 @@
 #define WAIT_FOR_USER(x) printf("\n\nPress a key to execute \"%s\"...\n", #x); \
                            while(!kbhit()){}
 
-#define TEST_FUNC(x, ret) do { \
-                              WAIT_FOR_USER(x); \
-                              if ((ret = x) != 0) { \
-                                printf("\n\nFailed to run " #x " (ret=0x%X) - aborting demo!\n\n", ret); \
-                                goto err; \
-                              } \
+#define TEST_FUNC(x, ret) do {                                                             \
+                              WAIT_FOR_USER(x);                                            \
+                              if ((ret = x) != 0) {                                        \
+                                  printf("\n\nFailed to run " #x " (ret=0x%X)!\n\n", ret); \
+                                  if (!s_ignore_error) {                                    \
+                                      printf("\n\nAborting demo!\n\n");                    \
+                                      goto err;                                            \
+                                  }                                                        \
+                              }                                                            \
                           } while (0)
 
 typedef struct SYNC_CALLBACK_DATAtag
@@ -50,6 +53,7 @@ typedef struct SYNC_CALLBACK_DATAtag
 static char s_card[] = "cifxXX";
 
 static int s_debug = 0;
+static int s_ignore_error = 0;
 
 /*****************************************************************************/
 /*! Callback rountine for events
@@ -955,7 +959,7 @@ int main(int argc, char* argv[])
   init.trace_level  = DEFAULT_TRACE_LEVEL;
 
   strncpy(s_card, CIFX_DEV, strlen(CIFX_DEV)+1);
-  while((opt = getopt(argc, argv, "n:c:t:ld")) != -1) {
+  while((opt = getopt(argc, argv, "n:c:t:ldi")) != -1) {
     switch(opt)
     {
       case 'n':
@@ -973,6 +977,9 @@ int main(int argc, char* argv[])
       case 'd':
         s_debug = 1;
         break;
+      case 'i':
+        s_ignore_error = 1;
+        break;
       default:
         help();
         return -1;
@@ -980,6 +987,11 @@ int main(int argc, char* argv[])
   }
 
   if (card_no >= 0) {
+    /* Set trace level variable directly to be able to see debug messages */
+    /* of cifXFindDevice(). cifXDriverInit() will set it to late.         */
+    extern uint32_t g_ulTraceLevel;
+
+    g_ulTraceLevel = init.trace_level;
     if ((device = cifXFindDevice( card_no, 0)) != NULL) {
       init.init_options = CIFX_DRIVER_INIT_NOSCAN;
       init.user_cards = device;
