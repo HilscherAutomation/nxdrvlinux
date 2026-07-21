@@ -88,7 +88,7 @@ target_compile_definitions( cifx
 file(GLOB SOURCES "${src_dir}/*.c" "${tk_dir}/Source/*.c" "${tk_dir}/Source/cifXToolkitDPM/*.c" "${tk_dir}/Source/cifXToolkitHIF/*.c" )
 if(VIRTETH)
     file(GLOB NETXTAP_SOURCES ${src_dir}/netx_tap/*.c)
-    set_source_files_properties(${tk_dir}/Source/cifXFunctions.c PROPERTIES COMPILE_FLAGS -DAPIRENAME)
+    set_source_files_properties(${tk_dir}/Source/cifXCommonFunctions.c PROPERTIES COMPILE_FLAGS -DAPIRENAME)
 
     if(NOT LIBDNL_INCLUDE_DIRS OR NOT LIBDNL_LIBRARY_DIRS OR NOT LIBDNL_LIBRARIES)
         pkg_check_modules(LIBDNL libnl-3.0)
@@ -179,7 +179,7 @@ add_custom_target(libcifx_sbom
 )
 
 set(update_sbom ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/update_sbom)
-set(TKIT_VERSION "2.8.0.1")
+set(TKIT_VERSION "2.8.4.0")
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Toolkit/LICENSE.md TKIT_LICENSE_TEXT)
 if(NOT "${TKIT_LICENSE_TEXT}" STREQUAL "")
     string(REGEX REPLACE "\ " "\\\\ "  TKIT_LICENSE_TEXT_SAN "${TKIT_LICENSE_TEXT}")

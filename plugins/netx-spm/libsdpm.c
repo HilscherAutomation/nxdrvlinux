@@ -571,7 +571,7 @@ struct CIFX_DEVICE_T* SDPMInit(uint8_t *pszSPIDevice, uint8_t bMode, uint8_t bBi
 
   /* Check for a valid SPI mode */
   if((bMode < SPI_MODE_0) || (SPI_MODE_3 < bMode)) {
-    ERR( "SDPMInit: Invalid SPI mode (%d <= x <= %u)\n", SPI_MODE_0, SPI_MODE_3);
+    ERR( "SDPMInit: Invalid SPI mode (%d <= x <= %d)\n", SPI_MODE_0, (int)SPI_MODE_3);
     goto error_out;
   }
 
