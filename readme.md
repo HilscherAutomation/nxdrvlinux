@@ -7,7 +7,7 @@ This repository provides the following components:
 | [libcifx](libcifx/)                                      | [MIT](libcifx/LICENSE.md)                | User space driver for cifX/netX devices ([more information](https://hilscher.atlassian.net/l/cp/JFCHnF6h)).
 |  - [cifX toolkit](libcifx/Toolkit/)                      | [SLA](libcifx/Toolkit/LICENSE.md)        | OS independant device handling abstraction of netX devices. It is referenced by the user space library ([more information](https://hilscher.atlassian.net/l/cp/bBwTb2Wc)).
 | [uio_netx](uio_netx/)                                    | [GPLv-2-only](uio_netx/LICENSE.txt)      | kernel mode driver (required for memory mapped devices)
-| [ax99100](cifx_m2/)                                      | [GPLv-2-only](cifx_m2/LICENSE.txt)       | kernel mode driver (requried for cifX M.2 devices)
+| [cifx_ax99100](cifx_ax99100/)                            | [GPLv-2-only](cifx_ax99100/LICENSE.txt)  | kernel mode driver (netX90 with PCI host interface)
 | [cifX examples](examples/)                               | [MIT](LICENSE.md)                        | cifX driver example applications (API, TCP server).
 |  - [marshaller toolkit](examples/tcpserver/Marshaller/)  | in clarification                         | OS independant implementation of the netXtransport protocol device(/server) side. It is referenced by the TCP server ([more information](https://hilscher.atlassian.net/l/cp/e4W3zr1Y)).
 
@@ -25,7 +25,7 @@ The driver consists of a user space and a kernel space component. The follwing t
 | PCI based host interface netx900   | vfio-pci                               | libcifx (VFIO)                         |
 | SPI based host interface           | spidev                                 | libcifx (SPM_PLUGIN)                   |
 | ISA or other memory mapped         | optional: uio_netx                     | libcifx                                |
-| cifX M.2 device                    | ax99100                                | libcifx (SPM_PLUGIN)                   |
+| netX90 with PCI host interface (3) | ax99100                                | libcifx (SPM_PLUGIN)                   |
 
 Note that this documentation currently provides only a short overview. It will be updated step by step. Transitionally refer to the [superseded driver's documentation](doc/OBSOLETE-cifX-Device-Driver-Linux-DRV-15-EN.pdf). Commands mentioned there
 may not work 1:1 since the driver's folder structure changed but it provides background information and still some valid hints.
@@ -33,7 +33,8 @@ may not work 1:1 since the driver's folder structure changed but it provides bac
 For SPI support use the driver's SPM plugin. It provides an easy integration for SPI devices. The plugin need to be enabled during build, since it's disabled by default.
 
 (1) [Compile options in detail](#Compile-options-libcifx-userspace-library)<br>
-(2) [The difference between uio_netx and vfio-pci](#PCI-host-interface)
+(2) [The difference between uio_netx and vfio-pci](#PCI-host-interface)<br>
+(3) netX90 devices with PCIe host interface like M.2 ('CIFX M224290-x', 'CIFX M223090-x'), PCIe ('CIFX PCIE90-x'), low profile PCIe ('CIFX LPCIE90-x') or miniPCIe ('CIFX HPCIE90-x'). For details about it's required kernel driver refer to the [cifx_ax99100 kernel module](cifx_ax99100/readme.md).
 
 <br>
 
