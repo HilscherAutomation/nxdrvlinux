@@ -19,8 +19,8 @@ get_drv_version() {
 
 	# Prefer always git version over file. The file source is only required
 	# for non-versioned driver resource like an archived export.
-	git log 1>/dev/null 2>&1 &&  {
-		version=$(git describe --long --tags)
+	git -C ${script_path} log 1>/dev/null 2>&1 &&  {
+		version=$(git -C ${script_path} describe --long --tags)
 		echo $version
 		exit 0
 	}

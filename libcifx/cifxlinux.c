@@ -194,13 +194,13 @@ static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAcces
     return -EINVAL;
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL ) ||
-       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+       ((pfd->device_path = calloc( 1, strlen(device_path)+1)) == NULL) )  {
     ERR( "Error allocating memory for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
   }
 
-  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
+  snprintf( pfd->device_path, strlen(device_path)+1, "%s", device_path);
 
   pfd->vfio_num = vfio_num;
   snprintf( dev_name, CIFX_MAX_FILE_NAME_LENGTH, "/dev/vfio/devices/vfio%d", pfd->vfio_num);
@@ -260,7 +260,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
     return -EINVAL;
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL) ||
-       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+       ((pfd->device_path = calloc( 1, strlen(device_path)+1)) == NULL) )  {
     ERR( "Error allocating memory - for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
@@ -270,7 +270,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
   pfd->group = -1;
   pfd->vfio_fd = -1;
 
-  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
+  snprintf( pfd->device_path, strlen(device_path)+1, "%s", device_path);
   snprintf( group_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/iommu_group", pfd->device_path);
   if ((ret = get_link_base_name( group_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &group)) != 0)
     goto open_err;
@@ -891,7 +891,7 @@ static int cifx_uio_map_mem(int uio_fd, int uio_num,
     *membase = mmap(NULL, *memlen,
                     PROT_READ|PROT_WRITE,
                     MAP_SHARED|MAP_LOCKED|MAP_POPULATE|flags,
-                    uio_fd, map_num * getpagesize());
+                    uio_fd, (__off_t)map_num * getpagesize());
 
     if(*membase != (void*)-1) {
       ret = 0;
@@ -1534,7 +1534,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
           USER_Trace(ptDevInstance, 0, "      %s / Toolkit %s", LINUXCIFXDRV_VERSION, tDriverInfo.abDriverVersion);
         }
         USER_Trace(ptDevInstance, 0, " Name : %s", ptDevInstance->szName);
-        USER_Trace(ptDevInstance, 0, " DPM  : 0x%lx, len=%lu", ptDevInstance->ulPhysicalAddress, ptDevInstance->ulDPMSize);
+        USER_Trace(ptDevInstance, 0, " DPM  : 0x%x, len=%u", ptDevInstance->ulPhysicalAddress, ptDevInstance->ulDPMSize);
         USER_Trace(ptDevInstance, 0, " Type : %s", s_cifx_device_type_str[ptInternalDev->device_type]);
         USER_Trace(ptDevInstance, 0, "---------------------------------------------------");
       }
@@ -2329,7 +2329,7 @@ static int cifx_uio_get_custom_device_count(void) {
     {
       unsigned int uio_num;
 
-      if(0 == sscanf(namelist[currentuio]->d_name,
+      if(1 != sscanf(namelist[currentuio]->d_name,
                      "uio%u",
                      &uio_num))
       {
@@ -2425,7 +2425,7 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
         /* we already found the device, so skip it.
            we need to handle all data from name list, so we need to
            cycle through whole list */
-      } else if(0 == sscanf(namelist[currentuio]->d_name,
+      } else if(1 != sscanf(namelist[currentuio]->d_name,
                            "uio%u",
                            &uio_num))
       {
