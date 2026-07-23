@@ -891,7 +891,7 @@ static int cifx_uio_map_mem(int uio_fd, int uio_num,
     *membase = mmap(NULL, *memlen,
                     PROT_READ|PROT_WRITE,
                     MAP_SHARED|MAP_LOCKED|MAP_POPULATE|flags,
-                    uio_fd, map_num * getpagesize());
+                    uio_fd, (__off_t)map_num * getpagesize());
 
     if(*membase != (void*)-1) {
       ret = 0;
@@ -1534,7 +1534,7 @@ static int32_t cifXDriverAddDevice(struct CIFX_DEVICE_T* ptDevice, unsigned int 
           USER_Trace(ptDevInstance, 0, "      %s / Toolkit %s", LINUXCIFXDRV_VERSION, tDriverInfo.abDriverVersion);
         }
         USER_Trace(ptDevInstance, 0, " Name : %s", ptDevInstance->szName);
-        USER_Trace(ptDevInstance, 0, " DPM  : 0x%lx, len=%lu", ptDevInstance->ulPhysicalAddress, ptDevInstance->ulDPMSize);
+        USER_Trace(ptDevInstance, 0, " DPM  : 0x%x, len=%u", ptDevInstance->ulPhysicalAddress, ptDevInstance->ulDPMSize);
         USER_Trace(ptDevInstance, 0, " Type : %s", s_cifx_device_type_str[ptInternalDev->device_type]);
         USER_Trace(ptDevInstance, 0, "---------------------------------------------------");
       }
@@ -2329,7 +2329,7 @@ static int cifx_uio_get_custom_device_count(void) {
     {
       unsigned int uio_num;
 
-      if(0 == sscanf(namelist[currentuio]->d_name,
+      if(1 != sscanf(namelist[currentuio]->d_name,
                      "uio%u",
                      &uio_num))
       {
@@ -2425,7 +2425,7 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
         /* we already found the device, so skip it.
            we need to handle all data from name list, so we need to
            cycle through whole list */
-      } else if(0 == sscanf(namelist[currentuio]->d_name,
+      } else if(1 != sscanf(namelist[currentuio]->d_name,
                            "uio%u",
                            &uio_num))
       {
