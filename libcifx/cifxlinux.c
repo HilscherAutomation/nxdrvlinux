@@ -194,13 +194,13 @@ static int cifx_vfio_open_cdev( char* device_path, int vfio_num, int fCheckAcces
     return -EINVAL;
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL ) ||
-       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+       ((pfd->device_path = calloc( 1, strlen(device_path) + 1)) == NULL) )  {
     ERR( "Error allocating memory for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
   }
 
-  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
+  strncpy( pfd->device_path, device_path, strlen(device_path) + 1);
 
   pfd->vfio_num = vfio_num;
   snprintf( dev_name, CIFX_MAX_FILE_NAME_LENGTH, "/dev/vfio/devices/vfio%d", pfd->vfio_num);
@@ -260,7 +260,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
     return -EINVAL;
 
   if ( ((pfd = calloc( 1, sizeof(struct vfio_fd))) == NULL) ||
-       ((pfd->device_path = calloc( 1, strlen(device_path))) == NULL) )  {
+       ((pfd->device_path = calloc( 1, strlen(device_path) + 1)) == NULL) )  {
     ERR( "Error allocating memory - for device '%s'!\n", device_path);
     ret = -ENOMEM;
     goto alloc_err;
@@ -270,7 +270,7 @@ static int cifx_vfio_open(char* device_path, int vfio_num, int fCheckAccess, str
   pfd->group = -1;
   pfd->vfio_fd = -1;
 
-  strncpy( pfd->device_path, device_path, strlen(pfd->device_path));
+  strncpy( pfd->device_path, device_path, strlen(device_path) + 1);
   snprintf( group_path, CIFX_MAX_FILE_NAME_LENGTH, "%s/iommu_group", pfd->device_path);
   if ((ret = get_link_base_name( group_path, link_path, CIFX_MAX_FILE_NAME_LENGTH, &group)) != 0)
     goto open_err;
