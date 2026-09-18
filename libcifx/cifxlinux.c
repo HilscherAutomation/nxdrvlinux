@@ -2625,7 +2625,7 @@ int32_t cifx_cifxeth_scan( char* szBoardName) {
 
        /* only execute if not under driver (automated) control */
        if (0 == dev_intern->eth_support) {
-         NETX_ETH_DEV_CFG_T config;
+         NETX_ETH_DEV_CFG_T config = {0};
 
          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
          {
@@ -2646,9 +2646,9 @@ int32_t cifx_cifxeth_scan( char* szBoardName) {
                         CIFX_TRACE_LEVEL_ERROR,
                         "No cifX ethernet interface found on: %s",
                         szBoardName);
-          } else {
-            lRet = CIFX_NO_ERROR;
           }
+        } else {
+          lRet = CIFX_NO_ERROR;
         }
       } else {
         if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
