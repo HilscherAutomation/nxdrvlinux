@@ -2606,64 +2606,59 @@ void cifXDeleteDevice(struct CIFX_DEVICE_T* device)
  *   \param szBoardName to be scanned
  *   \return CIFX_NO_ERROR in case channel is found and created              */
 /*****************************************************************************/
-int32_t cifx_cifxeth_scan( char* szBoardName) {
-   int32_t  lRet  = CIFX_INVALID_BOARD;
-   uint32_t ulIdx = 0;
+int32_t cifx_cifxeth_scan(char* szBoardName)
+{
+  int32_t  lRet  = CIFX_INVALID_BOARD;
+  uint32_t ulIdx = 0;
 
-   OS_EnterLock(g_pvTkitLock);
+  OS_EnterLock(g_pvTkitLock);
 
-   /* Seach the device with the given name */
-   for (ulIdx = 0; ulIdx < g_ulDeviceCount; ulIdx++)
-   {
-     /* Compare the device name */
-     PDEVICEINSTANCE ptDev = g_pptDevices[ulIdx];
+  /* Seach the device with the given name */
+  for (ulIdx = 0; ulIdx < g_ulDeviceCount; ulIdx++) {
+    /* Compare the device name */
+    PDEVICEINSTANCE ptDev = g_pptDevices[ulIdx];
 
-     if( (OS_Strcmp( ptDev->szName,  szBoardName) == 0) ||
-         (OS_Strcmp( ptDev->szAlias, szBoardName) == 0) )
-     {
-       PCIFX_DEVICE_INTERNAL_T dev_intern = (PCIFX_DEVICE_INTERNAL_T)ptDev->pvOSDependent;
+    if ((OS_Strcmp(ptDev->szName,  szBoardName) == 0) ||
+        (OS_Strcmp(ptDev->szAlias, szBoardName) == 0)) {
+      PCIFX_DEVICE_INTERNAL_T dev_intern = (PCIFX_DEVICE_INTERNAL_T)ptDev->pvOSDependent;
 
-       /* only execute if not under driver (automated) control */
-       if (0 == dev_intern->eth_support) {
-         NETX_ETH_DEV_CFG_T config = {0};
+      /* only execute if not under driver (automated) control */
+      if (0 == dev_intern->eth_support) {
+        NETX_ETH_DEV_CFG_T config = {0};
 
-         if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
-         {
-           USER_Trace( ptDev,
-                       CIFX_TRACE_LEVEL_DEBUG,
-                       "Manual scan for cifX ethernet interface triggered on: %s",
-                       szBoardName);
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) {
+          USER_Trace(ptDev,
+                     CIFX_TRACE_LEVEL_DEBUG,
+                     "Manual scan for cifX ethernet interface triggered on: %s",
+                     szBoardName);
         }
         /* make sure device is not re-created in case of system reset */
         config.user_control = 1;
-        sprintf( config.cifx_name, "%s", ptDev->szName);
+        sprintf(config.cifx_name, "%s", ptDev->szName);
 
-        cifxeth_remove_device( NULL,&config);
-        if (cifxeth_create_device( &config) == NULL) {
-          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR)
-          {
-            USER_Trace( ptDev,
-                        CIFX_TRACE_LEVEL_ERROR,
-                        "No cifX ethernet interface found on: %s",
-                        szBoardName);
+        cifxeth_remove_device(NULL, &config);
+        if (cifxeth_create_device(&config) == NULL) {
+          if (g_ulTraceLevel & CIFX_TRACE_LEVEL_ERROR) {
+            USER_Trace(ptDev,
+                       CIFX_TRACE_LEVEL_ERROR,
+                       "No cifX ethernet interface found on: %s",
+                       szBoardName);
           }
         } else {
           lRet = CIFX_NO_ERROR;
         }
       } else {
-        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG)
-        {
-          USER_Trace( ptDev,
-                      CIFX_TRACE_LEVEL_DEBUG,
-                      "Ignoring cifX ethernet interface scan request, as '%s' is under driver (automated) control!",
-                      szBoardName);
+        if (g_ulTraceLevel & CIFX_TRACE_LEVEL_DEBUG) {
+          USER_Trace(ptDev,
+                     CIFX_TRACE_LEVEL_DEBUG,
+                     "Ignoring cifX ethernet interface scan request, as '%s' is under driver (automated) control!",
+                     szBoardName);
         }
       }
     }
   }
   OS_LeaveLock(g_pvTkitLock);
   return lRet;
-
 }
 #endif
 
