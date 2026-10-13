@@ -2386,7 +2386,6 @@ static struct CIFX_DEVICE_T* cifx_find_custom_device( int iNum, int fCheckAccess
   if(num_uios > 0)
   {
     int currentuio;
-    int founddevice = 0;
 
     for(currentuio = 0; currentuio < num_uios; ++currentuio)
     {
