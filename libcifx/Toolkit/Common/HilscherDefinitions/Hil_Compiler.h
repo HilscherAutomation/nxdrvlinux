@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_Compiler.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.4.0/includes/Hil_Compiler.h $: *//*!
 
   \file Hil_Compiler.h
 
@@ -13,6 +13,7 @@
 
 #if !defined(USER_COMPILER)
 
+#include <stddef.h>
 /*****************************************************************************/
 /* Set byte alignment for structure members.                                 */
 /*****************************************************************************/
@@ -80,7 +81,7 @@
 #define HIL_MAX(a, b)                 (((a)>(b))?(a):(b))
 
 /*! Calculates the offset of the given member in a structure, in bytes */
-#define HIL_OFFSETOF(type, member)    (((unsigned long)&(((type*)(1))->member)) - 1)
+#define HIL_OFFSETOF(type, member)    offsetof(type ,member)
 
 /*! Returns the size of the given member of a structure */
 #define HIL_MEMBERSIZE(type, member)  (sizeof(((type *)1)->member))

@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkitHIF.c 15528 2026-04-10 12:54:24Z RHornung $:
+  $Id: cifXToolkitHIF.c 15622 2026-10-05 07:21:51Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -1548,10 +1548,6 @@ static int32_t HIFcifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 {
   int32_t lRet;
 
-  /* Check if we have a pointer */
-  if(NULL == ptDevInstance)
-    return CIFX_INVALID_POINTER;
-
   /* Disable interrupts during startup phase. Just in case the user has set this flag! */
   ptDevInstance->fIrqEnabled = 0;
 
@@ -1627,182 +1623,17 @@ static int32_t HIFcifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 }
 
 /*****************************************************************************/
-/*! This functions removes a device from being handled by the toolkit.
-*   \param szBoard        Name or Alias of the board to remove
-*   \param fForceRemove   !=0 to force the release of the device, even if
-*                         any references to the device are open
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-static int32_t HIFcifXTKitRemoveDevice(char* szBoard, int fForceRemove)
-{
-  int32_t  lRet   = CIFX_INVALID_BOARD;
-  int      fFound = 0;
-  uint32_t ulIdx  = 0;
-
-  OS_EnterLock(g_pvTkitLock);
-
-  /* Check if a device with the given name still exists */
-  for(ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
-  {
-    if( (OS_Strcmp(g_pptDevices[ulIdx]->szName,  szBoard) == 0) ||
-        (OS_Strcmp(g_pptDevices[ulIdx]->szAlias, szBoard) == 0) )
-    {
-      fFound = 1;
-      break;
-    }
-  }
-
-  /* Remove only devices which are available */
-  if(fFound)
-  {
-    PDEVICEINSTANCE ptDevInstance = g_pptDevices[ulIdx];
-    int             fStop         = 0;
-    int             fIrqEnabled   = ptDevInstance->fIrqEnabled;
-
-    if(ptDevInstance->fIrqEnabled)
-    {
-#ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
-      HIFcifXTKitDisableHWInterrupt(ptDevInstance);
-      OS_DisableInterrupts(ptDevInstance->pvOSDependent);
-#endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
-
-      /* mark IRQ as disabled, as the device is now in polling mode */
-      ptDevInstance->fIrqEnabled = 0;
-    }
-
-    if(fForceRemove)
-    {
-      /* user requested to force the remove, so don't check for open connections */
-      fStop = 1;
-    } else
-    {
-      uint32_t ulChannel = 0;
-
-      if(ptDevInstance->tSystemDevice.ulOpenCount != 0)
-      {
-        /* system channel is in use, so deny device removal */
-        lRet = CIFX_DEV_HW_PORT_IS_USED;
-      } else
-      {
-        fStop = 1;
-        /* we need to check if any channel has an open reference */
-        for(ulChannel = 0; ulChannel < ptDevInstance->ulCommChannelCount; ++ulChannel)
-        {
-          if(ptDevInstance->pptCommChannels[ulChannel]->ulOpenCount > 0)
-          {
-            /* at least one channel has an open reference */
-            fStop = 0;
-            lRet = CIFX_DEV_HW_PORT_IS_USED;
-            break;
-          }
-        }
-      }
-    }
-
-    if(fStop)
-      lRet = cifXStopDevice(ptDevInstance);
-
-    /* Restore IRQ mode in case the user wants to reuse this device instance */
-    ptDevInstance->fIrqEnabled = fIrqEnabled;
-  }
-
-  OS_LeaveLock(g_pvTkitLock);
-
-  return lRet;
-}
-
-/*****************************************************************************/
-/*! Un-Initializes the cifX Toolkit                                          */
-/*****************************************************************************/
-static void HIFcifXTKitDeinit( void)
-{
-  int32_t lIdx = 0;
-
-  if(g_pvTkitLock)
-  {
-    OS_EnterLock(g_pvTkitLock);
-  }
-
-  /* g_ulDeviceCount is decremented inside cifXStopDevice() */
-  for(lIdx = g_ulDeviceCount-1; lIdx >= 0; lIdx--)
-  {
-    (void)cifXStopDevice(g_pptDevices[lIdx]);
-  }
-
-  if (0 == g_ulDeviceCount)
-  {
-    if(g_pptDevices)
-    {
-      OS_Memfree(g_pptDevices);
-      g_pptDevices    = NULL;
-    }
-
-    if(g_pvTkitLock)
-    {
-      OS_LeaveLock(g_pvTkitLock);
-      OS_DeleteLock(g_pvTkitLock);
-      g_pvTkitLock = NULL;
-    }
-
-    /* Uninitialize OS functions */
-    OS_Deinit();
-
-    g_tDriverInfo.fInitialized = 0;
-    g_tDriverInfo.ulOpenCount  = 0;
-  } else
-  {
-    OS_LeaveLock(g_pvTkitLock);
-  }
-}
-
-/*****************************************************************************/
-/*! Initializes the cifX Toolkit
-*   \return CIFX_NO_ERROR on success                                         */
-/*****************************************************************************/
-static int32_t HIFcifXTKitInit(void)
-{
-  int32_t lRet = CIFX_NO_ERROR;
-
-  /* Uninitialize toolkit, just in case it was not correctly closed before */
-  HIFcifXTKitDeinit();
-
-  /* Initialize OS functions */
-  lRet = OS_Init();
-
-  /* Create toolkit lock, signal toolkit initialization */
-  if(CIFX_NO_ERROR == lRet)
-  {
-    if( NULL == (g_pvTkitLock = OS_CreateLock()) )
-    {
-      /* Signal initialization error */
-      lRet = CIFX_INVALID_POINTER;
-
-      /* Uninitialize OS functions */
-      OS_Deinit();
-    } else
-    {
-      /* Toolkit successfully initialized */
-      g_tDriverInfo.fInitialized = 1;
-    }
-  }
-
-  return lRet;
-}
-
-/*****************************************************************************/
 /*! Local structure for cifX Toolkit function pointers                       */
 /*****************************************************************************/
 static CIFX_TKIT_FUNCTION_LIST_T s_tCifxHifTkitFuns =
 {
-  HIFcifXTKitInit,
-  HIFcifXTKitDeinit,
   HIFcifXTKitAddDevice,
-  HIFcifXTKitRemoveDevice,
   HIFcifXTKitEnableHWInterrupt,
   HIFcifXTKitDisableHWInterrupt,
   HIFcifXTKitISRHandler,
   HIFcifXTKitDSRHandler,
   NULL,
+  cifXStopDevice,
 };
 
 PCIFX_TKIT_FUNCTION_LIST_T cifXTkitGetHifTkitFunctionList(void)

@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionList.h 15484 2026-03-06 12:04:43Z RHornung $:
+  $Id: cifXFunctionList.h 15622 2026-10-05 07:21:51Z AMinor $:
 
   Description:
     cifX toolkit function list.
@@ -36,28 +36,24 @@ extern "C"
 #define CHINST_TO_DEVINST(_ch) ((PDEVICEINSTANCE)(((PCHANNELINSTANCE)(_ch))->pvDeviceInstance))
 
 /* Function pointer typedef's for cifX Toolkit API functions. */
-typedef int32_t (*PFN_CIFXTKITINIT)               (void);
-typedef void    (*PFN_CIFXTKITDEINIT)             (void);
 typedef int32_t (*PFN_CIFXTKITADDDEVICE)          (PDEVICEINSTANCE ptDevInstance);
-typedef int32_t (*PFN_CIFXTKITREMOVEDEVICE)       (char* szBoard, int fForceRemove);
-typedef void    (*PFN_cifXTKITENABLEHWINTERRUPT)  (PDEVICEINSTANCE ptDevInstance);
-typedef void    (*PFN_cifXTKITDISABLEHWINTERRUPT) (PDEVICEINSTANCE ptDevInstance);
-typedef int     (*PFN_cifXTKITISRHANDLER)         (PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag);
-typedef void    (*PFN_cifXTKITDSRHANDLER)         (PDEVICEINSTANCE ptDevInstance);
-typedef void    (*PFN_cifXTKITCYCLICTIMER)        (void);
+typedef void    (*PFN_CIFXTKITENABLEHWINTERRUPT)  (PDEVICEINSTANCE ptDevInstance);
+typedef void    (*PFN_CIFXTKITDISABLEHWINTERRUPT) (PDEVICEINSTANCE ptDevInstance);
+typedef int     (*PFN_CIFXTKITISRHANDLER)         (PDEVICEINSTANCE ptDevInstance, int fPCIIgnoreGlobalIntFlag);
+typedef void    (*PFN_CIFXTKITDSRHANDLER)         (PDEVICEINSTANCE ptDevInstance);
+typedef void    (*PFN_CIFXTKITCYCLICTIMER)        (void);
+typedef int32_t (*PFN_CIFXTKITSTOPDEVICE)         (PDEVICEINSTANCE ptDevInstance);
 
 /* Function list structure for the cifX Toolkit API functions. */
 typedef struct CIFX_TKIT_FUNCTION_LIST_Ttag
 {
-  PFN_CIFXTKITINIT                pfncifXTKitInit;
-  PFN_CIFXTKITDEINIT              pfncifXTKitDeinit;
   PFN_CIFXTKITADDDEVICE           pfncifXTKitAddDevice;
-  PFN_CIFXTKITREMOVEDEVICE        pfncifXTKitRemoveDevice;
-  PFN_cifXTKITENABLEHWINTERRUPT   pfncifXTKitEnableHWInterrupt;
-  PFN_cifXTKITDISABLEHWINTERRUPT  pfncifXTKitDisableHWInterrupt;
-  PFN_cifXTKITISRHANDLER          pfncifXTKitISRHandler;
-  PFN_cifXTKITDSRHANDLER          pfncifXTKitDSRHandler;
-  PFN_cifXTKITCYCLICTIMER         pfncifXTKitCyclicTimer;
+  PFN_CIFXTKITENABLEHWINTERRUPT   pfncifXTKitEnableHWInterrupt;
+  PFN_CIFXTKITDISABLEHWINTERRUPT  pfncifXTKitDisableHWInterrupt;
+  PFN_CIFXTKITISRHANDLER          pfncifXTKitISRHandler;
+  PFN_CIFXTKITDSRHANDLER          pfncifXTKitDSRHandler;
+  PFN_CIFXTKITCYCLICTIMER         pfncifXTKitCyclicTimer;
+  PFN_CIFXTKITSTOPDEVICE          pfncifXTKitStopDevice;
 } CIFX_TKIT_FUNCTION_LIST_T, *PCIFX_TKIT_FUNCTION_LIST_T;
 
 

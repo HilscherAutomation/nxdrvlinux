@@ -1,6 +1,13 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.8.0
+-----------------
+  - Added CIFX_NO_ERROR to error description lookup array
+  - Moved parameter checks to wrapper functions
+  - Fixed offset/length checks inside different toolkit functions
+  - Update HilscherDefinitions header to V1.0.4.0
+
   V2.8.7.0
 -----------------
   - Fixed HIFxChannelIOWaitEvent misses/ignores already pending events

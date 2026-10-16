@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXCommonHWFunctions.c 15329 2025-11-24 13:34:32Z AMinor $:
+  $Id: cifXCommonHWFunctions.c 15619 2026-10-02 12:40:51Z AMinor $:
 
   Description:
     Common cifX HW functions and variables shared by DPM and HIF
@@ -664,7 +664,8 @@ int32_t DEV_ReadWriteBlock(PCHANNELINSTANCE ptChannel,
 {
   int32_t lRet = CIFX_NO_ERROR;
 
-  if( (ulOffset + ulDestLen) > ulBlockLen)
+  if ((ulOffset > ulBlockLen) ||
+      (ulDestLen > ulBlockLen - ulOffset))
     return CIFX_INVALID_ACCESS_SIZE; /* Size too long */
 
   /* Process the state block area command */

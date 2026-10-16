@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXToolkitWrapper.c 15335 2025-11-26 09:42:58Z AMinor $:
+  $Id: cifXToolkitWrapper.c 15625 2026-10-06 10:21:13Z AMinor $:
 
   Description:
     cifX Toolkit Wrapper module
@@ -30,6 +30,57 @@ static CIFX_TKIT_FUNCTION_LIST_T* s_pDPMTKfun = NULL;
 static CIFX_TKIT_FUNCTION_LIST_T* s_pHIFTKfun = NULL;
 #endif
 
+void cifXTKitDeinit(void)
+{
+  int32_t lIdx = 0;
+
+  if (!g_tDriverInfo.fInitialized)
+    return;
+
+  if(g_pvTkitLock)
+  {
+    OS_EnterLock(g_pvTkitLock);
+  }
+
+  /* g_ulDeviceCount is decremented inside cifXStopDevice() */
+  for(lIdx = g_ulDeviceCount-1; lIdx >= 0; lIdx--)
+  {
+    (void)CALL_TK_FUNC(g_pptDevices[lIdx], cifXTKitStopDevice, g_pptDevices[lIdx]);
+  }
+
+  if (0 == g_ulDeviceCount)
+  {
+    if(g_pptDevices)
+    {
+      OS_Memfree(g_pptDevices);
+      g_pptDevices    = NULL;
+    }
+
+#if DPM_SUPPORT
+    s_pDPMTKfun = NULL;
+#endif
+#if HIF_SUPPORT
+    s_pHIFTKfun = NULL;
+#endif
+
+    if(g_pvTkitLock)
+    {
+      OS_LeaveLock(g_pvTkitLock);
+      OS_DeleteLock(g_pvTkitLock);
+      g_pvTkitLock = NULL;
+    }
+
+    /* Uninitialize OS functions */
+    OS_Deinit();
+
+    g_tDriverInfo.fInitialized = 0;
+    g_tDriverInfo.ulOpenCount  = 0;
+  } else
+  {
+    OS_LeaveLock(g_pvTkitLock);
+  }
+}
+
 int32_t cifXTKitInit(void)
 {
   int32_t lRet = CIFX_NO_ERROR;
@@ -37,40 +88,37 @@ int32_t cifXTKitInit(void)
   if (g_tDriverInfo.fInitialized)
     return CIFX_NO_ERROR;
 
+  /* Uninitialize toolkit, just in case it was not correctly closed before */
+  cifXTKitDeinit();
+
+  /* Initialize OS functions */
+  lRet = OS_Init();
+
+  /* Create toolkit lock, signal toolkit initialization */
+  if(CIFX_NO_ERROR == lRet)
+  {
+    if( NULL == (g_pvTkitLock = OS_CreateLock()) )
+    {
+      /* Signal initialization error */
+      lRet = CIFX_INVALID_POINTER;
+
+      /* Uninitialize OS functions */
+      OS_Deinit();
+    } else
+    {
 #if DPM_SUPPORT
-  s_pDPMTKfun = cifXTkitGetDpmTkitFunctionList(); /* returns valid pointer */
-  lRet = s_pDPMTKfun->pfncifXTKitInit();
+      s_pDPMTKfun = cifXTkitGetDpmTkitFunctionList(); /* returns valid pointer */
+#endif
+#if HIF_SUPPORT
+      s_pHIFTKfun = cifXTkitGetHifTkitFunctionList(); /* returns valid pointer */
 #endif
 
-#if HIF_SUPPORT
-  s_pHIFTKfun = cifXTkitGetHifTkitFunctionList(); /* returns valid pointer */
-  if (CIFX_NO_ERROR == lRet)
-  {
-    lRet = s_pHIFTKfun->pfncifXTKitInit();
-#if DPM_SUPPORT
-    if (CIFX_NO_ERROR != lRet)
-      s_pDPMTKfun->pfncifXTKitDeinit();
-#endif
+      /* Toolkit successfully initialized */
+      g_tDriverInfo.fInitialized = 1;
+    }
   }
-#endif
 
   return lRet;
-}
-
-void cifXTKitDeinit(void)
-{
-  if (!g_tDriverInfo.fInitialized)
-    return;
-
-#if DPM_SUPPORT
-  s_pDPMTKfun->pfncifXTKitDeinit();
-  s_pDPMTKfun = NULL;
-#endif
-
-#if HIF_SUPPORT
-  s_pHIFTKfun->pfncifXTKitDeinit();
-  s_pHIFTKfun = NULL;
-#endif
 }
 
 int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
@@ -96,9 +144,9 @@ int32_t cifXTKitAddDevice(PDEVICEINSTANCE ptDevInstance)
 
 int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
 {
-  PFN_CIFXTKITREMOVEDEVICE pfncifXTKitRemoveDevice = NULL;
-  int32_t lRet = CIFX_FUNCTION_FAILED;
-  uint32_t ulIdx;
+  int      fFound = 0;
+  uint32_t ulIdx  = 0;
+  int32_t  lRet   = CIFX_INVALID_BOARD;
 
   CHECK_POINTER(szBoard);
 
@@ -108,23 +156,71 @@ int32_t cifXTKitRemoveDevice(char* szBoard, int fForceRemove)
   OS_EnterLock(g_pvTkitLock);
 
   /* Check if a device with the given name still exists */
-  for (ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
+  for(ulIdx = 0; ulIdx < g_ulDeviceCount; ++ulIdx)
   {
     if( (OS_Strcmp(g_pptDevices[ulIdx]->szName,  szBoard) == 0) ||
         (OS_Strcmp(g_pptDevices[ulIdx]->szAlias, szBoard) == 0) )
     {
-      /* get function pointer to make sure device is not removed since we can't hold lock */
-      pfncifXTKitRemoveDevice = g_pptDevices[ulIdx]->ptTkitFun->pfncifXTKitRemoveDevice;
+      fFound = 1;
       break;
     }
   }
 
-  OS_LeaveLock(g_pvTkitLock);
-
-  if (NULL != pfncifXTKitRemoveDevice)
+  /* Remove only devices which are available */
+  if(fFound)
   {
-    lRet = pfncifXTKitRemoveDevice(szBoard, fForceRemove);
+    PDEVICEINSTANCE ptDevInstance = g_pptDevices[ulIdx];
+    int             fStop         = 0;
+    int             fIrqEnabled   = ptDevInstance->fIrqEnabled;
+
+    if(ptDevInstance->fIrqEnabled)
+    {
+#ifndef CIFX_TOOLKIT_MANUAL_IRQ_ENABLE
+      CALL_TK_FUNC(ptDevInstance, cifXTKitDisableHWInterrupt, ptDevInstance);
+      OS_DisableInterrupts(ptDevInstance->pvOSDependent);
+#endif /* CIFX_TOOLKIT_MANUAL_IRQ_ENABLE */
+
+      /* mark IRQ as disabled, as the device is now in polling mode */
+      ptDevInstance->fIrqEnabled = 0;
+    }
+
+    if(fForceRemove)
+    {
+      /* user requested to force the remove, so don't check for open connections */
+      fStop = 1;
+    } else
+    {
+      uint32_t ulChannel = 0;
+
+      if(ptDevInstance->tSystemDevice.ulOpenCount != 0)
+      {
+        /* system channel is in use, so deny device removal */
+        lRet = CIFX_DEV_HW_PORT_IS_USED;
+      } else
+      {
+        fStop = 1;
+        /* we need to check if any channel has an open reference */
+        for(ulChannel = 0; ulChannel < ptDevInstance->ulCommChannelCount; ++ulChannel)
+        {
+          if(ptDevInstance->pptCommChannels[ulChannel]->ulOpenCount > 0)
+          {
+            /* at least one channel has an open reference */
+            fStop = 0;
+            lRet = CIFX_DEV_HW_PORT_IS_USED;
+            break;
+          }
+        }
+      }
+    }
+
+    if(fStop)
+      lRet = CALL_TK_FUNC(ptDevInstance, cifXTKitStopDevice, ptDevInstance);
+
+    /* Restore IRQ mode in case the user wants to reuse this device instance */
+    ptDevInstance->fIrqEnabled = fIrqEnabled;
   }
+
+  OS_LeaveLock(g_pvTkitLock);
 
   return lRet;
 }

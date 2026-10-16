@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXCommonFunctions.c 15556 2026-06-15 09:39:15Z MNoll $:
+  $Id: cifXCommonFunctions.c 15620 2026-10-02 13:18:07Z AMinor $:
 
   Description:
     Common cifX functions and variables shared by DPM and HIF
@@ -44,6 +44,7 @@ static struct CIFX_ERROR_TO_DESCRtag
 
 } s_atErrorToDescrTable[] =
 {
+  {CIFX_NO_ERROR                     ,"No Error"},
 #ifndef CIFX_TOOLKIT_NO_ERRORLOOKUP
   /*******************************************************************************
   * cifX Device Driver Errors (Global)
@@ -133,8 +134,6 @@ static struct CIFX_ERROR_TO_DESCRtag
   {CIFX_DEV_DPM_LAYOUT_UNKNOWN       ,"Unsupported DPM layout"                           },
 
   /*******************************************************************************/
-#else
-  {CIFX_NO_ERROR, ""},
 #endif
 };
 
@@ -565,10 +564,10 @@ int32_t APIENTRY xChannelBusState(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t*
 *   \param ulTimeout       Timeout to wait for reset complete in [ms]
 *   \return CIFX_NO_ERROR on success                                         */
 /*****************************************************************************/
-int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
+int32_t APIENTRY xChannelReset(CIFXHANDLE hChannel, uint32_t ulResetMode, uint32_t ulTimeout)
 {
   int32_t          lRet;
-  PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
+  PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
   CHECK_CHANNELHANDLE(hChannel);
 
@@ -607,6 +606,8 @@ int32_t APIENTRY xChannelReset(CIFXHANDLE  hChannel, uint32_t ulResetMode, uint3
 /*****************************************************************************/
 int32_t APIENTRY xChannelWatchdog(CIFXHANDLE hChannel, uint32_t ulCmd, uint32_t* pulTrigger)
 {
+  CHECK_CHANNELHANDLE(hChannel);
+  CHECK_POINTER(pulTrigger);
   return DEV_TriggerWatchdog((PCHANNELINSTANCE)hChannel, ulCmd, pulTrigger);
 }
 /*****************************************************************************/

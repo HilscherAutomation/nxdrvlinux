@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctionsHIF.c 15589 2026-07-13 09:56:02Z AMinor $:
+  $Id: cifXFunctionsHIF.c 15626 2026-10-06 11:52:34Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -94,9 +94,6 @@ static int32_t APIENTRY HIFxSysdevicePutPacket(CIFXHANDLE hSysdevice, CIFX_PACKE
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
 
-  CHECK_SYSDEVICEHANDLE(hSysdevice);
-  CHECK_POINTER(ptSendPkt);
-
   if( !OS_WaitMutex( ptSysDevice->tFromHostMbx.tSys.pvMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
 
@@ -120,9 +117,6 @@ static int32_t APIENTRY HIFxSysdeviceGetPacket(CIFXHANDLE hSysdevice, uint32_t u
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
-
-  CHECK_SYSDEVICEHANDLE(hSysdevice);
-  CHECK_POINTER(ptRecvPkt);
 
   if( !OS_WaitMutex( ptSysDevice->tToHostMbx.tSys.pvMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
@@ -161,10 +155,6 @@ static int32_t APIENTRY HIFxSysdeviceDownload(CIFXHANDLE            hSysdevice,
 {
   PCHANNELINSTANCE ptSysDevice   = (PCHANNELINSTANCE)hSysdevice;
   int32_t lRet                   = CIFX_NO_ERROR;
-
-  CHECK_SYSDEVICEHANDLE(hSysdevice);
-  CHECK_POINTER(pszFileName);
-  CHECK_POINTER(pabFileData);
 
   switch(ulMode)
   {
@@ -221,16 +211,6 @@ static int32_t APIENTRY HIFxSysdeviceUpload(CIFXHANDLE            hSysdevice,
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hSysdevice;
   int32_t          lRet          = CIFX_NO_ERROR;
 
-#ifdef CIFX_TOOLKIT_PARAMETER_CHECK
-  if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
-       (CIFX_NO_ERROR != CheckChannelHandle(hSysdevice)) )
-       return CIFX_INVALID_HANDLE;
-#endif
-
-  CHECK_POINTER(pszFileName);
-  CHECK_POINTER(pabFileData);
-  CHECK_POINTER(pulFileSize);
-
   switch(ulMode)
   {
     case DOWNLOAD_MODE_FIRMWARE:
@@ -271,9 +251,6 @@ static int32_t APIENTRY HIFxSysdeviceInfo(CIFXHANDLE hSysdevice, uint32_t ulCmd,
   int32_t                   lRet         = CIFX_NO_ERROR;
   PCHANNELINSTANCE          ptSysDevice  = (PCHANNELINSTANCE)hSysdevice;
   HIL_HIF_SYSTEM_CHANNEL_T* ptSysChannel = NULL;
-
-  CHECK_SYSDEVICEHANDLE(hSysdevice);
-  CHECK_POINTER(pvInfo);
 
   ptSysChannel = (HIL_HIF_SYSTEM_CHANNEL_T*)ptSysDevice->pbDPMChannelStart;
 
@@ -410,10 +387,6 @@ static int32_t APIENTRY HIFxChannelDownload(CIFXHANDLE            hChannel,
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   int32_t          lRet          = CIFX_NO_ERROR;
 
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pszFileName);
-  CHECK_POINTER(pabFileData);
-
   switch(ulMode)
   {
     case DOWNLOAD_MODE_FIRMWARE:
@@ -454,8 +427,6 @@ static int32_t APIENTRY HIFxChannelPutPacket(CIFXHANDLE hChannel, CIFX_PACKET*  
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   /* Check if another command is active */
   if ( 0 == OS_WaitMutex( ptChannel->tFromHostMbx.tCom.tBlock.pvMutex, ulTimeout))
     return CIFX_DRV_CMD_ACTIVE;
@@ -480,8 +451,6 @@ static int32_t APIENTRY HIFxChannelGetPacket(CIFXHANDLE hChannel, uint32_t ulSiz
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
-
-  CHECK_CHANNELHANDLE(hChannel);
 
   /* Check if another command is active */
   if ( 0 == OS_WaitMutex( ptChannel->tToHostMbx.tCom.tBlock.pvMutex, ulTimeout))
@@ -512,15 +481,16 @@ static int32_t APIENTRY HIFxChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t u
   uint32_t           ulCopySize  = 0;
   int32_t            lRet        = CIFX_NO_ERROR;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
-  ulCopySize  = HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE;
-
-  if( ulCopySize > ulSize)
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
+  if ((HIL_PACKET_HEADER_SIZE > ulSize) ||
+      (ulCopySize > ulSize - HIL_PACKET_HEADER_SIZE))
   {
     /* Use the user buffer length if packet does not fit in the user buffer */
     ulCopySize = ulSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
 
   /* Just copy the available data into the user buffer */
@@ -560,9 +530,6 @@ static int32_t APIENTRY HIFxChannelIOInfo(CIFXHANDLE hChannel, uint32_t ulCmd, u
   int32_t                 lRet            = CIFX_NO_ERROR;
   PCHANNELINSTANCE        ptChannel       = (PCHANNELINSTANCE)hChannel;
   CHANNEL_IO_INFORMATION* ptIoInformation = (CHANNEL_IO_INFORMATION*)pvData;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvData);
 
   if(ulSize != sizeof(*ptIoInformation))
     return CIFX_INVALID_BUFFERSIZE;
@@ -623,9 +590,6 @@ static int32_t APIENTRY HIFxChannelIOWaitEvent(CIFXHANDLE  hChannel, uint32_t ul
   int32_t  lRet       = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pulActiveEvents);
-
   if (!DEV_WaitForIoBitState(ptChannel, ulEvents, pulActiveEvents, ulTimeout))
   {
     lRet = CIFX_DEV_SYNC_STATE_TIMEOUT;
@@ -655,8 +619,6 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 #endif
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   if(!DEV_IsRunning(ptChannel))
     return CIFX_DEV_NOT_RUNNING;
 
@@ -685,7 +647,9 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptDmaInfo->ulSize - ulOffset) ||
+        (ulDataLen > ptDmaInfo->ulSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Check if another command is active */
@@ -703,7 +667,7 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
 
       /* Read data */
       OS_Memcpy(  pvData,
-                  ((uint8_t*)(ptDmaInfo->pvBuffer)) + ulOffset,
+                  ((uint8_t*)(ptDmaInfo->pvBuffer)) + HIL_HIF_IO_DATA_OFFSET + ulOffset,
                   ulDataLen);
 
       /* Check COMM Flag for return value */
@@ -719,8 +683,9 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
     /*---------------------------*/
     /* This is DPM data transfer */
     /*---------------------------*/
-    ulOffset = ulOffset + HIL_HIF_IO_DATA_OFFSET; /* skip reserved area */
-    if( (ulOffset + ulDataLen) > ptIOArea->tBlock.ulElementSize)
+    if ((ulOffset > ptIOArea->tBlock.ulElementSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptIOArea->tBlock.ulElementSize - ulOffset) ||
+        (ulDataLen > ptIOArea->tBlock.ulElementSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Check if another command is active */
@@ -733,7 +698,7 @@ static int32_t APIENTRY HIFxChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNu
     /* Read data */
     HWIF_READN( ptChannel->pvDeviceInstance,
                 pvData,
-                &ptIOArea->tBlock.pbBlockStart[ulOffset],
+                &ptIOArea->tBlock.pbBlockStart[HIL_HIF_IO_DATA_OFFSET + ulOffset],
                 ulDataLen);
 
     bStatus = HWIF_READ8(ptChannel->pvDeviceInstance, *ptIOArea->tIoCtl.pbStatus);
@@ -785,8 +750,6 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
   uint8_t          bIOBitState   = HIL_FLAGS_NONE;
 #endif
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   if(!DEV_IsRunning(ptChannel))
     return CIFX_DEV_NOT_RUNNING;
 
@@ -813,8 +776,10 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
-      return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptDmaInfo->ulSize - ulOffset) ||
+        (ulDataLen > ptDmaInfo->ulSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
+      return CIFX_INVALID_ACCESS_SIZE; /* write size too long */
 
     /* Check if another command is active */
     if ( !OS_WaitMutex( ptIOArea->pvMutex, ulTimeout))
@@ -826,7 +791,7 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
     } else
     {
       /* Read data */
-      OS_Memcpy( (((uint8_t*)(ptDmaInfo->pvBuffer)) + ulOffset),
+      OS_Memcpy( (((uint8_t*)(ptDmaInfo->pvBuffer)) + HIL_HIF_IO_DATA_OFFSET + ulOffset),
                  pvData,
                  ulDataLen);
 
@@ -846,9 +811,10 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
     /*---------------------------*/
     /* This is DPM data transfer */
     /*---------------------------*/
-    ulOffset = ulOffset + HIL_HIF_IO_DATA_OFFSET; /* skip reserved area */
-    if( (ulOffset + ulDataLen) > ptIOArea->tBlock.ulElementSize)
-      return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
+    if ((ulOffset > ptIOArea->tBlock.ulElementSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptIOArea->tBlock.ulElementSize - ulOffset) ||
+        (ulDataLen > ptIOArea->tBlock.ulElementSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
+      return CIFX_INVALID_ACCESS_SIZE; /* write size too long */
 
     /* Check if another command is active */
     if ( !OS_WaitMutex( ptIOArea->tBlock.pvMutex, ulTimeout))
@@ -862,7 +828,7 @@ static int32_t APIENTRY HIFxChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaN
     {
       /* Write data */
       HWIF_WRITEN(  ptChannel->pvDeviceInstance,
-                   &ptIOArea->tBlock.pbBlockStart[ulOffset],
+                   &ptIOArea->tBlock.pbBlockStart[HIL_HIF_IO_DATA_OFFSET + ulOffset],
                     pvData,
                     ulDataLen);
 
@@ -914,8 +880,6 @@ static int32_t APIENTRY HIFxChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t
   NETX_IO_BLOCK_T* ptIOArea  = NULL;
   int32_t          lRet      = CIFX_NO_ERROR;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
 #if 0 // TODO #ifdef CIFX_TOOLKIT_DMA
   /* Check for DMA transfer */
   if( ptChannel->ulDeviceCOSFlags & HIL_COMM_COS_DMA)
@@ -928,12 +892,14 @@ static int32_t APIENTRY HIFxChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
-      return CIFX_INVALID_ACCESS_SIZE;                      /* read size too long */
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptDmaInfo->ulSize - ulOffset) ||
+        (ulDataLen > ptDmaInfo->ulSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
+      return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Read data */
     OS_Memcpy(  pvData,
-                ((uint8_t*)(ptDmaInfo->pvBuffer)) + ulOffset,
+                ((uint8_t*)(ptDmaInfo->pvBuffer)) + HIL_HIF_IO_DATA_OFFSET + ulOffset,
                 ulDataLen);
   } else
 #endif
@@ -943,14 +909,15 @@ static int32_t APIENTRY HIFxChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t
 
     ptIOArea = ptChannel->tIoArea.aptIOOutputAreas[ulAreaNumber];
 
-    ulOffset = ulOffset + HIL_HIF_IO_DATA_OFFSET; /* skip reserved area */
-    if( (ulOffset + ulDataLen) > ptIOArea->tBlock.ulElementSize)
+    if ((ulOffset > ptIOArea->tBlock.ulElementSize) ||
+        (HIL_HIF_IO_DATA_OFFSET > ptIOArea->tBlock.ulElementSize - ulOffset) ||
+        (ulDataLen > ptIOArea->tBlock.ulElementSize - HIL_HIF_IO_DATA_OFFSET - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Read data */
     HWIF_READN(ptChannel->pvDeviceInstance,
                pvData,
-               &ptIOArea->tBlock.pbBlockStart[ulOffset],
+               &ptIOArea->tBlock.pbBlockStart[HIL_HIF_IO_DATA_OFFSET + ulOffset],
                ulDataLen);
   }
 
@@ -989,9 +956,6 @@ static int32_t APIENTRY HIFxChannelCommonStatusBlock(CIFXHANDLE hChannel, uint32
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvData);
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -1069,16 +1033,12 @@ static int32_t APIENTRY HIFxChannelUserBlock(CIFXHANDLE  hChannel,
                                              uint32_t    ulDataLen,
                                              void*       pvData)
 {
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvData);
-
   UNREFERENCED_PARAMETER(hChannel);
   UNREFERENCED_PARAMETER(ulAreaNumber);
   UNREFERENCED_PARAMETER(ulCmd);
   UNREFERENCED_PARAMETER(ulOffset);
   UNREFERENCED_PARAMETER(ulDataLen);
   UNREFERENCED_PARAMETER(pvData);
-
   return CIFX_FUNCTION_NOT_AVAILABLE;
 }
 
@@ -1097,9 +1057,6 @@ static int32_t APIENTRY HIFxChannelPLCMemoryPtr(CIFXHANDLE hChannel, uint32_t ul
   unsigned long           ulAreaDefinition  = 0;
   PDEVICEINSTANCE         ptDevInstance     = NULL;
   int32_t                 lRet              = CIFX_NO_ERROR;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvMemoryInfo);
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -1333,8 +1290,6 @@ static int32_t APIENTRY HIFxChannelPLCIsReadReady(CIFXHANDLE hChannel, uint32_t 
   int32_t           lRet         = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel    = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
   {
@@ -1381,8 +1336,6 @@ static int32_t APIENTRY HIFxChannelPLCIsWriteReady(CIFXHANDLE hChannel, uint32_t
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
   {
@@ -1421,8 +1374,6 @@ static int32_t APIENTRY HIFxChannelPLCActivateWrite(CIFXHANDLE hChannel, uint32_
 {
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
-
-  CHECK_CHANNELHANDLE(hChannel);
 
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
@@ -1469,8 +1420,6 @@ static int32_t APIENTRY HIFxChannelPLCActivateRead(CIFXHANDLE hChannel, uint32_t
   int32_t          lRet          = CIFX_NO_ERROR;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   /* Check if device installed and active */
   if(ptChannel->ulOpenCount == 0)
   {
@@ -1510,9 +1459,6 @@ static int32_t APIENTRY HIFxChannelInfo(CIFXHANDLE hChannel, uint32_t ulSize, vo
   CHANNEL_INFORMATION*  ptChannelInfo = (CHANNEL_INFORMATION*)pvChannelInfo;
   PCHANNELINSTANCE      ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE       ptDevInstance = NULL;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pvChannelInfo);
 
   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
@@ -1614,11 +1560,6 @@ static int32_t APIENTRY HIFxChannelUpload(CIFXHANDLE            hChannel,
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   int32_t          lRet          = CIFX_NO_ERROR;
 
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pszFileName);
-  CHECK_POINTER(pabFileData);
-  CHECK_POINTER(pulFileSize);
-
   switch(ulMode)
   {
     case DOWNLOAD_MODE_FIRMWARE:
@@ -1660,9 +1601,6 @@ static int32_t APIENTRY HIFxChannelDMAState(CIFXHANDLE  hChannel, uint32_t ulCmd
   int32_t          lRet          = CIFX_INVALID_PARAMETER;
   PCHANNELINSTANCE ptChannel     = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance = NULL;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pulState);
 
   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
@@ -1713,8 +1651,6 @@ static int32_t APIENTRY HIFxChannelRegisterNotification(CIFXHANDLE           hCh
   PCHANNELINSTANCE ptChannel        = (PCHANNELINSTANCE)hChannel;
   PDEVICEINSTANCE  ptDevInstance    = NULL;
   uint32_t         ulBitState       = 0;
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pfnCallback);
 
   ptDevInstance = (PDEVICEINSTANCE)ptChannel->pvDeviceInstance;
 
@@ -1989,8 +1925,6 @@ static int32_t APIENTRY HIFxChannelUnregisterNotification(CIFXHANDLE hChannel,
 
   PCHANNELINSTANCE ptChannel = (PCHANNELINSTANCE)hChannel;
 
-  CHECK_CHANNELHANDLE(hChannel);
-
   switch (ulNotification)
   {
     case CIFX_NOTIFY_RX_MBX_FULL:
@@ -2205,9 +2139,6 @@ static int32_t APIENTRY HIFxChannelSyncState(CIFXHANDLE  hChannel,
   // TODO: function need to be adapt to netX9x2
   int32_t           lRet      = CIFX_NO_ERROR;
   PCHANNELINSTANCE  ptChannel = (PCHANNELINSTANCE)hChannel;
-
-  CHECK_CHANNELHANDLE(hChannel);
-  CHECK_POINTER(pulErrorCount);
 
   UNREFERENCED_PARAMETER(ulTimeout);
   UNREFERENCED_PARAMETER(pulErrorCount);

@@ -1,7 +1,7 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_CommandRange.h $: *//*!
+  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.4.0/includes/Hil_CommandRange.h $: *//*!
 
   \file Hil_CommandRange.h
 
@@ -714,6 +714,8 @@ enum HIL_COMMAND_Etag
   /** GCOV component commands */
   GCOV_COMMAND_START                                  = 0x0000B500,
 
+  /** Diag component commands */
+  DIAG_COMMAND_START                                  = 0x0000B600,
 
   /* ^^^^ Add new error codes above this line ^^^^ */
 

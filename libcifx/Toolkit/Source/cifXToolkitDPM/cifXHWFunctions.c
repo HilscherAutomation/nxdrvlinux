@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctions.c 15517 2026-04-02 12:27:19Z AMinor $:
+  $Id: cifXHWFunctions.c 15620 2026-10-02 13:18:07Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -950,7 +950,7 @@ static int32_t DEV_PutPacket(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendPkt,
     return CIFX_DEV_NOT_READY;
 
   /* Check if packet fits into the mailbox */
-  if( (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE) > ptChannel->tSendMbx.ulSendMailboxLength)
+  if (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) > ptChannel->tSendMbx.ulSendMailboxLength - HIL_PACKET_HEADER_SIZE)
     return CIFX_DEV_MAILBOX_TOO_SHORT;
 
   if(DEV_WaitForBitState(ptChannel, ptChannel->tSendMbx.bSendCMDBitoffset, HIL_FLAGS_EQUAL, ulTimeout))
@@ -1000,12 +1000,16 @@ static int32_t DEV_GetPacket( PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvPkt
   ++ptChannel->tRecvMbx.ulRecvPacketCnt;
 
   ptPacket   = (CIFX_PACKET*)ptChannel->tRecvMbx.ptRecvMailboxStart->abRecvMailbox;
-  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen)) + HIL_PACKET_HEADER_SIZE;
-  if(ulCopySize > ulRecvBufferSize)
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
+  if ((HIL_PACKET_HEADER_SIZE > ulRecvBufferSize) ||
+      (ulCopySize > ulRecvBufferSize - HIL_PACKET_HEADER_SIZE))
   {
     /* We have to free the mailbox, read as much as possible */
     ulCopySize = ulRecvBufferSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
 
   HWIF_READN(ptChannel->pvDeviceInstance, ptRecvPkt, ptPacket, ulCopySize);
@@ -1107,10 +1111,6 @@ static int32_t DEV_GetMBXState(PCHANNELINSTANCE ptChannel, uint32_t* pulRecvPktC
 static int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulTriggerCmd, uint32_t* pulTriggerValue)
 {
   int32_t lRet = CIFX_DEV_NOT_RUNNING;
-
-  if( (NULL == ptChannel)       ||
-      (NULL == pulTriggerValue) )
-    return CIFX_INVALID_POINTER;
 
   /* Is Device installed and active */
   if(ptChannel->ulOpenCount == 0)

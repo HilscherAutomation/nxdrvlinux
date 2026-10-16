@@ -1,1678 +1,1416 @@
 /**************************************************************************************
   Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserved.
 ***************************************************************************************
-  $HeadURL: https://subversion01/svn/HilscherDefinitions/netXFirmware/Headers/tags/V1.0.2.0/includes/Hil_ComponentID.h $: *//*!
+  $Id:  $:
 
-  \file Hil_ComponentID.h
-
-  This file contains all Hilscher components (task) identifiers.
-
-  \note New component IDs will be administered by the software protocol (SPC)
-        department.
+  Description:
+    This file contains all Hilscher components (task) identifiers.
+    NOTE: New component IDs will be administered by the software protocol (SPC)
+          department.
 
 **************************************************************************************/
 #ifndef HIL_COMPONENT_ID_H_
 #define HIL_COMPONENT_ID_H_
 
-#include<stdint.h>
+#include <stdint.h>
 
-/* MessageId: HIL_COMPONENT_ID_UNKNOWN_IDENTIFIER */
-/* MessageText: The task identifier is unknown. */
-#define HIL_COMPONENT_ID_UNKNOWN_IDENTIFIER ((uint32_t)0x00000000L)
+/** The task identifier is unknown. */
+#define HIL_COMPONENT_ID_UNKNOWN_IDENTIFIER 0x00000000L
 
 /***********************************************************************************/
 /* TLR Timer identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TIMER */
-/* MessageText: TLR Timer Task. */
-#define HIL_COMPONENT_ID_TIMER           ((uint32_t)0x00020001L)
+/** TLR Timer Task. */
+#define HIL_COMPONENT_ID_TIMER           0x00020001L
 
 /***********************************************************************************/
 /* System task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_LIBSTORAGE */
-/* MessageText: LibStorage. */
-#define HIL_COMPONENT_ID_LIBSTORAGE      ((uint32_t)0x00010000L)
+/** LibStorage. */
+#define HIL_COMPONENT_ID_LIBSTORAGE      0x00010000L
 
-/* MessageId: HIL_COMPONENT_ID_MID_SYS */
-/* MessageText: Middleware System Task. */
-#define HIL_COMPONENT_ID_MID_SYS         ((uint32_t)0x00010001L)
+/** Middleware System Task. */
+#define HIL_COMPONENT_ID_MID_SYS         0x00010001L
 
-/* MessageId: HIL_COMPONENT_ID_MID_DBG */
-/* MessageText: Middleware System Debug Backend Task. */
-#define HIL_COMPONENT_ID_MID_DBG         ((uint32_t)0x00010002L)
+/** Middleware System Debug Backend Task. */
+#define HIL_COMPONENT_ID_MID_DBG         0x00010002L
 
-/* MessageId: HIL_COMPONENT_ID_RX_IDLE */
-/* MessageText: RX IDLE Task. */
-#define HIL_COMPONENT_ID_RX_IDLE         ((uint32_t)0x00010003L)
+/** RX IDLE Task. */
+#define HIL_COMPONENT_ID_RX_IDLE         0x00010003L
 
-/* MessageId: HIL_COMPONENT_ID_IRQ_HANDLER */
-/* MessageText: IRQ Handler Task. */
-#define HIL_COMPONENT_ID_IRQ_HANDLER     ((uint32_t)0x00010004L)
+/** IRQ Handler Task. */
+#define HIL_COMPONENT_ID_IRQ_HANDLER     0x00010004L
 
-/* MessageId: HIL_COMPONENT_ID_IDLE */
-/* MessageText: Idle Task. */
-#define HIL_COMPONENT_ID_IDLE            ((uint32_t)0x00010005L)
+/** Idle Task. */
+#define HIL_COMPONENT_ID_IDLE            0x00010005L
 
-/* MessageId: HIL_COMPONENT_ID_BOOTUP */
-/* MessageText: Bootup Task. */
-#define HIL_COMPONENT_ID_BOOTUP          ((uint32_t)0x00010006L)
+/** Bootup Task. */
+#define HIL_COMPONENT_ID_BOOTUP          0x00010006L
 
-/* MessageId: HIL_COMPONENT_ID_RX_TIMER */
-/* MessageText: rcX Timer. */
-#define HIL_COMPONENT_ID_RX_TIMER        ((uint32_t)0x00010007L)
+/** rcX Timer. */
+#define HIL_COMPONENT_ID_RX_TIMER        0x00010007L
 
-/* MessageId: HIL_COMPONENT_ID_MAINTENANCE */
-/* MessageText: Maintenance Task. */
-#define HIL_COMPONENT_ID_MAINTENANCE     ((uint32_t)0x00010008L)
+/** Maintenance Task. */
+#define HIL_COMPONENT_ID_MAINTENANCE     0x00010008L
 
 /***********************************************************************************/
 /* EtherCAT Base stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT */
-/* MessageText: EtherCAT Stack. */
-#define HIL_COMPONENT_ID_ECAT            ((uint32_t)0x00200000L)
+/** EtherCAT Stack. */
+#define HIL_COMPONENT_ID_ECAT            0x00200000L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_ESM */
-/* MessageText: EtherCAT ESM Task. */
-#define HIL_COMPONENT_ID_ECAT_ESM        ((uint32_t)0x00200001L)
+/** EtherCAT ESM Task. */
+#define HIL_COMPONENT_ID_ECAT_ESM        0x00200001L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_MBX */
-/* MessageText: EtherCAT Mailbox Task. */
-#define HIL_COMPONENT_ID_ECAT_MBX        ((uint32_t)0x00200002L)
+/** EtherCAT Mailbox Task. */
+#define HIL_COMPONENT_ID_ECAT_MBX        0x00200002L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_CYCLIC_IN */
-/* MessageText: EtherCAT Cyclic Input Task. */
-#define HIL_COMPONENT_ID_ECAT_CYCLIC_IN  ((uint32_t)0x00200003L)
+/** EtherCAT Cyclic Input Task. */
+#define HIL_COMPONENT_ID_ECAT_CYCLIC_IN  0x00200003L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_CYCLIC_OUT */
-/* MessageText: EtherCAT Cyclic Output Task. */
-#define HIL_COMPONENT_ID_ECAT_CYCLIC_OUT ((uint32_t)0x00200004L)
+/** EtherCAT Cyclic Output Task. */
+#define HIL_COMPONENT_ID_ECAT_CYCLIC_OUT 0x00200004L
 
 /***********************************************************************************/
 /* EtherCAT CoE stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_COE */
-/* MessageText: EtherCAT CoE Task. */
-#define HIL_COMPONENT_ID_ECAT_COE        ((uint32_t)0x00210001L)
+/** EtherCAT CoE Task. */
+#define HIL_COMPONENT_ID_ECAT_COE        0x00210001L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_COE_PDO */
-/* MessageText: EtherCAT CoE PDO Task. */
-#define HIL_COMPONENT_ID_ECAT_COE_PDO    ((uint32_t)0x00210002L)
+/** EtherCAT CoE PDO Task. */
+#define HIL_COMPONENT_ID_ECAT_COE_PDO    0x00210002L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_COE_SDO */
-/* MessageText: EtherCAT CoE SDO Task. */
-#define HIL_COMPONENT_ID_ECAT_COE_SDO    ((uint32_t)0x00210003L)
+/** EtherCAT CoE SDO Task. */
+#define HIL_COMPONENT_ID_ECAT_COE_SDO    0x00210003L
 
 /***********************************************************************************/
 /* EtherCAT VoE stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_VOE */
-/* MessageText: EtherCAT VoE Task. */
-#define HIL_COMPONENT_ID_ECAT_VOE        ((uint32_t)0x00260001L)
+/** EtherCAT VoE Task. */
+#define HIL_COMPONENT_ID_ECAT_VOE        0x00260001L
 
 /***********************************************************************************/
 /* EtherCAT FoE stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_FOE */
-/* MessageText: EtherCAT FoE Task. */
-#define HIL_COMPONENT_ID_ECAT_FOE        ((uint32_t)0x00240001L)
+/** EtherCAT FoE Task. */
+#define HIL_COMPONENT_ID_ECAT_FOE        0x00240001L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_FOE_FH */
-/* MessageText: EtherCAT FoE File Handler Task. */
-#define HIL_COMPONENT_ID_ECAT_FOE_FH     ((uint32_t)0x00240002L)
+/** EtherCAT FoE File Handler Task. */
+#define HIL_COMPONENT_ID_ECAT_FOE_FH     0x00240002L
 
 /***********************************************************************************/
 /* EtherCAT EoE stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_EOE */
-/* MessageText: EtherCAT EoE Task. */
-#define HIL_COMPONENT_ID_ECAT_EOE        ((uint32_t)0x00230001L)
+/** EtherCAT EoE Task. */
+#define HIL_COMPONENT_ID_ECAT_EOE        0x00230001L
 
 /***********************************************************************************/
 /* EtherCAT SoE stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_SOE_SSC */
-/* MessageText: EtherCAT SoE SSC-Task. */
-#define HIL_COMPONENT_ID_ECAT_SOE_SSC    ((uint32_t)0x00220001L)
+/** EtherCAT SoE SSC-Task. */
+#define HIL_COMPONENT_ID_ECAT_SOE_SSC    0x00220001L
 
-/* MessageId: HIL_COMPONENT_ID_ECAT_SOE_IDN */
-/* MessageText: EtherCAT SoE IDN-Task. */
-#define HIL_COMPONENT_ID_ECAT_SOE_IDN    ((uint32_t)0x00220002L)
+/** EtherCAT SoE IDN-Task. */
+#define HIL_COMPONENT_ID_ECAT_SOE_IDN    0x00220002L
 
 /***********************************************************************************/
 /* Example Tasks */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EXAMPLE_TASK1 */
-/* MessageText: Example Task 1. */
-#define HIL_COMPONENT_ID_EXAMPLE_TASK1   ((uint32_t)0x00030001L)
+/** Example Task 1. */
+#define HIL_COMPONENT_ID_EXAMPLE_TASK1   0x00030001L
 
-/* MessageId: HIL_COMPONENT_ID_EXAMPLE_TASK2 */
-/* MessageText: Example Task 2. */
-#define HIL_COMPONENT_ID_EXAMPLE_TASK2   ((uint32_t)0x00040001L)
+/** Example Task 2. */
+#define HIL_COMPONENT_ID_EXAMPLE_TASK2   0x00040001L
 
-/* MessageId: HIL_COMPONENT_ID_EXAMPLE_TASK3 */
-/* MessageText: Example Task 3. */
-#define HIL_COMPONENT_ID_EXAMPLE_TASK3   ((uint32_t)0x00050001L)
+/** Example Task 3. */
+#define HIL_COMPONENT_ID_EXAMPLE_TASK3   0x00050001L
 
 /***********************************************************************************/
 /* EtherNet/IP Encapsulation */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_ENCAP */
-/* MessageText: EthernetIP Encapsulation Task. */
-#define HIL_COMPONENT_ID_EIP_ENCAP       ((uint32_t)0x001E0001L)
+/** EthernetIP Encapsulation Task. */
+#define HIL_COMPONENT_ID_EIP_ENCAP       0x001E0001L
 
-/* MessageId: HIL_COMPONENT_ID_EIP_CL1 */
-/* MessageText: EthernetIP Encapsulation Task Class 1 services. */
-#define HIL_COMPONENT_ID_EIP_CL1         ((uint32_t)0x001E0002L)
+/** EthernetIP Encapsulation Task Class 1 services. */
+#define HIL_COMPONENT_ID_EIP_CL1         0x001E0002L
 
 /***********************************************************************************/
 /* EtherNet/IP Object */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_OBJECT */
-/* MessageText: EthernetIP Object Task. */
-#define HIL_COMPONENT_ID_EIP_OBJECT      ((uint32_t)0x001F0001L)
+/** EthernetIP Object Task. */
+#define HIL_COMPONENT_ID_EIP_OBJECT      0x001F0001L
 
 /***********************************************************************************/
-/* EtherNet/IP HAL EDD 2PS task identifiers */
+/* EtherNet/Ip HAL EDD 2PS task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_EDD_LOW */
-/* MessageText: EtherNet/IP Low Priority EDD Task. */
-#define HIL_COMPONENT_ID_EIP_EDD_LOW     ((uint32_t)0x00EF0001L)
+/** EtherNet/Ip Low Priority EDD Task. */
+#define HIL_COMPONENT_ID_EIP_EDD_LOW     0x00EF0001L
 
-/* MessageId: HIL_COMPONENT_ID_EIP_EDD_HIGH */
-/* MessageText: EtherNet/IP High Priority EDD Task. */
-#define HIL_COMPONENT_ID_EIP_EDD_HIGH    ((uint32_t)0x00EE0001L)
+/** EtherNet/Ip High Priority EDD Task. */
+#define HIL_COMPONENT_ID_EIP_EDD_HIGH    0x00EE0001L
 
 /***********************************************************************************/
 /* PROFINET IO task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PNIO_CMCTL */
-/* MessageText: PROFINET IO-Controller Context Management Task. */
-#define HIL_COMPONENT_ID_PNIO_CMCTL      ((uint32_t)0x000A0001L)
+/** PROFINET IO-Controller Context Management Task. */
+#define HIL_COMPONENT_ID_PNIO_CMCTL      0x000A0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_CMDEV */
-/* MessageText: PROFINET IO-Device Context Management Task. */
-#define HIL_COMPONENT_ID_PNIO_CMDEV      ((uint32_t)0x000B0001L)
+/** PROFINET IO-Device Context Management Task. */
+#define HIL_COMPONENT_ID_PNIO_CMDEV      0x000B0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_ACP */
-/* MessageText: PROFINET IO ACP Task. */
-#define HIL_COMPONENT_ID_PNIO_ACP        ((uint32_t)0x00110001L)
+/** PROFINET IO ACP Task. */
+#define HIL_COMPONENT_ID_PNIO_ACP        0x00110001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_DCP */
-/* MessageText: PROFINET IO DCP Task. */
-#define HIL_COMPONENT_ID_PNIO_DCP        ((uint32_t)0x00120001L)
+/** PROFINET IO DCP Task. */
+#define HIL_COMPONENT_ID_PNIO_DCP        0x00120001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_EDD */
-/* MessageText: PROFINET IO EDD Task. */
-#define HIL_COMPONENT_ID_PNIO_EDD        ((uint32_t)0x000E0001L)
+/** PROFINET IO EDD Task. */
+#define HIL_COMPONENT_ID_PNIO_EDD        0x000E0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_MGT */
-/* MessageText: PROFINET IO Management Task. */
-#define HIL_COMPONENT_ID_PNIO_MGT        ((uint32_t)0x00130001L)
+/** PROFINET IO Management Task. */
+#define HIL_COMPONENT_ID_PNIO_MGT        0x00130001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_APCTL */
-/* MessageText: PROFINET IO-Controller Application Task. */
-#define HIL_COMPONENT_ID_PNIO_APCTL      ((uint32_t)0x000C0001L)
+/** PROFINET IO-Controller Application Task. */
+#define HIL_COMPONENT_ID_PNIO_APCTL      0x000C0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_APDEV */
-/* MessageText: PROFINET IO-Device Application Task. */
-#define HIL_COMPONENT_ID_PNIO_APDEV      ((uint32_t)0x000D0001L)
+/** PROFINET IO-Device Application Task. */
+#define HIL_COMPONENT_ID_PNIO_APDEV      0x000D0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_APCFG */
-/* MessageText: PROFINET IO-Controller Configuration Task. */
-#define HIL_COMPONENT_ID_PNIO_APCFG      ((uint32_t)0x00140001L)
+/** PROFINET IO-Controller Configuration Task. */
+#define HIL_COMPONENT_ID_PNIO_APCFG      0x00140001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_IF */
-/* MessageText: PROFINET IO-Device Interface Task. */
-#define HIL_COMPONENT_ID_PNS_IF          ((uint32_t)0x00300001L)
+/** PROFINET IO-Device Interface Task. */
+#define HIL_COMPONENT_ID_PNS_IF          0x00300001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIOD_16BITIO */
-/* MessageText: PROFINET IO-Device 16Bit IO Application Task. */
-#define HIL_COMPONENT_ID_PNIOD_16BITIO   ((uint32_t)0x003A0001L)
+/** PROFINET IO-Device 16Bit IO Application Task. */
+#define HIL_COMPONENT_ID_PNIOD_16BITIO   0x003A0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_32BITIO */
-/* MessageText: PROFINET IO-Device 32Bit IO Application Task. */
-#define HIL_COMPONENT_ID_PNS_32BITIO     ((uint32_t)0x005E0001L)
+/** PROFINET IO-Device 32Bit IO Application Task. */
+#define HIL_COMPONENT_ID_PNS_32BITIO     0x005E0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_4BITIO */
-/* MessageText: PROFINET IO-Device 4Bit IO Application Task. */
-#define HIL_COMPONENT_ID_PNS_4BITIO      ((uint32_t)0x00450001L)
+/** PROFINET IO-Device 4Bit IO Application Task. */
+#define HIL_COMPONENT_ID_PNS_4BITIO      0x00450001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_SOCKET_SRV */
-/* MessageText: PROFINET IO-Device Socket Server Task. */
-#define HIL_COMPONENT_ID_PNS_SOCKET_SRV  ((uint32_t)0x00520001L)
+/** PROFINET IO-Device Socket Server Task. */
+#define HIL_COMPONENT_ID_PNS_SOCKET_SRV  0x00520001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_EDD_HIGH */
-/* MessageText: PROFINET IO-Device High Priority EDD Task. */
-#define HIL_COMPONENT_ID_PNS_EDD_HIGH    ((uint32_t)0x00530001L)
+/** PROFINET IO-Device High Priority EDD Task. */
+#define HIL_COMPONENT_ID_PNS_EDD_HIGH    0x00530001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_EDD_LOW */
-/* MessageText: PROFINET IO-Device Low Priority EDD Task. */
-#define HIL_COMPONENT_ID_PNS_EDD_LOW     ((uint32_t)0x00540001L)
+/** PROFINET IO-Device Low Priority EDD Task. */
+#define HIL_COMPONENT_ID_PNS_EDD_LOW     0x00540001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_SOCKET */
-/* MessageText: PROFINET IO-Device Socket Task. */
-#define HIL_COMPONENT_ID_PNS_SOCKET      ((uint32_t)0x00550001L)
+/** PROFINET IO-Device Socket Task. */
+#define HIL_COMPONENT_ID_PNS_SOCKET      0x00550001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_DCP */
-/* MessageText: PROFINET IO-Device DCP Task. */
-#define HIL_COMPONENT_ID_PNS_DCP         ((uint32_t)0x00560001L)
+/** PROFINET IO-Device DCP Task. */
+#define HIL_COMPONENT_ID_PNS_DCP         0x00560001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_CLRPC */
-/* MessageText: PROFINET IO-Device Connectionless RPC Task. */
-#define HIL_COMPONENT_ID_PNS_CLRPC       ((uint32_t)0x00570001L)
+/** PROFINET IO-Device Connectionless RPC Task. */
+#define HIL_COMPONENT_ID_PNS_CLRPC       0x00570001L
 
-/* MessageId: HIL_COMPONENT_ID_PNS_IF_INTERN */
-/* MessageText: PROFINET IO-Device Stack internal Interface Task. */
-#define HIL_COMPONENT_ID_PNS_IF_INTERN   ((uint32_t)0x00580001L)
+/** PROFINET IO-Device Stack internal Interface Task. */
+#define HIL_COMPONENT_ID_PNS_IF_INTERN   0x00580001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_IRT_SCHEDULER */
-/* MessageText: PROFINET IO IRT Scheduler Task. */
-#define HIL_COMPONENT_ID_PNIO_IRT_SCHEDULER ((uint32_t)0x00810001L)
+/** PROFINET IO IRT Scheduler Task. */
+#define HIL_COMPONENT_ID_PNIO_IRT_SCHEDULER 0x00810001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_RTA */
-/* MessageText: PROFINET IO RTA Task. */
-#define HIL_COMPONENT_ID_PNIO_RTA        ((uint32_t)0x00A70001L)
+/** PROFINET IO RTA Task. */
+#define HIL_COMPONENT_ID_PNIO_RTA        0x00A70001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_RTC */
-/* MessageText: PROFINET IO RTC Task. */
-#define HIL_COMPONENT_ID_PNIO_RTC        ((uint32_t)0x00A80001L)
+/** PROFINET IO RTC Task. */
+#define HIL_COMPONENT_ID_PNIO_RTC        0x00A80001L
 
-/* MessageId: HIL_COMPONENT_ID_FODMI_TASK */
-/* MessageText: PROFINET IO FODMI (FiberOptic Diagnosis) Task. */
-#define HIL_COMPONENT_ID_FODMI_TASK      ((uint32_t)0x00A90001L)
+/** PROFINET IO FODMI (FiberOptic Diagnosis) Task. */
+#define HIL_COMPONENT_ID_FODMI_TASK      0x00A90001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_HAL_COMPUTE */
-/* MessageText: PROFINET IO HAL protocol Task. */
-#define HIL_COMPONENT_ID_PNIO_HAL_COMPUTE ((uint32_t)0x00AA0001L)
+/** PROFINET IO HAL protocol Task. */
+#define HIL_COMPONENT_ID_PNIO_HAL_COMPUTE 0x00AA0001L
 
-/* MessageId: HIL_COMPONENT_ID_PNIO_HAL_IRQ */
-/* MessageText: PROFINET IO HAL interrupt Task. */
-#define HIL_COMPONENT_ID_PNIO_HAL_IRQ    ((uint32_t)0x00AB0001L)
+/** PROFINET IO HAL interrupt Task. */
+#define HIL_COMPONENT_ID_PNIO_HAL_IRQ    0x00AB0001L
 
 /***********************************************************************************/
 /* RPC task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_RPC_TASK */
-/* MessageText: RPC Task. */
-#define HIL_COMPONENT_ID_RPC_TASK        ((uint32_t)0x002E0001L)
+/** RPC Task. */
+#define HIL_COMPONENT_ID_RPC_TASK        0x002E0001L
 
 /***********************************************************************************/
 /* Router tasks */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ROUTER_OS_CONSOLE32 */
-/* MessageText: TLR-Router OS_Console32. */
-#define HIL_COMPONENT_ID_ROUTER_OS_CONSOLE32 ((uint32_t)0x002F0000L)
+/** TLR-Router OS_Console32. */
+#define HIL_COMPONENT_ID_ROUTER_OS_CONSOLE32 0x002F0000L
 
-/* MessageId: HIL_COMPONENT_ID_ROUTER_ECAT_VOE */
-/* MessageText: TLR-Router EtherCAT VoE. */
-#define HIL_COMPONENT_ID_ROUTER_ECAT_VOE ((uint32_t)0x002F0001L)
+/** TLR-Router EtherCAT VoE. */
+#define HIL_COMPONENT_ID_ROUTER_ECAT_VOE 0x002F0001L
 
-/* MessageId: HIL_COMPONENT_ID_ROUTER_HIF_PACKET */
-/* MessageText: TLR-Router DPM. */
-#define HIL_COMPONENT_ID_ROUTER_HIF_PACKET ((uint32_t)0x002F0002L)
+/** TLR-Router DPM. */
+#define HIL_COMPONENT_ID_ROUTER_HIF_PACKET 0x002F0002L
 
 /***********************************************************************************/
 /* PowerLink tasks */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EPL_NMT */
-/* MessageText: Ethernet PowerLink NMT Task. */
-#define HIL_COMPONENT_ID_EPL_NMT         ((uint32_t)0x00170000L)
+/** Ethernet PowerLink NMT Task. */
+#define HIL_COMPONENT_ID_EPL_NMT         0x00170000L
 
-/* MessageId: HIL_COMPONENT_ID_EPL_PCK */
-/* MessageText: Ethernet PowerLink Packet Task. */
-#define HIL_COMPONENT_ID_EPL_PCK         ((uint32_t)0x00170001L)
+/** Ethernet PowerLink Packet Task. */
+#define HIL_COMPONENT_ID_EPL_PCK         0x00170001L
 
-/* MessageId: HIL_COMPONENT_ID_EPL_DPM */
-/* MessageText: Ethernet PowerLink DPM Task. */
-#define HIL_COMPONENT_ID_EPL_DPM         ((uint32_t)0x00170002L)
+/** Ethernet PowerLink DPM Task. */
+#define HIL_COMPONENT_ID_EPL_DPM         0x00170002L
 
-/* MessageId: HIL_COMPONENT_ID_PLSV3_AP */
-/* MessageText: Ethernet PowerLink AP Task. */
-#define HIL_COMPONENT_ID_PLSV3_AP        ((uint32_t)0x00E10000L)
+/** Ethernet PowerLink AP Task. */
+#define HIL_COMPONENT_ID_PLSV3_AP        0x00E10000L
 
-/* MessageId: HIL_COMPONENT_ID_PLSV3_IF */
-/* MessageText: Ethernet PowerLink CN IF Task. */
-#define HIL_COMPONENT_ID_PLSV3_IF        ((uint32_t)0x00E30000L)
+/** Ethernet PowerLink CN IF Task. */
+#define HIL_COMPONENT_ID_PLSV3_IF        0x00E30000L
 
-/* MessageId: HIL_COMPONENT_ID_PLSV3_NMT */
-/* MessageText: Ethernet PowerLink CN NMT Task. */
-#define HIL_COMPONENT_ID_PLSV3_NMT       ((uint32_t)0x00E60000L)
+/** Ethernet PowerLink CN NMT Task. */
+#define HIL_COMPONENT_ID_PLSV3_NMT       0x00E60000L
 
-/* MessageId: HIL_COMPONENT_ID_PLV3_COMMON */
-/* MessageText: Ethernet PowerLink Common Task. */
-#define HIL_COMPONENT_ID_PLV3_COMMON     ((uint32_t)0x00E70000L)
+/** Ethernet PowerLink Common Task. */
+#define HIL_COMPONENT_ID_PLV3_COMMON     0x00E70000L
 
-/* MessageId: HIL_COMPONENT_ID_PLSV3_DRVETH */
-/* MessageText: Ethernet Powerlink DrvEth Adapter Task. */
-#define HIL_COMPONENT_ID_PLSV3_DRVETH    ((uint32_t)0x00E80000L)
+/** Ethernet Powerlink DrvEth Adapter Task. */
+#define HIL_COMPONENT_ID_PLSV3_DRVETH    0x00E80000L
 
 /***********************************************************************************/
 /* PowerLink PDO task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EPL_PDO */
-/* MessageText: Ethernet PowerLink PDO Task. */
-#define HIL_COMPONENT_ID_EPL_PDO         ((uint32_t)0x00150000L)
+/** Ethernet PowerLink PDO Task. */
+#define HIL_COMPONENT_ID_EPL_PDO         0x00150000L
 
 /***********************************************************************************/
 /* PowerLink SDO task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EPL_SDO */
-/* MessageText: Ethernet PowerLink SDO Task. */
-#define HIL_COMPONENT_ID_EPL_SDO         ((uint32_t)0x00160000L)
+/** Ethernet PowerLink SDO Task. */
+#define HIL_COMPONENT_ID_EPL_SDO         0x00160000L
 
 /***********************************************************************************/
 /* PowerLink MN task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EPL_MN */
-/* MessageText: Ethernet PowerLink MN Task. */
-#define HIL_COMPONENT_ID_EPL_MN          ((uint32_t)0x003D0000L)
+/** Ethernet PowerLink MN Task. */
+#define HIL_COMPONENT_ID_EPL_MN          0x003D0000L
 
 /***********************************************************************************/
 /* AS-Interface task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ASI_ECTRL */
-/* MessageText: AS-Interface ECTRL task (ASi stack). */
-#define HIL_COMPONENT_ID_ASI_ECTRL       ((uint32_t)0x00320000L)
+/** AS-Interface ECTRL task (ASi stack). */
+#define HIL_COMPONENT_ID_ASI_ECTRL       0x00320000L
 
-/* MessageId: HIL_COMPONENT_ID_ASI_AP */
-/* MessageText: AS-Interface Application task (example). */
-#define HIL_COMPONENT_ID_ASI_AP          ((uint32_t)0x00000002L)
+/** AS-Interface Application task (example). */
+#define HIL_COMPONENT_ID_ASI_AP          0x00000002L
 
 /***********************************************************************************/
 /* TCPUDP task identifiers (TCP/IP stack) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TCPUDP */
-/* MessageText: TCPUDP task (TCP/IP stack). */
-#define HIL_COMPONENT_ID_TCPUDP          ((uint32_t)0x00080000L)
+/** TCPUDP task (TCP/IP stack). */
+#define HIL_COMPONENT_ID_TCPUDP          0x00080000L
 
-/* MessageId: HIL_COMPONENT_ID_TCPIP_AP */
-/* MessageText: TCP/IP stack Application task. */
-#define HIL_COMPONENT_ID_TCPIP_AP        ((uint32_t)0x00000001L)
+/** TCP/IP stack Application task. */
+#define HIL_COMPONENT_ID_TCPIP_AP        0x00000001L
 
-/* MessageId: HIL_COMPONENT_ID_TCPIP_SOCKIF */
-/* MessageText: TCP/IP Socket Interface. */
-#define HIL_COMPONENT_ID_TCPIP_SOCKIF    ((uint32_t)0x00740002L)
+/** TCP/IP Socket Interface. */
+#define HIL_COMPONENT_ID_TCPIP_SOCKIF    0x00740002L
 
 /***********************************************************************************/
 /* Sercos task identifiers (Slave) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_API */
-/* MessageText: Sercos API task. */
-#define HIL_COMPONENT_ID_SERCOSIII_API   ((uint32_t)0x00340000L)
+/** Sercos API task. */
+#define HIL_COMPONENT_ID_SERCOSIII_API   0x00340000L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_DL */
-/* MessageText: SERCOSIII DL task. */
-#define HIL_COMPONENT_ID_SERCOSIII_DL    ((uint32_t)0x00350000L)
+/** SERCOSIII DL task. */
+#define HIL_COMPONENT_ID_SERCOSIII_DL    0x00350000L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SVC */
-/* MessageText: SERCOSIII SVC task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SVC   ((uint32_t)0x00330000L)
+/** SERCOSIII SVC task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SVC   0x00330000L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_ETH */
-/* MessageText: SERCOSIII ETH task. */
-#define HIL_COMPONENT_ID_SERCOSIII_ETH   ((uint32_t)0x00360000L)
+/** SERCOSIII ETH task. */
+#define HIL_COMPONENT_ID_SERCOSIII_ETH   0x00360000L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_NRT */
-/* MessageText: SERCOSIII NRT task. */
-#define HIL_COMPONENT_ID_SERCOSIII_NRT   ((uint32_t)0x00360001L)
+/** SERCOSIII NRT task. */
+#define HIL_COMPONENT_ID_SERCOSIII_NRT   0x00360001L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_CYCLIC */
-/* MessageText: SERCOSIII cyclic task. */
-#define HIL_COMPONENT_ID_SERCOSIII_CYCLIC ((uint32_t)0x00370000L)
+/** SERCOSIII cyclic task. */
+#define HIL_COMPONENT_ID_SERCOSIII_CYCLIC 0x00370000L
 
 /***********************************************************************************/
 /* PROFIBUS task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_DL */
-/* MessageText: PROFIBUS Data Link Layer Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_DL     ((uint32_t)0x00060000L)
+/** PROFIBUS Data Link Layer Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_DL     0x00060000L
 
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_FSPMS */
-/* MessageText: PROFIBUS Slave Fieldbus Service Protocol Machine Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_FSPMS  ((uint32_t)0x00090000L)
+/** PROFIBUS Slave Fieldbus Service Protocol Machine Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_FSPMS  0x00090000L
 
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_APS */
-/* MessageText: PROFIBUS Slave Application Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_APS    ((uint32_t)0x001D0000L)
+/** PROFIBUS Slave Application Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_APS    0x001D0000L
 
 /***********************************************************************************/
 /* PROFIBUS Master task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_FSPMM */
-/* MessageText: PROFIBUS Master Fieldbus Service Protocol Machine Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_FSPMM  ((uint32_t)0x00380000L)
+/** PROFIBUS Master Fieldbus Service Protocol Machine Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_FSPMM  0x00380000L
 
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_APM */
-/* MessageText: PROFIBUS Master Application Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_APM    ((uint32_t)0x00390000L)
+/** PROFIBUS Master Application Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_APM    0x00390000L
 
 /***********************************************************************************/
 /* PROFIBUS Master task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SNMP_SERVER */
-/* MessageText: SNMP Server Task. */
-#define HIL_COMPONENT_ID_SNMP_SERVER     ((uint32_t)0x003B0000L)
+/** SNMP Server Task. */
+#define HIL_COMPONENT_ID_SNMP_SERVER     0x003B0000L
 
-/* MessageId: HIL_COMPONENT_ID_MIB_DATABASE */
-/* MessageText: MIB Database for SNMP and LLDP. */
-#define HIL_COMPONENT_ID_MIB_DATABASE    ((uint32_t)0x003C0000L)
+/** MIB Database for SNMP and LLDP. */
+#define HIL_COMPONENT_ID_MIB_DATABASE    0x003C0000L
 
-/* MessageId: HIL_COMPONENT_ID_ICONL_TIMER */
-/* MessageText: Icon-L Timer Task for iCon-L@netX. */
-#define HIL_COMPONENT_ID_ICONL_TIMER     ((uint32_t)0x002A0000L)
+/** Icon-L Timer Task for iCon-L@netX. */
+#define HIL_COMPONENT_ID_ICONL_TIMER     0x002A0000L
 
-/* MessageId: HIL_COMPONENT_ID_ICONL_RUN */
-/* MessageText: Icon-L Run Task for iCon-L@netX. */
-#define HIL_COMPONENT_ID_ICONL_RUN       ((uint32_t)0x00290000L)
+/** Icon-L Run Task for iCon-L@netX. */
+#define HIL_COMPONENT_ID_ICONL_RUN       0x00290000L
 
-/* MessageId: HIL_COMPONENT_ID_LLDP */
-/* MessageText: LLDP protocol task */
-#define HIL_COMPONENT_ID_LLDP            ((uint32_t)0x003E0000L)
+/** LLDP protocol task */
+#define HIL_COMPONENT_ID_LLDP            0x003E0000L
 
 /***********************************************************************************/
 /* CAN task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CAN_DL */
-/* MessageText: CAN DL Task (Data Link Layer). */
-#define HIL_COMPONENT_ID_CAN_DL          ((uint32_t)0x003F0000L)
+/** CAN DL Task (Data Link Layer). */
+#define HIL_COMPONENT_ID_CAN_DL          0x003F0000L
 
-/* MessageId: HIL_COMPONENT_ID_CAN_DL_GCI_ADAPTER */
-/* MessageText: CAN DL GCI-Adapter. */
-#define HIL_COMPONENT_ID_CAN_DL_GCI_ADAPTER ((uint32_t)0x003F0001L)
+/** CAN DL GCI-Adapter. */
+#define HIL_COMPONENT_ID_CAN_DL_GCI_ADAPTER 0x003F0001L
 
 /***********************************************************************************/
 /* DDL task identifiers (J060219 Bosch Rexroth DDL mit netX) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DDL_ENPDDL */
-/* MessageText: ENPDDL gateway task. */
-#define HIL_COMPONENT_ID_DDL_ENPDDL      ((uint32_t)0x00400000L)
+/** ENPDDL gateway task. */
+#define HIL_COMPONENT_ID_DDL_ENPDDL      0x00400000L
 
-/* MessageId: HIL_COMPONENT_ID_DDL_DDL */
-/* MessageText: DDL protocol task. */
-#define HIL_COMPONENT_ID_DDL_DDL         ((uint32_t)0x00410000L)
+/** DDL protocol task. */
+#define HIL_COMPONENT_ID_DDL_DDL         0x00410000L
 
 /***********************************************************************************/
 /* CANopen Master task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CANOPEN_MASTER */
-/* MessageText: CANopen Master task (CANopen Master stack). */
-#define HIL_COMPONENT_ID_CANOPEN_MASTER  ((uint32_t)0x00420000L)
+/** CANopen Master task (CANopen Master stack). */
+#define HIL_COMPONENT_ID_CANOPEN_MASTER  0x00420000L
 
 /***********************************************************************************/
 /* CANopen Slave task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CANOPEN_SLAVE */
-/* MessageText: CANopen Slave task (CANopen Slave stack). */
-#define HIL_COMPONENT_ID_CANOPEN_SLAVE   ((uint32_t)0x00430000L)
+/** CANopen Slave task (CANopen Slave stack). */
+#define HIL_COMPONENT_ID_CANOPEN_SLAVE   0x00430000L
 
 /***********************************************************************************/
 /* UsbTLRRouter identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_USB_TLRROUTER */
-/* MessageText: Usb-TLR-Router Task (Usb-TLRRouter). */
-#define HIL_COMPONENT_ID_USB_TLRROUTER   ((uint32_t)0x00440000L)
+/** Usb-TLR-Router Task (Usb-TLRRouter). */
+#define HIL_COMPONENT_ID_USB_TLRROUTER   0x00440000L
 
 /***********************************************************************************/
 /* CAN DL AP sample identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CANDL_APSAMPLE */
-/* MessageText: CAN DL application sample Task. */
-#define HIL_COMPONENT_ID_CANDL_APSAMPLE  ((uint32_t)0x00460000L)
+/** CAN DL application sample Task. */
+#define HIL_COMPONENT_ID_CANDL_APSAMPLE  0x00460000L
 
 /***********************************************************************************/
 /* DeviceNet FAL (Fieldbus Application Layer) task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DEVNET_FAL */
-/* MessageText: DeviceNet FAL Task (Fieldbus Application Layer). */
-#define HIL_COMPONENT_ID_DEVNET_FAL      ((uint32_t)0x00470000L)
+/** DeviceNet FAL Task (Fieldbus Application Layer). */
+#define HIL_COMPONENT_ID_DEVNET_FAL      0x00470000L
 
 /***********************************************************************************/
 /* DeviceNet AP task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DEVNET_AP */
-/* MessageText: DeviceNet AP Task (Application). */
-#define HIL_COMPONENT_ID_DEVNET_AP       ((uint32_t)0x005B0000L)
+/** DeviceNet AP Task (Application). */
+#define HIL_COMPONENT_ID_DEVNET_AP       0x005B0000L
 
 /***********************************************************************************/
 /* ObjectDictionary V2 DPM Adapter */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DPM_OD2 */
-/* MessageText: Object Dictionary DPM-Adapter Task. */
-#define HIL_COMPONENT_ID_DPM_OD2         ((uint32_t)0x00480000L)
+/** Object Dictionary DPM-Adapter Task. */
+#define HIL_COMPONENT_ID_DPM_OD2         0x00480000L
 
 /***********************************************************************************/
 /* CANopen Master application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CANOPEN_APM */
-/* MessageText: CANopen Master Application Task. */
-#define HIL_COMPONENT_ID_CANOPEN_APM     ((uint32_t)0x00490000L)
+/** CANopen Master Application Task. */
+#define HIL_COMPONENT_ID_CANOPEN_APM     0x00490000L
 
 /***********************************************************************************/
 /* CANopen Slave application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CANOPEN_APS */
-/* MessageText: CANopen Slave Application Task. */
-#define HIL_COMPONENT_ID_CANOPEN_APS     ((uint32_t)0x004A0000L)
+/** CANopen Slave Application Task. */
+#define HIL_COMPONENT_ID_CANOPEN_APS     0x004A0000L
 
 /***********************************************************************************/
 /* Sercos3 Slave application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOS_SL */
-/* MessageText: Sercos3 Slave Task. */
-#define HIL_COMPONENT_ID_SERCOS_SL       ((uint32_t)0x004B0000L)
+/** Sercos3 Slave Task. */
+#define HIL_COMPONENT_ID_SERCOS_SL       0x004B0000L
 
 /***********************************************************************************/
 /* ECAT Slave DPM application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_DPM */
-/* MessageText: EtherCAT Slave DPM Task. */
-#define HIL_COMPONENT_ID_ECAT_DPM        ((uint32_t)0x004C0000L)
+/** EtherCAT Slave DPM Task. */
+#define HIL_COMPONENT_ID_ECAT_DPM        0x004C0000L
 
 /***********************************************************************************/
 /* ECAT Slave InxAp application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECAT_INXAP */
-/* MessageText: EtherCAT Slave InxAp Task. */
-#define HIL_COMPONENT_ID_ECAT_INXAP      ((uint32_t)0x004C0001L)
+/** EtherCAT Slave InxAp Task. */
+#define HIL_COMPONENT_ID_ECAT_INXAP      0x004C0001L
 
 /***********************************************************************************/
 /* Sercos Slave Communication task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SL_COM */
-/* MessageText: Sercos Slave Communication Task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SL_COM ((uint32_t)0x004E0000L)
+/** Sercos Slave Communication Task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SL_COM 0x004E0000L
 
 /***********************************************************************************/
 /* Sercos Slave Sercice Channel task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SL_SVC */
-/* MessageText: Sercos Slave Service Channel Task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SL_SVC ((uint32_t)0x004F0000L)
+/** Sercos Slave Service Channel Task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SL_SVC 0x004F0000L
 
 /***********************************************************************************/
 /* Sercos Slave Real Time Data task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SL_RTD */
-/* MessageText: Sercos Slave Real Time Data Task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SL_RTD ((uint32_t)0x00500000L)
+/** Sercos Slave Real Time Data Task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SL_RTD 0x00500000L
 
 /***********************************************************************************/
 /* Sercos Slave Application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SL_AP */
-/* MessageText: Sercos Slave Application Task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SL_AP ((uint32_t)0x00510000L)
+/** Sercos Slave Application Task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SL_AP 0x00510000L
 
 /***********************************************************************************/
 /* Sercos Slave IDN task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIII_SL_IDN */
-/* MessageText: Sercos Slave IDN Task. */
-#define HIL_COMPONENT_ID_SERCOSIII_SL_IDN ((uint32_t)0x00850000L)
+/** Sercos Slave IDN Task. */
+#define HIL_COMPONENT_ID_SERCOSIII_SL_IDN 0x00850000L
 
 /***********************************************************************************/
-/* EtherNet/IP Adapter Application task identifier */
+/* Ethernet/Ip Adapter Application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_APS */
-/* MessageText: EtherNet/IP Adapter Application-Task. */
-#define HIL_COMPONENT_ID_EIP_APS         ((uint32_t)0x00590000L)
+/** EtherNet/Ip Adapter Application-Task. */
+#define HIL_COMPONENT_ID_EIP_APS         0x00590000L
 
 /***********************************************************************************/
-/* EtherNet/IP Scanner Application task identifier */
+/* Ethernet/Ip Scanner Application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_APM */
-/* MessageText: EtherNet/IP Scanner Application-Task. */
-#define HIL_COMPONENT_ID_EIP_APM         ((uint32_t)0x005A0000L)
+/** EtherNet/Ip Scanner Application-Task. */
+#define HIL_COMPONENT_ID_EIP_APM         0x005A0000L
 
 /***********************************************************************************/
 /* Ethernet Interface Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ETH_INTF */
-/* MessageText: Ethernet Interface Task. */
-#define HIL_COMPONENT_ID_ETH_INTF        ((uint32_t)0x005D0000L)
+/** Ethernet Interface Task. */
+#define HIL_COMPONENT_ID_ETH_INTF        0x005D0000L
 
 /***********************************************************************************/
 /* MID Startup Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MID_STARTUP */
-/* MessageText: MID Startup Task. */
-#define HIL_COMPONENT_ID_MID_STARTUP     ((uint32_t)0x005F0000L)
+/** MID Startup Task. */
+#define HIL_COMPONENT_ID_MID_STARTUP     0x005F0000L
 
 /***********************************************************************************/
 /* OMB task identifiers (Open Modbus TCP) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_OMB_OMBTASK */
-/* MessageText: OMB task (Open Modbus TCP). */
-#define HIL_COMPONENT_ID_OMB_OMBTASK     ((uint32_t)0x00600000L)
+/** OMB task (Open Modbus TCP). */
+#define HIL_COMPONENT_ID_OMB_OMBTASK     0x00600000L
 
-/* MessageId: HIL_COMPONENT_ID_OMB_OMBAPTASK */
-/* MessageText: OMB task (Open Modbus TCP) Application task. */
-#define HIL_COMPONENT_ID_OMB_OMBAPTASK   ((uint32_t)0x00610001L)
+/** OMB task (Open Modbus TCP) Application task. */
+#define HIL_COMPONENT_ID_OMB_OMBAPTASK   0x00610001L
 
 /***********************************************************************************/
 /* DNS task identifiers (DeviceNet Slave) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DNS_FAL */
-/* MessageText: DeviceNet Slave FAL Task (Fieldbus Application Layer). */
-#define HIL_COMPONENT_ID_DNS_FAL         ((uint32_t)0x00620000L)
+/** DeviceNet Slave FAL Task (Fieldbus Application Layer). */
+#define HIL_COMPONENT_ID_DNS_FAL         0x00620000L
 
-/* MessageId: HIL_COMPONENT_ID_DNS_AP */
-/* MessageText: DeviceNet Slave AP Task (Dualport Application). */
-#define HIL_COMPONENT_ID_DNS_AP          ((uint32_t)0x00630000L)
+/** DeviceNet Slave AP Task (Dualport Application). */
+#define HIL_COMPONENT_ID_DNS_AP          0x00630000L
 
 /***********************************************************************************/
 /* EtherCAT Master AP Task identifiers (EtherCAT Master AP Task) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ETHERCAT_MASTER_AP */
-/* MessageText: EtherCAT Master AP Task. */
-#define HIL_COMPONENT_ID_ETHERCAT_MASTER_AP ((uint32_t)0x00640000L)
+/** EtherCAT Master AP Task. */
+#define HIL_COMPONENT_ID_ETHERCAT_MASTER_AP 0x00640000L
 
-/* MessageId: HIL_COMPONENT_ID_ETHERCAT_MASTER */
-/* MessageText: EtherCAT Master Stack Task. */
-#define HIL_COMPONENT_ID_ETHERCAT_MASTER ((uint32_t)0x00650000L)
+/** EtherCAT Master Stack Task. */
+#define HIL_COMPONENT_ID_ETHERCAT_MASTER 0x00650000L
 
 /***********************************************************************************/
 /* Ethernet Analyzer Transfer Task identifiers (Ethernet Analyzer Transfer Task) */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_AN_TRANS */
-/* MessageText: Ethernet Analyzer Transfer Task. */
-#define HIL_COMPONENT_ID_AN_TRANS        ((uint32_t)0x00660000L)
+/** Ethernet Analyzer Transfer Task. */
+#define HIL_COMPONENT_ID_AN_TRANS        0x00660000L
 
 /***********************************************************************************/
 /* PROFIBUS MPI */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_MPI */
-/* MessageText: PROFIBUS MPI Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_MPI    ((uint32_t)0x00670000L)
+/** PROFIBUS MPI Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_MPI    0x00670000L
 
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_MPI_AP */
-/* MessageText: PROFIBUS MPI Application Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_MPI_AP ((uint32_t)0x00680000L)
+/** PROFIBUS MPI Application Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_MPI_AP 0x00680000L
 
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_MPI_RFC */
-/* MessageText: PROFIBUS MPI Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_MPI_RFC ((uint32_t)0x00730000L)
+/** PROFIBUS MPI Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_MPI_RFC 0x00730000L
 
 /***********************************************************************************/
 /* PROFIBUS FSPMM2 */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIBUS_FSPMM2 */
-/* MessageText: PROFIBUS FSPMM2 Task. */
-#define HIL_COMPONENT_ID_PROFIBUS_FSPMM2 ((uint32_t)0x00690000L)
+/** PROFIBUS FSPMM2 Task. */
+#define HIL_COMPONENT_ID_PROFIBUS_FSPMM2 0x00690000L
 
 /***********************************************************************************/
 /* CC-Link Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CCLINK_SLAVE */
-/* MessageText: CC-Link Slave Task. */
-#define HIL_COMPONENT_ID_CCLINK_SLAVE    ((uint32_t)0x006A0000L)
+/** CC-Link Slave Task. */
+#define HIL_COMPONENT_ID_CCLINK_SLAVE    0x006A0000L
 
-/* MessageId: HIL_COMPONENT_ID_CCLINK_APS */
-/* MessageText: CC-Link Slave Application Task. */
-#define HIL_COMPONENT_ID_CCLINK_APS      ((uint32_t)0x006B0000L)
+/** CC-Link Slave Application Task. */
+#define HIL_COMPONENT_ID_CCLINK_APS      0x006B0000L
 
 /***********************************************************************************/
 /* Lenze EtherCAT Slave Anbindung */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECS_LENZE_MAIN */
-/* MessageText: Lenze EtherCAT slave interface for 9400, main task. */
-#define HIL_COMPONENT_ID_ECS_LENZE_MAIN  ((uint32_t)0x006C0000L)
+/** Lenze EtherCAT slave interface for 9400, main task. */
+#define HIL_COMPONENT_ID_ECS_LENZE_MAIN  0x006C0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECS_LENZE_BRIDGE */
-/* MessageText: Lenze EtherCAT slave interface for 9400, bus bridge. */
-#define HIL_COMPONENT_ID_ECS_LENZE_BRIDGE ((uint32_t)0x006C0001L)
+/** Lenze EtherCAT slave interface for 9400, bus bridge. */
+#define HIL_COMPONENT_ID_ECS_LENZE_BRIDGE 0x006C0001L
 
 /***********************************************************************************/
 /* IO-Link Master Task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_IOLINK_MASTER */
-/* MessageText: IO-Link Master Task. */
-#define HIL_COMPONENT_ID_IOLINK_MASTER   ((uint32_t)0x006D0000L)
+/** IO-Link Master Task. */
+#define HIL_COMPONENT_ID_IOLINK_MASTER   0x006D0000L
 
-/* MessageId: HIL_COMPONENT_ID_IOLINK_APPLICATION */
-/* MessageText: IO-Link Application and Application Layer Task. */
-#define HIL_COMPONENT_ID_IOLINK_APPLICATION ((uint32_t)0x00A50000L)
+/** IO-Link Application and Application Layer Task. */
+#define HIL_COMPONENT_ID_IOLINK_APPLICATION 0x00A50000L
 
-/* MessageId: HIL_COMPONENT_ID_IOLINK_TMG_IO */
-/* MessageText: Task to communicate with the IO-Link Master with TMG IO protocol. */
-#define HIL_COMPONENT_ID_IOLINK_TMG_IO   ((uint32_t)0x00A50001L)
+/** Task to communicate with the IO-Link Master with TMG IO protocol. */
+#define HIL_COMPONENT_ID_IOLINK_TMG_IO   0x00A50001L
 
-/* MessageId: HIL_COMPONENT_ID_IOLINK_TEST_PROTOCOL */
-/* MessageText: Task to access the IO-Link master with test protocol. */
-#define HIL_COMPONENT_ID_IOLINK_TEST_PROTOCOL ((uint32_t)0x00A50002L)
+/** Task to access the IO-Link master with test protocol. */
+#define HIL_COMPONENT_ID_IOLINK_TEST_PROTOCOL 0x00A50002L
 
 /***********************************************************************************/
 /* MODBUS RTU */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MODBUS_RTU */
-/* MessageText: MODBUS RTU Task. */
-#define HIL_COMPONENT_ID_MODBUS_RTU      ((uint32_t)0x006E0000L)
+/** MODBUS RTU Task. */
+#define HIL_COMPONENT_ID_MODBUS_RTU      0x006E0000L
 
 /***********************************************************************************/
 /* MODBUS RTU AP */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MODBUS_RTU_AP */
-/* MessageText: MODBUS RTU Application Task. */
-#define HIL_COMPONENT_ID_MODBUS_RTU_AP   ((uint32_t)0x006F0000L)
+/** MODBUS RTU Application Task. */
+#define HIL_COMPONENT_ID_MODBUS_RTU_AP   0x006F0000L
 
 /***********************************************************************************/
 /* Sercos Master stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SIII_MA_CP */
-/* MessageText: Sercos Communication Phase Task */
-#define HIL_COMPONENT_ID_SIII_MA_CP      ((uint32_t)0x00700000L)
+/** Sercos Communication Phase Task */
+#define HIL_COMPONENT_ID_SIII_MA_CP      0x00700000L
 
 /***********************************************************************************/
 /* Sercos Master stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SIII_MA_AP */
-/* MessageText: Sercos DPM AP Task */
-#define HIL_COMPONENT_ID_SIII_MA_AP      ((uint32_t)0x00720000L)
+/** Sercos DPM AP Task */
+#define HIL_COMPONENT_ID_SIII_MA_AP      0x00720000L
 
 /***********************************************************************************/
 /* Sercos Master stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIIIMASTER_SVC */
-/* MessageText: Sercos Service Channel Task */
-#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SVC ((uint32_t)0x00710000L)
+/** Sercos Service Channel Task */
+#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SVC 0x00710000L
 
 /***********************************************************************************/
 /* Sercos Master stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIIIMASTER_ACFG */
-/* MessageText: Sercos Auto-Configure Task */
-#define HIL_COMPONENT_ID_SERCOSIIIMASTER_ACFG ((uint32_t)0x00B70000L)
+/** Sercos Auto-Configure Task */
+#define HIL_COMPONENT_ID_SERCOSIIIMASTER_ACFG 0x00B70000L
 
 /***********************************************************************************/
 /* Sercos Master stack task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_CLIENT */
-/* MessageText: Sercos S/IP Client Task */
-#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_CLIENT ((uint32_t)0x00BA0000L)
+/** Sercos S/IP Client Task */
+#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_CLIENT 0x00BA0000L
 
-/* MessageId: HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_SERVER */
-/* MessageText: Sercos S/IP Server Task */
-#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_SERVER ((uint32_t)0x00BA0001L)
+/** Sercos S/IP Server Task */
+#define HIL_COMPONENT_ID_SERCOSIIIMASTER_SIP_SERVER 0x00BA0001L
 
 /***********************************************************************************/
 /* SSIO task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SSIO */
-/* MessageText: Serial Shift IO Task */
-#define HIL_COMPONENT_ID_SSIO            ((uint32_t)0x00750000L)
+/** Serial Shift IO Task */
+#define HIL_COMPONENT_ID_SSIO            0x00750000L
 
 /***********************************************************************************/
 /* SSIO AP task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SSIO_AP */
-/* MessageText: Serial Shift IO Application Task */
-#define HIL_COMPONENT_ID_SSIO_AP         ((uint32_t)0x00760000L)
+/** Serial Shift IO Application Task */
+#define HIL_COMPONENT_ID_SSIO_AP         0x00760000L
 
 /***********************************************************************************/
 /* MAP NIC task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MEMORY_MAP */
-/* MessageText: netIC Mapping Task */
-#define HIL_COMPONENT_ID_MEMORY_MAP      ((uint32_t)0x00770000L)
+/** netIC Mapping Task */
+#define HIL_COMPONENT_ID_MEMORY_MAP      0x00770000L
 
 /***********************************************************************************/
 /* MPI Gateway task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MPI_GATEWAY */
-/* MessageText: MPI Gateway Task */
-#define HIL_COMPONENT_ID_MPI_GATEWAY     ((uint32_t)0x00780000L)
+/** MPI Gateway Task */
+#define HIL_COMPONENT_ID_MPI_GATEWAY     0x00780000L
 
 /***********************************************************************************/
 /* Sercos Master stack NRT task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERCOSIIIMASTER_NRT */
-/* MessageText: Sercos NRT Channel Task */
-#define HIL_COMPONENT_ID_SERCOSIIIMASTER_NRT ((uint32_t)0x00790000L)
+/** Sercos NRT Channel Task */
+#define HIL_COMPONENT_ID_SERCOSIIIMASTER_NRT 0x00790000L
 
 /***********************************************************************************/
 /* AS-Interface Master task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ASI_MASTER */
-/* MessageText: AS-Interface Master Task (AS-Interface Master stack). */
-#define HIL_COMPONENT_ID_ASI_MASTER      ((uint32_t)0x007A0000L)
+/** AS-Interface Master Task (AS-Interface Master stack). */
+#define HIL_COMPONENT_ID_ASI_MASTER      0x007A0000L
 
 /***********************************************************************************/
 /* AS-Interface Master application task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ASI_APM */
-/* MessageText: AS-Interface Master Application Task. */
-#define HIL_COMPONENT_ID_ASI_APM         ((uint32_t)0x007B0000L)
+/** AS-Interface Master Application Task. */
+#define HIL_COMPONENT_ID_ASI_APM         0x007B0000L
 
 /***********************************************************************************/
 /* CompoNet Slave task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_COMPONET_SLAVE */
-/* MessageText: CompoNet Slave Task. */
-#define HIL_COMPONENT_ID_COMPONET_SLAVE  ((uint32_t)0x007C0000L)
+/** CompoNet Slave Task. */
+#define HIL_COMPONENT_ID_COMPONET_SLAVE  0x007C0000L
 
-/* MessageId: HIL_COMPONENT_ID_COMPONET_SLAVE_AP */
-/* MessageText: CompoNet Slave Application Task. */
-#define HIL_COMPONENT_ID_COMPONET_SLAVE_AP ((uint32_t)0x007D0000L)
+/** CompoNet Slave Application Task. */
+#define HIL_COMPONENT_ID_COMPONET_SLAVE_AP 0x007D0000L
 
 /***********************************************************************************/
 /* ASCII task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ASCII */
-/* MessageText: ASCII Protocol Task. */
-#define HIL_COMPONENT_ID_ASCII           ((uint32_t)0x007E0000L)
+/** ASCII Protocol Task. */
+#define HIL_COMPONENT_ID_ASCII           0x007E0000L
 
-/* MessageId: HIL_COMPONENT_ID_ASCII_AP */
-/* MessageText: ASCII Application Task. */
-#define HIL_COMPONENT_ID_ASCII_AP        ((uint32_t)0x007F0000L)
+/** ASCII Application Task. */
+#define HIL_COMPONENT_ID_ASCII_AP        0x007F0000L
 
 /***********************************************************************************/
 /* netscript task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NETSCRIPT */
-/* MessageText: netScript Task. */
-#define HIL_COMPONENT_ID_NETSCRIPT       ((uint32_t)0x00800000L)
+/** netScript Task. */
+#define HIL_COMPONENT_ID_NETSCRIPT       0x00800000L
 
 /***********************************************************************************/
 /* Marshaller task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MARSHALLER */
-/* MessageText: Marshaller: Main Task. */
-#define HIL_COMPONENT_ID_MARSHALLER      ((uint32_t)0x00820000L)
+/** Marshaller: Main Task. */
+#define HIL_COMPONENT_ID_MARSHALLER      0x00820000L
 
-/* MessageId: HIL_COMPONENT_ID_PACKET_ROUTER */
-/* MessageText: Marshaller: Packet Router Task. */
-#define HIL_COMPONENT_ID_PACKET_ROUTER   ((uint32_t)0x00830000L)
+/** Marshaller: Packet Router Task. */
+#define HIL_COMPONENT_ID_PACKET_ROUTER   0x00830000L
 
-/* MessageId: HIL_COMPONENT_ID_TCP_CONNECTOR */
-/* MessageText: Marshaller: TCP Connection Task. */
-#define HIL_COMPONENT_ID_TCP_CONNECTOR   ((uint32_t)0x00860000L)
+/** Marshaller: TCP Connection Task. */
+#define HIL_COMPONENT_ID_TCP_CONNECTOR   0x00860000L
 
 /***********************************************************************************/
 /* netTAP 100 Gateway task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NT100_GATEWAY */
-/* MessageText: netTAP Gateway Task. */
-#define HIL_COMPONENT_ID_NT100_GATEWAY   ((uint32_t)0x00840000L)
+/** netTAP Gateway Task. */
+#define HIL_COMPONENT_ID_NT100_GATEWAY   0x00840000L
 
 /***********************************************************************************/
 /* Item Server task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ITEM_SERVER */
-/* MessageText: Item Server Task. */
-#define HIL_COMPONENT_ID_ITEM_SERVER     ((uint32_t)0x00870000L)
+/** Item Server Task. */
+#define HIL_COMPONENT_ID_ITEM_SERVER     0x00870000L
 
 /***********************************************************************************/
 /* ISaGRAF task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_LOG */
-/* MessageText: telnet task for ISaGRAF log. */
-#define HIL_COMPONENT_ID_ISAGRAF_LOG     ((uint32_t)0x008C0000L)
+/** telnet task for ISaGRAF log. */
+#define HIL_COMPONENT_ID_ISAGRAF_LOG     0x008C0000L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_VM */
-/* MessageText: Virtual Machine ISaGRAF task. */
-#define HIL_COMPONENT_ID_ISAGRAF_VM      ((uint32_t)0x008B0000L)
+/** Virtual Machine ISaGRAF task. */
+#define HIL_COMPONENT_ID_ISAGRAF_VM      0x008B0000L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF */
-/* MessageText: ISaGRAF command task. */
-#define HIL_COMPONENT_ID_ISAGRAF         ((uint32_t)0x008A0000L)
+/** ISaGRAF command task. */
+#define HIL_COMPONENT_ID_ISAGRAF         0x008A0000L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_ETCP */
-/* MessageText: Ethernet ISaGRAF interface. */
-#define HIL_COMPONENT_ID_ISAGRAF_ETCP    ((uint32_t)0x00890000L)
+/** Ethernet ISaGRAF interface. */
+#define HIL_COMPONENT_ID_ISAGRAF_ETCP    0x00890000L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_ISARSI */
-/* MessageText: RS232 ISaGRAF interface. */
-#define HIL_COMPONENT_ID_ISAGRAF_ISARSI  ((uint32_t)0x00880000L)
+/** RS232 ISaGRAF interface. */
+#define HIL_COMPONENT_ID_ISAGRAF_ISARSI  0x00880000L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_MAINTENANCE */
-/* MessageText: ISaGRAF maintenance task. */
-#define HIL_COMPONENT_ID_ISAGRAF_MAINTENANCE ((uint32_t)0x008A0001L)
+/** ISaGRAF maintenance task. */
+#define HIL_COMPONENT_ID_ISAGRAF_MAINTENANCE 0x008A0001L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_NTP */
-/* MessageText: ISaGRAF NTP task. */
-#define HIL_COMPONENT_ID_ISAGRAF_NTP     ((uint32_t)0x008A0002L)
+/** ISaGRAF NTP task. */
+#define HIL_COMPONENT_ID_ISAGRAF_NTP     0x008A0002L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_AP */
-/* MessageText: ISaGRAF AP task. */
-#define HIL_COMPONENT_ID_ISAGRAF_AP      ((uint32_t)0x008A0003L)
+/** ISaGRAF AP task. */
+#define HIL_COMPONENT_ID_ISAGRAF_AP      0x008A0003L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_FTP */
-/* MessageText: ISaGRAF FTP task. */
-#define HIL_COMPONENT_ID_ISAGRAF_FTP     ((uint32_t)0x008A0004L)
+/** ISaGRAF FTP task. */
+#define HIL_COMPONENT_ID_ISAGRAF_FTP     0x008A0004L
 
-/* MessageId: HIL_COMPONENT_ID_ISAGRAF_DS */
-/* MessageText: ISaGRAF DS task. */
-#define HIL_COMPONENT_ID_ISAGRAF_DS      ((uint32_t)0x008A0005L)
+/** ISaGRAF DS task. */
+#define HIL_COMPONENT_ID_ISAGRAF_DS      0x008A0005L
 
 /***********************************************************************************/
 /* DF1 task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DF1 */
-/* MessageText: DF1 Protocol Task. */
-#define HIL_COMPONENT_ID_DF1             ((uint32_t)0x008D0000L)
+/** DF1 Protocol Task. */
+#define HIL_COMPONENT_ID_DF1             0x008D0000L
 
-/* MessageId: HIL_COMPONENT_ID_DF1_AP */
-/* MessageText: DF1 Application Task. */
-#define HIL_COMPONENT_ID_DF1_AP          ((uint32_t)0x008E0000L)
+/** DF1 Application Task. */
+#define HIL_COMPONENT_ID_DF1_AP          0x008E0000L
 
 /***********************************************************************************/
 /* 3964R task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_3964R */
-/* MessageText: 3964R Protocol Task. */
-#define HIL_COMPONENT_ID_3964R           ((uint32_t)0x008F0000L)
+/** 3964R Protocol Task. */
+#define HIL_COMPONENT_ID_3964R           0x008F0000L
 
-/* MessageId: HIL_COMPONENT_ID_3964R_AP */
-/* MessageText: 3964R Application Task. */
-#define HIL_COMPONENT_ID_3964R_AP        ((uint32_t)0x00900000L)
+/** 3964R Application Task. */
+#define HIL_COMPONENT_ID_3964R_AP        0x00900000L
 
 /***********************************************************************************/
 /* IO Signals task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_IO_SIGNAL */
-/* MessageText: IO Signal Task. */
-#define HIL_COMPONENT_ID_IO_SIGNAL       ((uint32_t)0x00910000L)
+/** IO Signal Task. */
+#define HIL_COMPONENT_ID_IO_SIGNAL       0x00910000L
 
 /***********************************************************************************/
 /* ServX task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SERVX */
-/* MessageText: servX HTTP Server. */
-#define HIL_COMPONENT_ID_SERVX           ((uint32_t)0x00920000L)
+/** servX HTTP Server. */
+#define HIL_COMPONENT_ID_SERVX           0x00920000L
 
 /***********************************************************************************/
 /* TCPIP Application task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TCPIP_TCP_AP */
-/* MessageText: TCPUDP application task (TCP/IP stack). */
-#define HIL_COMPONENT_ID_TCPIP_TCP_AP    ((uint32_t)0x00940000L)
+/** TCPUDP application task (TCP/IP stack). */
+#define HIL_COMPONENT_ID_TCPIP_TCP_AP    0x00940000L
 
 /***********************************************************************************/
 /* DLR task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_DLR */
-/* MessageText: EthernetIP DLR task. */
-#define HIL_COMPONENT_ID_EIP_DLR         ((uint32_t)0x00950000L)
+/** EthernetIP DLR task. */
+#define HIL_COMPONENT_ID_EIP_DLR         0x00950000L
 
 /***********************************************************************************/
 /* FODMI task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_FODMI */
-/* MessageText: Fibre optic diagnostic monitoring interface task. */
-#define HIL_COMPONENT_ID_FODMI           ((uint32_t)0x00960000L)
+/** Fibre optic diagnostic monitoring interface task. */
+#define HIL_COMPONENT_ID_FODMI           0x00960000L
 
 /***********************************************************************************/
 /* PROFIDRIVE task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIDRIVE */
-/* MessageText: PROFIDRIVE task. */
-#define HIL_COMPONENT_ID_PROFIDRIVE      ((uint32_t)0x00970000L)
+/** PROFIDRIVE task. */
+#define HIL_COMPONENT_ID_PROFIDRIVE      0x00970000L
 
 /***********************************************************************************/
 /*****/
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIDRIVE_PA */
-/* MessageText: PROFIDRIVE parameter Access interface task. */
-#define HIL_COMPONENT_ID_PROFIDRIVE_PA   ((uint32_t)0x00980000L)
+/** PROFIDRIVE parameter Access interface task. */
+#define HIL_COMPONENT_ID_PROFIDRIVE_PA   0x00980000L
 
 /***********************************************************************************/
 /*****/
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIDRIVE_AP */
-/* MessageText: PROFIDRIVE user application task. */
-#define HIL_COMPONENT_ID_PROFIDRIVE_AP   ((uint32_t)0x009A0000L)
+/** PROFIDRIVE user application task. */
+#define HIL_COMPONENT_ID_PROFIDRIVE_AP   0x009A0000L
 
 /***********************************************************************************/
 /*****/
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFIDRIVE_OD */
-/* MessageText: PROFIDRIVE Object Dictionary task. */
-#define HIL_COMPONENT_ID_PROFIDRIVE_OD   ((uint32_t)0x00990000L)
+/** PROFIDRIVE Object Dictionary task. */
+#define HIL_COMPONENT_ID_PROFIDRIVE_OD   0x00990000L
 
 /***********************************************************************************/
 /* CANopen Object Dictionary */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ODV3 */
-/* MessageText: CANopen Object Dictionary task. */
-#define HIL_COMPONENT_ID_ODV3            ((uint32_t)0x009B0000L)
+/** CANopen Object Dictionary task. */
+#define HIL_COMPONENT_ID_ODV3            0x009B0000L
 
 /***********************************************************************************/
 /* VARAN Client Application */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_VARAN_CLIENT_AP */
-/* MessageText: VARAN Client application task. */
-#define HIL_COMPONENT_ID_VARAN_CLIENT_AP ((uint32_t)0x009D0000L)
+/** VARAN Client application task. */
+#define HIL_COMPONENT_ID_VARAN_CLIENT_AP 0x009D0000L
 
 /***********************************************************************************/
 /* VARAN Client */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_VARAN_CLIENT */
-/* MessageText: VARAN Client task. */
-#define HIL_COMPONENT_ID_VARAN_CLIENT    ((uint32_t)0x009C0000L)
+/** VARAN Client task. */
+#define HIL_COMPONENT_ID_VARAN_CLIENT    0x009C0000L
 
 /***********************************************************************************/
 /* Modbus RTU Peripheral Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MODBUS_RTU_PERIPH */
-/* MessageText: Modbus RTU Peripheral Task. */
-#define HIL_COMPONENT_ID_MODBUS_RTU_PERIPH ((uint32_t)0x009E0000L)
+/** Modbus RTU Peripheral Task. */
+#define HIL_COMPONENT_ID_MODBUS_RTU_PERIPH 0x009E0000L
 
 /***********************************************************************************/
 /* PROFINET RTA Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PROFINET_RTA */
-/* MessageText: PROFINET RTA (RealTime Acyclic) Task. */
-#define HIL_COMPONENT_ID_PROFINET_RTA    ((uint32_t)0x009F0000L)
+/** PROFINET RTA (RealTime Acyclic) Task. */
+#define HIL_COMPONENT_ID_PROFINET_RTA    0x009F0000L
 
 /***********************************************************************************/
 /* Sercos Internet Protocol Service(SIP) task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SIII_SIP */
-/* MessageText: Sercos Internet Protocol Service Task. */
-#define HIL_COMPONENT_ID_SIII_SIP        ((uint32_t)0x00A00000L)
+/** Sercos Internet Protocol Service Task. */
+#define HIL_COMPONENT_ID_SIII_SIP        0x00A00000L
 
 /***********************************************************************************/
 /* 3S CodeSys PLC Handler task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_3S_PLC_HANDLER */
-/* MessageText: 3S CodeSys PLC Handler Task. */
-#define HIL_COMPONENT_ID_3S_PLC_HANDLER  ((uint32_t)0x00A10000L)
+/** 3S CodeSys PLC Handler Task. */
+#define HIL_COMPONENT_ID_3S_PLC_HANDLER  0x00A10000L
 
 /***********************************************************************************/
 /* 3S CodeSys PLC Handler AP task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_3S_PLC_HANDLER_AP */
-/* MessageText: 3S CodeSys PLC Handler AP Task. */
-#define HIL_COMPONENT_ID_3S_PLC_HANDLER_AP ((uint32_t)0x00A20000L)
+/** 3S CodeSys PLC Handler AP Task. */
+#define HIL_COMPONENT_ID_3S_PLC_HANDLER_AP 0x00A20000L
 
 /***********************************************************************************/
 /* netPLC I/O Handler task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NETPLC_IO_HANDLER */
-/* MessageText: netPLC I/O Handler. */
-#define HIL_COMPONENT_ID_NETPLC_IO_HANDLER ((uint32_t)0x00A30000L)
+/** netPLC I/O Handler. */
+#define HIL_COMPONENT_ID_NETPLC_IO_HANDLER 0x00A30000L
 
 /***********************************************************************************/
 /* PowerLink MN task identifiers */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_TASK */
-/* MessageText: PowerLink MN Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_TASK ((uint32_t)0x00A40000L)
+/** PowerLink MN Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_TASK 0x00A40000L
 
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_AP_TASK */
-/* MessageText: PowerLink MN AP Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_AP_TASK ((uint32_t)0x00A40001L)
+/** PowerLink MN AP Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_AP_TASK 0x00A40001L
 
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_NEW_DATA_TASK */
-/* MessageText: PowerLink MN NewData Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_NEW_DATA_TASK ((uint32_t)0x00A40002L)
+/** PowerLink MN NewData Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_NEW_DATA_TASK 0x00A40002L
 
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_SDO_UDP_SOCK_TASK */
-/* MessageText: PowerLink MN SDO UDP Socket Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_SDO_UDP_SOCK_TASK ((uint32_t)0x00A40003L)
+/** PowerLink MN SDO UDP Socket Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_SDO_UDP_SOCK_TASK 0x00A40003L
 
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_VETH_TASK */
-/* MessageText: PowerLink MN VirtualEthernet Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_VETH_TASK ((uint32_t)0x00A40004L)
+/** PowerLink MN VirtualEthernet Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_VETH_TASK 0x00A40004L
 
-/* MessageId: HIL_COMPONENT_ID_POWERLINK_MN_JOB_TOKEN_TASK */
-/* MessageText: PowerLink MN JobToken Task */
-#define HIL_COMPONENT_ID_POWERLINK_MN_JOB_TOKEN_TASK ((uint32_t)0x00A40005L)
+/** PowerLink MN JobToken Task */
+#define HIL_COMPONENT_ID_POWERLINK_MN_JOB_TOKEN_TASK 0x00A40005L
 
 /***********************************************************************************/
 /* Recording task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_RECORDING */
-/* MessageText: Recording and logging Task. */
-#define HIL_COMPONENT_ID_RECORDING       ((uint32_t)0x00A60000L)
+/** Recording and logging Task. */
+#define HIL_COMPONENT_ID_RECORDING       0x00A60000L
 
 /***********************************************************************************/
 /* Insight Debug task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_INSIGHT */
-/* MessageText: Insight task. */
-#define HIL_COMPONENT_ID_INSIGHT         ((uint32_t)0x00AC0000L)
+/** Insight task. */
+#define HIL_COMPONENT_ID_INSIGHT         0x00AC0000L
 
 /***********************************************************************************/
 /* SmartWire Master Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_SMARTWIRE_MASTER */
-/* MessageText: SmartWire master task. */
-#define HIL_COMPONENT_ID_SMARTWIRE_MASTER ((uint32_t)0x00AD0000L)
+/** SmartWire master task. */
+#define HIL_COMPONENT_ID_SMARTWIRE_MASTER 0x00AD0000L
 
 /***********************************************************************************/
 /* EtherCAT Slave V4 Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECSV4_ESM */
-/* MessageText: EtherCAT Slave V4 ESM Task. */
-#define HIL_COMPONENT_ID_ECSV4_ESM       ((uint32_t)0x00AF0000L)
+/** EtherCAT Slave V4 ESM Task. */
+#define HIL_COMPONENT_ID_ECSV4_ESM       0x00AF0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_MBX */
-/* MessageText: EtherCAT Slave V4 MBX Task. */
-#define HIL_COMPONENT_ID_ECSV4_MBX       ((uint32_t)0x00B00000L)
+/** EtherCAT Slave V4 MBX Task. */
+#define HIL_COMPONENT_ID_ECSV4_MBX       0x00B00000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_COE */
-/* MessageText: EtherCAT Slave V4 COE Task. */
-#define HIL_COMPONENT_ID_ECSV4_COE       ((uint32_t)0x00B10000L)
+/** EtherCAT Slave V4 COE Task. */
+#define HIL_COMPONENT_ID_ECSV4_COE       0x00B10000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_SDO */
-/* MessageText: EtherCAT Slave V4 SDO Task. */
-#define HIL_COMPONENT_ID_ECSV4_SDO       ((uint32_t)0x00B10001L)
+/** EtherCAT Slave V4 SDO Task. */
+#define HIL_COMPONENT_ID_ECSV4_SDO       0x00B10001L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_EOE */
-/* MessageText: EtherCAT Slave V4 EOE Task. */
-#define HIL_COMPONENT_ID_ECSV4_EOE       ((uint32_t)0x00B20000L)
+/** EtherCAT Slave V4 EOE Task. */
+#define HIL_COMPONENT_ID_ECSV4_EOE       0x00B20000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_FOE */
-/* MessageText: EtherCAT Slave V4 FOE Task. */
-#define HIL_COMPONENT_ID_ECSV4_FOE       ((uint32_t)0x00B30000L)
+/** EtherCAT Slave V4 FOE Task. */
+#define HIL_COMPONENT_ID_ECSV4_FOE       0x00B30000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_FOE_FH */
-/* MessageText: EtherCAT Slave V4 FOE FH Task. */
-#define HIL_COMPONENT_ID_ECSV4_FOE_FH    ((uint32_t)0x00C40000L)
+/** EtherCAT Slave V4 FOE FH Task. */
+#define HIL_COMPONENT_ID_ECSV4_FOE_FH    0x00C40000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_SOE_SSC */
-/* MessageText: EtherCAT Slave V4 SOE_SSC Task. */
-#define HIL_COMPONENT_ID_ECSV4_SOE_SSC   ((uint32_t)0x00B40000L)
+/** EtherCAT Slave V4 SOE_SSC Task. */
+#define HIL_COMPONENT_ID_ECSV4_SOE_SSC   0x00B40000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_SOE_IDN */
-/* MessageText: EtherCAT Slave V4 SOE_IDN Task. */
-#define HIL_COMPONENT_ID_ECSV4_SOE_IDN   ((uint32_t)0x00B40001L)
+/** EtherCAT Slave V4 SOE_IDN Task. */
+#define HIL_COMPONENT_ID_ECSV4_SOE_IDN   0x00B40001L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_DPM */
-/* MessageText: EtherCAT Slave V4 DPM Task. */
-#define HIL_COMPONENT_ID_ECSV4_DPM       ((uint32_t)0x00AE0000L)
+/** EtherCAT Slave V4 DPM Task. */
+#define HIL_COMPONENT_ID_ECSV4_DPM       0x00AE0000L
 
-/* MessageId: HIL_COMPONENT_ID_NET_PROXY */
-/* MessageText: netPROXY. */
-#define HIL_COMPONENT_ID_NET_PROXY       ((uint32_t)0x00B50000L)
+/** netPROXY. */
+#define HIL_COMPONENT_ID_NET_PROXY       0x00B50000L
 
-/* MessageId: HIL_COMPONENT_ID_ECSV4_AOE */
-/* MessageText: EtherCAT Slave V4 AoE Task. */
-#define HIL_COMPONENT_ID_ECSV4_AOE       ((uint32_t)0x00BB0000L)
+/** EtherCAT Slave V4 AoE Task. */
+#define HIL_COMPONENT_ID_ECSV4_AOE       0x00BB0000L
 
 /***********************************************************************************/
 /* netSMART Gateway Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NET_SMART_GATEWAY */
-/* MessageText: netSMART Gateway. */
-#define HIL_COMPONENT_ID_NET_SMART_GATEWAY ((uint32_t)0x00B60000L)
+/** netSMART Gateway. */
+#define HIL_COMPONENT_ID_NET_SMART_GATEWAY 0x00B60000L
 
 /***********************************************************************************/
 /* TFTP Stack Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TFTP */
-/* MessageText: TFTP Stack Task. */
-#define HIL_COMPONENT_ID_TFTP            ((uint32_t)0x00B80000L)
+/** TFTP Stack Task. */
+#define HIL_COMPONENT_ID_TFTP            0x00B80000L
 
 /***********************************************************************************/
 /* TFTP App Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TFTP_AP */
-/* MessageText: TFTP Application Task. */
-#define HIL_COMPONENT_ID_TFTP_AP         ((uint32_t)0x00B90000L)
+/** TFTP Application Task. */
+#define HIL_COMPONENT_ID_TFTP_AP         0x00B90000L
 
 /***********************************************************************************/
 /* PTP Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PTP */
-/* MessageText: PTP Task. */
-#define HIL_COMPONENT_ID_PTP             ((uint32_t)0x00BD0000L)
+/** PTP Task. */
+#define HIL_COMPONENT_ID_PTP             0x00BD0000L
 
 /***********************************************************************************/
 /* User Area */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_USER_AREA */
-/* MessageText: User Area. */
-#define HIL_COMPONENT_ID_USER_AREA       ((uint32_t)0x0FF00000L)
+/** User Area. */
+#define HIL_COMPONENT_ID_USER_AREA       0x0FF00000L
 
 /***********************************************************************************/
 /* User Area */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NETPROXY_S3S */
-/* MessageText: S3S netProxy adaptation task */
-#define HIL_COMPONENT_ID_NETPROXY_S3S    ((uint32_t)0x00BC0000L)
+/** S3S netProxy adaptation task */
+#define HIL_COMPONENT_ID_NETPROXY_S3S    0x00BC0000L
 
 /***********************************************************************************/
 /* EtherNet/IP DLR IRQ Task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_EIP_DLR_IRQ */
-/* MessageText: PTP Task. */
-#define HIL_COMPONENT_ID_EIP_DLR_IRQ     ((uint32_t)0x00BE0000L)
+/** PTP Task. */
+#define HIL_COMPONENT_ID_EIP_DLR_IRQ     0x00BE0000L
 
 /***********************************************************************************/
 /* FTP Server Stack Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_FTP_SERVER */
-/* MessageText: FTP Stack Task */
-#define HIL_COMPONENT_ID_FTP_SERVER      ((uint32_t)0x00BF0000L)
+/** FTP Stack Task */
+#define HIL_COMPONENT_ID_FTP_SERVER      0x00BF0000L
 
 /***********************************************************************************/
 /* FTP Server Application Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_FTP_SERVER_AP */
-/* MessageText: FTP Application Task. */
-#define HIL_COMPONENT_ID_FTP_SERVER_AP   ((uint32_t)0x00C00000L)
+/** FTP Application Task. */
+#define HIL_COMPONENT_ID_FTP_SERVER_AP   0x00C00000L
 
 /***********************************************************************************/
 /* netPROXY HIF Adapter Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXHIFADAPTER */
-/* MessageText: netPROXY HIF Adapter Task. */
-#define HIL_COMPONENT_ID_NPXHIFADAPTER   ((uint32_t)0x00C20000L)
+/** netPROXY HIF Adapter Task. */
+#define HIL_COMPONENT_ID_NPXHIFADAPTER   0x00C20000L
 
 /***********************************************************************************/
 /* netPROXY package EtherNetIP Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_EIS */
-/* MessageText: netPROXY package EtherNetIP Slave. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_EIS  ((uint32_t)0x00C30000L)
+/** netPROXY package EtherNetIP Slave. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_EIS  0x00C30000L
+
+/***********************************************************************************/
+/* netPROXY package EtherNetIP Slave to IO-Link Master */
+/***********************************************************************************/
+/** netPROXY package EtherNetIP Slave to IO-Link Master. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_EIS_IOLM 0x01260000L
+
+/***********************************************************************************/
+/* Hilscher mbedTLS Component (PSMBEDTLS) */
+/***********************************************************************************/
+/** Hilscher PSMBEDTLS Component. */
+#define HIL_COMPONENT_ID_PSMBEDTLS       0x01290000L
 
 /***********************************************************************************/
 /* netHost task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NETHOST */
-/* MessageText: netHost Task. */
-#define HIL_COMPONENT_ID_NETHOST         ((uint32_t)0x00C50000L)
+/** netHost Task. */
+#define HIL_COMPONENT_ID_NETHOST         0x00C50000L
 
 /***********************************************************************************/
 /* CIP Handler task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CIP_HANDLER */
-/* MessageText: CIP Handler Task. */
-#define HIL_COMPONENT_ID_CIP_HANDLER     ((uint32_t)0x00C60000L)
+/** CIP Handler Task. */
+#define HIL_COMPONENT_ID_CIP_HANDLER     0x00C60000L
 
 /***********************************************************************************/
 /* CPX Driver task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CPX_DRIVER */
-/* MessageText: CPX Driver Task. */
-#define HIL_COMPONENT_ID_CPX_DRIVER      ((uint32_t)0x00C70000L)
+/** CPX Driver Task. */
+#define HIL_COMPONENT_ID_CPX_DRIVER      0x00C70000L
 
 /***********************************************************************************/
 /* CPX Exchange task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CPX_EXCHANGE */
-/* MessageText: CPX Exchange Task. */
-#define HIL_COMPONENT_ID_CPX_EXCHANGE    ((uint32_t)0x00C80000L)
+/** CPX Exchange Task. */
+#define HIL_COMPONENT_ID_CPX_EXCHANGE    0x00C80000L
 
 /***********************************************************************************/
 /* OSAL */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CPX_OSAL */
-/* MessageText: CPX Exchange Task. */
-#define HIL_COMPONENT_ID_CPX_OSAL        ((uint32_t)0x00CA0000L)
+/** CPX Exchange Task. */
+#define HIL_COMPONENT_ID_CPX_OSAL        0x00CA0000L
 
 /***********************************************************************************/
 /* PROFINET IO CONTROLLER V3 */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PNM_AP */
-/* MessageText: PROFINET IO Controller V3 AP Task. */
-#define HIL_COMPONENT_ID_PNM_AP          ((uint32_t)0x00CB0000L)
+/** PROFINET IO Controller V3 AP Task. */
+#define HIL_COMPONENT_ID_PNM_AP          0x00CB0000L
 
 /***********************************************************************************/
 /* ECMv4 */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECMV4_AP */
-/* MessageText: EtherCAT Master AP Task. */
-#define HIL_COMPONENT_ID_ECMV4_AP        ((uint32_t)0x00D70000L)
+/** EtherCAT Master AP Task. */
+#define HIL_COMPONENT_ID_ECMV4_AP        0x00D70000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_IF */
-/* MessageText: EtherCAT Master Interface Task. */
-#define HIL_COMPONENT_ID_ECMV4_IF        ((uint32_t)0x00D60000L)
+/** EtherCAT Master Interface Task. */
+#define HIL_COMPONENT_ID_ECMV4_IF        0x00D60000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_LLD_SCHED */
-/* MessageText: LLD Scheduler. */
-#define HIL_COMPONENT_ID_ECMV4_LLD_SCHED ((uint32_t)0x00CC0000L)
+/** LLD Scheduler. */
+#define HIL_COMPONENT_ID_ECMV4_LLD_SCHED 0x00CC0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_LLD_IF */
-/* MessageText: LLD IF. */
-#define HIL_COMPONENT_ID_ECMV4_LLD_IF    ((uint32_t)0x00CC0001L)
+/** LLD IF. */
+#define HIL_COMPONENT_ID_ECMV4_LLD_IF    0x00CC0001L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_EMC */
-/* MessageText: EtherCAT Master Control Task. */
-#define HIL_COMPONENT_ID_ECMV4_EMC       ((uint32_t)0x00CD0000L)
+/** EtherCAT Master Control Task. */
+#define HIL_COMPONENT_ID_ECMV4_EMC       0x00CD0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_EMC_LLD_IF */
-/* MessageText: EtherCAT Master Control Task LLD IF. */
-#define HIL_COMPONENT_ID_ECMV4_EMC_LLD_IF ((uint32_t)0x00CD0001L)
+/** EtherCAT Master Control Task LLD IF. */
+#define HIL_COMPONENT_ID_ECMV4_EMC_LLD_IF 0x00CD0001L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_COE_SDOCLIENT */
-/* MessageText: SDO Client Task. */
-#define HIL_COMPONENT_ID_ECMV4_COE_SDOCLIENT ((uint32_t)0x00CF0000L)
+/** SDO Client Task. */
+#define HIL_COMPONENT_ID_ECMV4_COE_SDOCLIENT 0x00CF0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_COE_SDOINFOCLIENT */
-/* MessageText: SDOINFO Client Task. */
-#define HIL_COMPONENT_ID_ECMV4_COE_SDOINFOCLIENT ((uint32_t)0x00CF0001L)
+/** SDOINFO Client Task. */
+#define HIL_COMPONENT_ID_ECMV4_COE_SDOINFOCLIENT 0x00CF0001L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_COE_SDOSERVER */
-/* MessageText: SDO Server Task. */
-#define HIL_COMPONENT_ID_ECMV4_COE_SDOSERVER ((uint32_t)0x00CF0002L)
+/** SDO Server Task. */
+#define HIL_COMPONENT_ID_ECMV4_COE_SDOSERVER 0x00CF0002L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_COE_SDOINFOSERVER */
-/* MessageText: SDOINFO Server Task. */
-#define HIL_COMPONENT_ID_ECMV4_COE_SDOINFOSERVER ((uint32_t)0x00CF0003L)
+/** SDOINFO Server Task. */
+#define HIL_COMPONENT_ID_ECMV4_COE_SDOINFOSERVER 0x00CF0003L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_EOE */
-/* MessageText: EoE Task. */
-#define HIL_COMPONENT_ID_ECMV4_EOE       ((uint32_t)0x00D00000L)
+/** EoE Task. */
+#define HIL_COMPONENT_ID_ECMV4_EOE       0x00D00000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_EOE_IF */
-/* MessageText: EoE Interface Task. */
-#define HIL_COMPONENT_ID_ECMV4_EOE_IF    ((uint32_t)0x00D00001L)
+/** EoE Interface Task. */
+#define HIL_COMPONENT_ID_ECMV4_EOE_IF    0x00D00001L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_SOE_CLIENT */
-/* MessageText: SoE Client Task. */
-#define HIL_COMPONENT_ID_ECMV4_SOE_CLIENT ((uint32_t)0x00D20000L)
+/** SoE Client Task. */
+#define HIL_COMPONENT_ID_ECMV4_SOE_CLIENT 0x00D20000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_FOE_CLIENT */
-/* MessageText: FoE Client Task. */
-#define HIL_COMPONENT_ID_ECMV4_FOE_CLIENT ((uint32_t)0x00D10000L)
+/** FoE Client Task. */
+#define HIL_COMPONENT_ID_ECMV4_FOE_CLIENT 0x00D10000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_AOE_ROUTER */
-/* MessageText: AoE Router Task. */
-#define HIL_COMPONENT_ID_ECMV4_AOE_ROUTER ((uint32_t)0x00CE0000L)
+/** AoE Router Task. */
+#define HIL_COMPONENT_ID_ECMV4_AOE_ROUTER 0x00CE0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_AOE_CLIENT */
-/* MessageText: AoE Client Task. */
-#define HIL_COMPONENT_ID_ECMV4_AOE_CLIENT ((uint32_t)0x00CE0001L)
+/** AoE Client Task. */
+#define HIL_COMPONENT_ID_ECMV4_AOE_CLIENT 0x00CE0001L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_MBXROUTER */
-/* MessageText: MbxRouter Task. */
-#define HIL_COMPONENT_ID_ECMV4_MBXROUTER ((uint32_t)0x00DD0000L)
+/** MbxRouter Task. */
+#define HIL_COMPONENT_ID_ECMV4_MBXROUTER 0x00DD0000L
 
-/* MessageId: HIL_COMPONENT_ID_ECMV4_ACFG */
-/* MessageText: ACfg Task. */
-#define HIL_COMPONENT_ID_ECMV4_ACFG      ((uint32_t)0x00DE0000L)
+/** ACfg Task. */
+#define HIL_COMPONENT_ID_ECMV4_ACFG      0x00DE0000L
 
 /***********************************************************************************/
 /* netPROXY package ODV3 */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_ODV3 */
-/* MessageText: netPROXY package ODV3. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_ODV3 ((uint32_t)0x00D80000L)
+/** netPROXY package ODV3. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_ODV3 0x00D80000L
 
 /***********************************************************************************/
 /* netPROXY package EtherCAT Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_ECS */
-/* MessageText: netPROXY package EtherCAT Slave. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_ECS  ((uint32_t)0x00D90000L)
+/** netPROXY package EtherCAT Slave. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_ECS  0x00D90000L
 
 /***********************************************************************************/
 /* netPROXY package IO-Link Master */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_IOLM */
-/* MessageText: netPROXY package IO-Link Master. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_IOLM ((uint32_t)0x00DA0000L)
+/** netPROXY package IO-Link Master. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_IOLM 0x00DA0000L
 
 /***********************************************************************************/
 /* netPROXY Management task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXMGMT */
-/* MessageText: netPROXY management task. */
-#define HIL_COMPONENT_ID_NPXMGMT         ((uint32_t)0x00E00000L)
+/** netPROXY management task. */
+#define HIL_COMPONENT_ID_NPXMGMT         0x00E00000L
 
 /***********************************************************************************/
 /* Command Table task identifier */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CMD_TABLE */
-/* MessageText: Command Table Task. */
-#define HIL_COMPONENT_ID_CMD_TABLE       ((uint32_t)0x00E20000L)
+/** Command Table Task. */
+#define HIL_COMPONENT_ID_CMD_TABLE       0x00E20000L
 
 /***********************************************************************************/
 /* netTap DPM Bridge Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NT_DPM_BRIDGE */
-/* MessageText: netTap DPM Bridge Task. */
-#define HIL_COMPONENT_ID_NT_DPM_BRIDGE   ((uint32_t)0x00E40000L)
+/** netTap DPM Bridge Task. */
+#define HIL_COMPONENT_ID_NT_DPM_BRIDGE   0x00E40000L
 
 /***********************************************************************************/
 /* netPROXY LED Handler Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXLEDHNDLR */
-/* MessageText: netPROXY LED Handler Task. */
-#define HIL_COMPONENT_ID_NPXLEDHNDLR     ((uint32_t)0x00E50000L)
+/** netPROXY LED Handler Task. */
+#define HIL_COMPONENT_ID_NPXLEDHNDLR     0x00E50000L
 
 /***********************************************************************************/
 /* LWIP Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_LWIP */
-/* MessageText: LWIP Task. */
-#define HIL_COMPONENT_ID_LWIP            ((uint32_t)0x00E90000L)
+/** LWIP Task. */
+#define HIL_COMPONENT_ID_LWIP            0x00E90000L
 
-/* MessageId: HIL_COMPONENT_ID_LWIP_GCI_SOCKIF */
-/* MessageText: LWIP packet socket API for GCI. */
-#define HIL_COMPONENT_ID_LWIP_GCI_SOCKIF ((uint32_t)0x00E90001L)
+/** LWIP packet socket API for GCI. */
+#define HIL_COMPONENT_ID_LWIP_GCI_SOCKIF 0x00E90001L
 
 /***********************************************************************************/
 /* OSAL Worker Thread */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_WORKER_THREAD */
-/* MessageText: OSAL Worker Thread. */
-#define HIL_COMPONENT_ID_WORKER_THREAD   ((uint32_t)0x00EA0000L)
+/** OSAL Worker Thread. */
+#define HIL_COMPONENT_ID_WORKER_THREAD   0x00EA0000L
 
 /***********************************************************************************/
 /* netPROXY package PROFINET IO-Device V4 */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_PNS */
-/* MessageText: netPROXY package PROFINET IO-Device. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_PNS  ((uint32_t)0x00EB0000L)
+/** netPROXY package PROFINET IO-Device. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_PNS  0x00EB0000L
 
 /***********************************************************************************/
 /* Base Firmware Application Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_BASEFW_AP */
-/* MessageText: Base Firmware Application Task. */
-#define HIL_COMPONENT_ID_BASEFW_AP       ((uint32_t)0x00EC0000L)
+/** Base Firmware Application Task. */
+#define HIL_COMPONENT_ID_BASEFW_AP       0x00EC0000L
 
 /***********************************************************************************/
 /* Config Manager Task */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CONFIG_MANAGER */
-/* MessageText: Config Manager Task. */
-#define HIL_COMPONENT_ID_CONFIG_MANAGER  ((uint32_t)0x00ED0000L)
+/** Config Manager Task. */
+#define HIL_COMPONENT_ID_CONFIG_MANAGER  0x00ED0000L
 
 /***********************************************************************************/
 /* netPROXY package Remanent */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_REMANENT */
-/* MessageText: netPROXY package Remanent. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_REMANENT ((uint32_t)0x00F20000L)
+/** netPROXY package Remanent. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_REMANENT 0x00F20000L
 
 /***********************************************************************************/
 /* CC-Link IE Field Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CCLIES */
-/* MessageText: CC-Link IE Slave Task. */
-#define HIL_COMPONENT_ID_CCLIES          ((uint32_t)0x00F30000L)
+/** CC-Link IE Slave Task. */
+#define HIL_COMPONENT_ID_CCLIES          0x00F30000L
 
-/* MessageId: HIL_COMPONENT_ID_CCLIES_IF */
-/* MessageText: CC-Link IE Slave IF Task. */
-#define HIL_COMPONENT_ID_CCLIES_IF       ((uint32_t)0x00F40000L)
+/** CC-Link IE Slave IF Task. */
+#define HIL_COMPONENT_ID_CCLIES_IF       0x00F40000L
 
-/* MessageId: HIL_COMPONENT_ID_CCLIES_AP */
-/* MessageText: CC-Link IE Slave AP Task. */
-#define HIL_COMPONENT_ID_CCLIES_AP       ((uint32_t)0x00F50000L)
+/** CC-Link IE Slave AP Task. */
+#define HIL_COMPONENT_ID_CCLIES_AP       0x00F50000L
 
 /***********************************************************************************/
 /* Authentication manager */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_AUTH_MANAGER */
-/* MessageText: Authentication manager component for user authentication. */
-#define HIL_COMPONENT_ID_AUTH_MANAGER    ((uint32_t)0x00FB0000L)
+/** Authentication manager component for user authentication. */
+#define HIL_COMPONENT_ID_AUTH_MANAGER    0x00FB0000L
 
-/* MessageId: HIL_COMPONENT_ID_AUTH_MANAGER_X_509 */
-/* MessageText: Authentication manager component for digital (X.509) certificates handling. */
-#define HIL_COMPONENT_ID_AUTH_MANAGER_X_509 ((uint32_t)0x00FB0001L)
+/** Authentication manager component for digital (X.509) certificates handling. */
+#define HIL_COMPONENT_ID_AUTH_MANAGER_X_509 0x00FB0001L
 
 /***********************************************************************************/
 /* CC-Link IE Field Basic */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_CCLIEFB */
-/* MessageText: CC-Link IE Field Basic Slave Task. */
-#define HIL_COMPONENT_ID_CCLIEFB         ((uint32_t)0x00FE0000L)
+/** CC-Link IE Field Basic Slave Task. */
+#define HIL_COMPONENT_ID_CCLIEFB         0x00FE0000L
 
-/* MessageId: HIL_COMPONENT_ID_CCLIEFBM */
-/* MessageText: CC-Link IE Field Basic Master/Slave Task. */
-#define HIL_COMPONENT_ID_CCLIEFBM        ((uint32_t)0x00FE0001L)
+/** CC-Link IE Field Basic Master/Slave Task. */
+#define HIL_COMPONENT_ID_CCLIEFBM        0x00FE0001L
 
-/* MessageId: HIL_COMPONENT_ID_CCLIEFB_IF */
-/* MessageText: CC-Link IE Field Basic IF Task. */
-#define HIL_COMPONENT_ID_CCLIEFB_IF      ((uint32_t)0x00FF0000L)
+/** CC-Link IE Field Basic IF Task. */
+#define HIL_COMPONENT_ID_CCLIEFB_IF      0x00FF0000L
 
-/* MessageId: HIL_COMPONENT_ID_CCLIEFB_AP */
-/* MessageText: CC-Link IE Field Basic AP Task. */
-#define HIL_COMPONENT_ID_CCLIEFB_AP      ((uint32_t)0x01000000L)
+/** CC-Link IE Field Basic AP Task. */
+#define HIL_COMPONENT_ID_CCLIEFB_AP      0x01000000L
 
 /***********************************************************************************/
 /* netPROXY package MQTT Client */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_MQTT_CLIENT */
-/* MessageText: netPROXY package MQTT Client. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_MQTT_CLIENT ((uint32_t)0x00F90000L)
+/** netPROXY package MQTT Client. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_MQTT_CLIENT 0x00F90000L
 
 /***********************************************************************************/
 /* Generic AP */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_GENERIC_AP */
-/* MessageText: Generic AP Task. */
-#define HIL_COMPONENT_ID_GENERIC_AP      ((uint32_t)0x01090000L)
+/** Generic AP Task. */
+#define HIL_COMPONENT_ID_GENERIC_AP      0x01090000L
 
 /***********************************************************************************/
 /* netPROXY package OPCUA */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_OPCUA */
-/* MessageText: netPROXY package OPC UA. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA ((uint32_t)0x010A0000L)
+/** netPROXY package OPC UA. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA 0x010A0000L
 
 /***********************************************************************************/
 /* netPROXY package Profibus DP Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_DPS */
-/* MessageText: netPROXY package Profibus DP Slave. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_DPS  ((uint32_t)0x010C0000L)
+/** netPROXY package Profibus DP Slave. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_DPS  0x010C0000L
 
 /***********************************************************************************/
 /* ECS V5 GCI */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_ECSV5_GCI */
-/* MessageText: EtherCAT Slave V5 GCI. */
-#define HIL_COMPONENT_ID_ECSV5_GCI       ((uint32_t)0x010D0000L)
+/** EtherCAT Slave V5 GCI. */
+#define HIL_COMPONENT_ID_ECSV5_GCI       0x010D0000L
 
 /***********************************************************************************/
 /* netPROXY package OPCUA to IO-Link Master */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_IOL */
-/* MessageText: netPROXY package OPC UA to IO-Link Master. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_IOL ((uint32_t)0x010F0000L)
+/** netPROXY package OPC UA to IO-Link Master. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_IOL 0x010F0000L
 
 /***********************************************************************************/
 /* netPROXY package OPCUA to netIOL */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_NETIOL */
-/* MessageText: netPROXY package OPC UA to netIOL. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_NETIOL ((uint32_t)0x01100000L)
+/** netPROXY package OPC UA to netIOL. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_NETIOL 0x01100000L
 
 /***********************************************************************************/
 /* netPROXY package netIOL */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_NETIOL */
-/* MessageText: netPROXY package netIOL. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_NETIOL ((uint32_t)0x01130000L)
+/** netPROXY package netIOL. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_NETIOL 0x01130000L
 
 /***********************************************************************************/
 /* MQTT Client Stack */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_MQTT_CLIENT */
-/* MessageText: MQTT Client Stack. */
-#define HIL_COMPONENT_ID_MQTT_CLIENT     ((uint32_t)0x01150000L)
+/** MQTT Client Stack. */
+#define HIL_COMPONENT_ID_MQTT_CLIENT     0x01150000L
 
 /***********************************************************************************/
 /* netPROXY package OPCUA TLV Parser */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_OPCUATLVPARSER */
-/* MessageText: netPROXY package OPC UA TLV Parser. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUATLVPARSER ((uint32_t)0x01160000L)
+/** netPROXY package OPC UA TLV Parser. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUATLVPARSER 0x01160000L
 
 /***********************************************************************************/
 /* netPROXY package OPCUA AddOn */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_ADDON */
-/* MessageText: netPROXY package OPC AddOn. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_ADDON ((uint32_t)0x01170000L)
+/** netPROXY package OPC AddOn. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_OPCUA_ADDON 0x01170000L
 
 /***********************************************************************************/
 /* Driver Phy */
 /***********************************************************************************/
-/* MessageId: _HIL_UNQ_COMPONENT_ID_DRV_PHY */
-/* MessageText: Driver Phy. */
-#define _HIL_UNQ_COMPONENT_ID_DRV_PHY    ((uint32_t)0x01180000L)
+/** Driver Phy. */
+#define _HIL_UNQ_COMPONENT_ID_DRV_PHY    0x01180000L
 
 /***********************************************************************************/
 /* DeviceNet Core */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DEVNET_CORE */
-/* MessageText: DeviceNet Core. */
-#define HIL_COMPONENT_ID_DEVNET_CORE     ((uint32_t)0x01190000L)
+/** DeviceNet Core. */
+#define HIL_COMPONENT_ID_DEVNET_CORE     0x01190000L
 
 /***********************************************************************************/
 /* DeviceNet Object Library */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DEVNET_OBJECT */
-/* MessageText: DeviceNet Object Library. */
-#define HIL_COMPONENT_ID_DEVNET_OBJECT   ((uint32_t)0x011A0000L)
+/** DeviceNet Object Library. */
+#define HIL_COMPONENT_ID_DEVNET_OBJECT   0x011A0000L
 
 /***********************************************************************************/
 /* DeviceNet GCI Adapter Slave */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_DEVNET_GCI_SLAVE */
-/* MessageText: DeviceNet GCI Adapter Slave. */
-#define HIL_COMPONENT_ID_DEVNET_GCI_SLAVE ((uint32_t)0x011B0000L)
+/** DeviceNet GCI Adapter Slave. */
+#define HIL_COMPONENT_ID_DEVNET_GCI_SLAVE 0x011B0000L
 
 /***********************************************************************************/
 /* HTTP Web Server */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_HTTP_SERVER */
-/* MessageText: HTTP and HTTPS Web Server. */
-#define HIL_COMPONENT_ID_HTTP_SERVER     ((uint32_t)0x011C0000L)
+/** HTTP and HTTPS Web Server. */
+#define HIL_COMPONENT_ID_HTTP_SERVER     0x011C0000L
 
 /***********************************************************************************/
 /* netPROXY package GCI */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_NPXPACKAGE_GCI */
-/* MessageText: netPROXY package GCI. */
-#define HIL_COMPONENT_ID_NPXPACKAGE_GCI  ((uint32_t)0x011D0000L)
+/** netPROXY package GCI. */
+#define HIL_COMPONENT_ID_NPXPACKAGE_GCI  0x011D0000L
 
 /***********************************************************************************/
 /* Protocol Detect */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_PDETECT */
-/* MessageText: Protocol Detect. */
-#define HIL_COMPONENT_ID_PDETECT         ((uint32_t)0x011F0000L)
+/** Protocol Detect. */
+#define HIL_COMPONENT_ID_PDETECT         0x011F0000L
 
 /***********************************************************************************/
 /* OpenModbus GCI Adapter */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_OPEN_MODBUS_GCI */
-/* MessageText: OpenModbus GCI Adapter. */
-#define HIL_COMPONENT_ID_OPEN_MODBUS_GCI ((uint32_t)0x01200000L)
+/** OpenModbus GCI Adapter. */
+#define HIL_COMPONENT_ID_OPEN_MODBUS_GCI 0x01200000L
 
 /***********************************************************************************/
 /* IEEE 802.1AS */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_IEEE802_1AS */
-/* MessageText: IEEE 802.1AS. */
-#define HIL_COMPONENT_ID_IEEE802_1AS     ((uint32_t)0x01210000L)
+/** IEEE 802.1AS. */
+#define HIL_COMPONENT_ID_IEEE802_1AS     0x01210000L
 
 /***********************************************************************************/
 /* TSN Core */
 /***********************************************************************************/
-/* MessageId: HIL_COMPONENT_ID_TSN_CORE */
-/* MessageText: TSN Core. */
-#define HIL_COMPONENT_ID_TSN_CORE        ((uint32_t)0x01220000L)
+/** TSN Core. */
+#define HIL_COMPONENT_ID_TSN_CORE        0x01220000L
+
+/***********************************************************************************/
+/* NTP */
+/***********************************************************************************/
+/** Network Time Protocol. */
+#define HIL_COMPONENT_ID_NTP             0x01240000L
+
+/***********************************************************************************/
+/* TFTP GCI Adapter */
+/***********************************************************************************/
+/** Tftp GCI Adapter. */
+#define HIL_COMPONENT_ID_TFTP_GCI        0x01250000L
+
+/***********************************************************************************/
+/* Embedded GCOV GCI Adapter */
+/***********************************************************************************/
+/** Embedded GCOV GCI Adapter. */
+#define HIL_COMPONENT_ID_EMB_GCOV        0x012B0000L
+
+/***********************************************************************************/
+/* Firmware Diagnosis */
+/***********************************************************************************/
+/** Firmware Diagnosis. */
+#define HIL_COMPONENT_ID_DIAG            0x012C0000L
 
 /************************************************************************************
   Deprecated task identifiers defines. Do not use them for new development

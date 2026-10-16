@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctionsHIF.c 15575 2026-06-19 08:31:48Z MNoll $:
+  $Id: cifXHWFunctionsHIF.c 15620 2026-10-02 13:18:07Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -704,7 +704,7 @@ static int32_t DEV_PutPacketSys(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendP
     return CIFX_DEV_NOT_READY;
 
   /* Check if packet fits into the mailbox */
-  if ((LE32_TO_HOST(ptSendPkt->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE) > ptMailbox->tSys.ulElementSize)
+  if (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) > ptMailbox->tSys.ulElementSize - HIL_PACKET_HEADER_SIZE)
     return CIFX_DEV_MAILBOX_TOO_SHORT;
 
   if (DEV_WaitForBitState(ptChannel, ptMailbox->tSys.bBitoffset, HIL_FLAGS_EQUAL, ulTimeout))
@@ -748,7 +748,7 @@ static int32_t DEV_PutPacketCom(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendP
     return CIFX_DEV_NOT_READY;
 
   /* Check if packet fits into the mailbox */
-  if ((LE32_TO_HOST(ptSendPkt->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE) > ptMailbox->ulElementSize)
+  if (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) > ptMailbox->ulElementSize - HIL_PACKET_HEADER_SIZE)
     return CIFX_DEV_MAILBOX_TOO_SHORT;
 
   if (DEV_WaitForMbxState(ptChannel, &ptChannel->tFromHostMbx.tCom, NETX_MBX_COM_STATE_EMPTY, ulTimeout))
@@ -821,12 +821,16 @@ static int32_t DEV_GetPacketSys(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvP
   ++ptChannel->tToHostMbx.tSys.ulTransmissionCnt;
 
   ptPacket = (CIFX_PACKET*)ptChannel->tToHostMbx.tSys.pbBlockStart;
-  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen)) + HIL_PACKET_HEADER_SIZE;
-  if (ulCopySize > ulRecvBufferSize)
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
+  if ((HIL_PACKET_HEADER_SIZE > ulRecvBufferSize) ||
+      (ulCopySize > ulRecvBufferSize - HIL_PACKET_HEADER_SIZE))
   {
     /* We have to free the mailbox, read as much as possible */
     ulCopySize = ulRecvBufferSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
 
   HWIF_READN(ptChannel->pvDeviceInstance, ptRecvPkt, ptPacket, ulCopySize);
@@ -878,13 +882,18 @@ static int32_t DEV_GetPacketCom(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvP
   }
 
   ptPacket = (CIFX_PACKET*)(ptMailbox->pbBlockStart + ulElementIdx * ptMailbox->ulElementSize);
-  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen)) + HIL_PACKET_HEADER_SIZE;
-  if (ulCopySize > ulRecvBufferSize)
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
+  if ((HIL_PACKET_HEADER_SIZE > ulRecvBufferSize) ||
+      (ulCopySize > ulRecvBufferSize - HIL_PACKET_HEADER_SIZE))
   {
     /* We have to free the mailbox, read as much as possible */
     ulCopySize = ulRecvBufferSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
+
   HWIF_READN(ptChannel->pvDeviceInstance, ptRecvPkt, ptPacket, ulCopySize);
 
   /* Signal read packet done */
@@ -1048,10 +1057,6 @@ static int32_t DEV_GetMBXState(PCHANNELINSTANCE ptChannel, uint32_t* pulRecvPktC
 static int32_t DEV_TriggerWatchdog(PCHANNELINSTANCE ptChannel, uint32_t ulTriggerCmd, uint32_t* pulTriggerValue)
 {
   int32_t lRet = CIFX_DEV_NOT_RUNNING;
-
-  if( (NULL == ptChannel)       ||
-      (NULL == pulTriggerValue) )
-    return CIFX_INVALID_POINTER;
 
   /* Is Device installed and active */
   if(ptChannel->ulOpenCount == 0)
