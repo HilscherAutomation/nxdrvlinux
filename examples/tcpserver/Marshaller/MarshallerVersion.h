@@ -40,14 +40,14 @@
 /*****************************************************************************/
 
 
-#define MARSHALLER_VERSION_MAJOR            2
-#define MARSHALLER_VERSION_MINOR            4
+#define MARSHALLER_VERSION_MAJOR            3
+#define MARSHALLER_VERSION_MINOR            0
 #define MARSHALLER_VERSION_BUILD            0
-#define MARSHALLER_VERSION_REVISION         2
-#define MARSHALLER_VERSION_TEXT             "2.4.0.2"
+#define MARSHALLER_VERSION_REVISION         0
+#define MARSHALLER_VERSION_TEXT             "3.0.0.0"
 
-#define MARSHALLER_DATE_YEAR                2025
-#define MARSHALLER_DATE_MONTH               3
+#define MARSHALLER_DATE_YEAR                2026
+#define MARSHALLER_DATE_MONTH               10
 #define MARSHALLER_DATE_DAY                 6
 
 
