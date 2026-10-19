@@ -22,7 +22,7 @@
 
 uint32_t  InitMarshaller   ( void);
 void      DeinitMarshaller ( void);
-uint32_t  TCPConnectorInit (const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, void* pvMarshaller);
+uint32_t  TCPConnectorInit (const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, HIL_MARSHALLER_H hMarshaller, HIL_MARSHALLER_CONNECTOR_IF_H hMarshallerIf);
 
 
 #ifdef __cplusplus

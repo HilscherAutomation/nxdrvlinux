@@ -26,7 +26,7 @@
 extern char* g_szDriverBaseDir;
 
 /* marshaller handle */
-void*             g_pvMarshaller = NULL;
+HIL_MARSHALLER_H   g_hMarshaller = NULL;
 /* flag for main loop */
 int               g_fRunning      = 0;
 /* flag to display once the network traffic */
@@ -287,7 +287,7 @@ void TrafficTimer(void* dwUser)
 void MarshallerTimer(int iSignal)
 {
   (void)iSignal;
-  HilMarshallerTimer(g_pvMarshaller);
+  HilMarshallerTimer(g_hMarshaller);
 }
 
 /*****************************************************************************/
@@ -375,9 +375,9 @@ int32_t APIENTRY xChannelCloseWrap ( CIFXHANDLE  hChannel)
 /*****************************************************************************/
 /*! Function for Marshaller Request                                          */
 /*****************************************************************************/
-void MarshallerRequest(void* pvMarshaller, void* pvUser)
+void MarshallerRequest(HIL_MARSHALLER_H pvMarshaller, HIL_MARSHALLER_USERDATA_H hUser)
 {
-  UNREFERENCED_PARAMETER(pvUser);
+  UNREFERENCED_PARAMETER(hUser);
   HilMarshallerMain(pvMarshaller);
 }
 
@@ -581,7 +581,7 @@ uint32_t InitMarshaller(void)
   tParams.ptConnectors    = &tTCPConnector;
   tParams.ulConnectorCnt  = 1;
 
-  uint32_t eRet = HilMarshallerStart(&tParams, &g_pvMarshaller, MarshallerRequest, 0);
+  uint32_t eRet = HilMarshallerStart(&tParams, &g_hMarshaller, MarshallerRequest, 0);
 
   if ( MARSHALLER_NO_ERROR == eRet)
   {
@@ -614,10 +614,10 @@ void DeinitMarshaller()
 {
   setitimer(ITIMER_REAL,NULL,NULL);
 
-  if(NULL != g_pvMarshaller)
+  if(NULL != g_hMarshaller)
   {
     printf("\nWaiting for all process to end...\n");
-    HilMarshallerStop(g_pvMarshaller);
+    HilMarshallerStop(g_hMarshaller);
   }
 }
 
@@ -724,7 +724,7 @@ int main( int argc, char* argv[])
 
   if (MARSHALLER_NO_ERROR != lRet)
   {
-    if( NULL != g_pvMarshaller)
+    if( NULL != g_hMarshaller)
       kill(0,SIGINT);
   }
 
