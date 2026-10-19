@@ -19,7 +19,21 @@ The dates are given in the international date format (yyyy-mm-dd).
 #                                                                           #
 #############################################################################
 
-V2.4.0.2 (2025-03-6)
+V3.0.0.0 (2026-10-06)
+----------------------
+Changes:
+ - Use opaque handle to Marshaller
+ - Update cifXAPI header to V1.0.0.0
+ - Update APIHeader to V2.4.0.0
+
+Add-ons:
+ - Add clean interface to call Marshaller functions from connectors
+
+Bug fixes:
+ - Fix compiler warnings because of wrong casts of uint32_t to packed void*
+ - Add additional parameter/length checks in Marshaller interface
+
+V2.4.0.2 (2025-03-06)
 ----------------------
 Changes:
  - Rename Version History

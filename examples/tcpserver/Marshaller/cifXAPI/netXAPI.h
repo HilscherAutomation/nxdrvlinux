@@ -30,6 +30,11 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 **************************************************************************************/
 
+/*****************************************************************************/
+/*! \addtogroup NETX_API nXDRV API implementation                            */
+/*! \{                                                                       */
+/*****************************************************************************/
+
 /* prevent multiple inclusion */
 #ifndef __NETxAPI_H
 #define __NETxAPI_H
