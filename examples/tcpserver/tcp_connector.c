@@ -27,9 +27,9 @@ extern unsigned short g_usPortNumber;
 *   \param ptBuffer   Buffer to send
 *   \param pvUser     TCP connector internal data                            */
 /*****************************************************************************/
-static uint32_t TCPConnectorSend(HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pvUser)
+static uint32_t TCPConnectorSend(HIL_MARSHALLER_BUFFER_T* ptBuffer, HIL_MARSHALLER_CONNECTOR_USERDATA_H hUser)
 {
-  TCP_CONN_INTERNAL_T* ptTcpData = (TCP_CONN_INTERNAL_T*)pvUser;
+  TCP_CONN_INTERNAL_T* ptTcpData = (TCP_CONN_INTERNAL_T*)hUser;
   unsigned long        ulDataLen = sizeof(ptBuffer->tTransport) +
                                    ptBuffer->tMgmt.ulUsedDataBufferLen;
 
@@ -38,7 +38,7 @@ static uint32_t TCPConnectorSend(HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pvUser
     /* If EINTR is returned try sending the packets again. */
   while(-1 == send(ptTcpData->hClient, (char*)&ptBuffer->tTransport, ulDataLen, 0) && EINTR == errno);
 
-  HilMarshallerConnTxComplete(ptBuffer->tMgmt.pvMarshaller,
+  ptTcpData->hMarshallerIf->pfnTxComplete(ptBuffer->tMgmt.hMarshaller,
                               ptTcpData->ulConnectorIdx,
                               ptBuffer);
 
@@ -49,9 +49,9 @@ static uint32_t TCPConnectorSend(HIL_MARSHALLER_BUFFER_T* ptBuffer, void* pvUser
 /*! TCP connector uninitialization
 *   \param pvUser Pointer to internal connector data                         */
 /*****************************************************************************/
-static void TCPConnectorDeinit(void* pvUser)
+static void TCPConnectorDeinit(HIL_MARSHALLER_CONNECTOR_USERDATA_H hUser)
 {
-  TCP_CONN_INTERNAL_T* ptTcpData = (TCP_CONN_INTERNAL_T*)pvUser;
+  TCP_CONN_INTERNAL_T* ptTcpData = (TCP_CONN_INTERNAL_T*)hUser;
 
   /* Check if data is valid */
   if(NULL != ptTcpData)
@@ -78,7 +78,7 @@ static void TCPConnectorDeinit(void* pvUser)
     /* Unregister from Marshaller */
     if(ptTcpData->ulConnectorIdx != (uint32_t)~0)
     {
-      HilMarshallerUnregisterConnector(ptTcpData->pvMarshaller, ptTcpData->ulConnectorIdx);
+      ptTcpData->hMarshallerIf->pfnUnregisterConnector(ptTcpData->pvMarshaller, ptTcpData->ulConnectorIdx);
     }
 
     free(ptTcpData);
@@ -144,7 +144,7 @@ void* ClientThread(void* pvParam)
 
           ptTcpData->ulRxCount += ulDataLen;
 
-          HilMarshallerConnRxData(ptTcpData->pvMarshaller,
+          ptTcpData->hMarshallerIf->pfnRxData(ptTcpData->pvMarshaller,
                                   ptTcpData->ulConnectorIdx,
                                   pbData,
                                   ulDataLen);
@@ -262,7 +262,7 @@ void* ServerThread(void* pvParam)
 *   \param pvMarshaller Handle to the marshaller, this connector should be added
 *   \return MARSHALLER_NO_ERROR on success                                              */
 /*****************************************************************************/
-uint32_t TCPConnectorInit(const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, void* pvMarshaller)
+uint32_t TCPConnectorInit(const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, HIL_MARSHALLER_H hMarshaller, HIL_MARSHALLER_CONNECTOR_IF_H hMarshallerIf)
 {
   HIL_MARSHALLER_CONNECTOR_T tMarshConn;
   TCP_CONN_INTERNAL_T*       ptTcpData = NULL;
@@ -279,9 +279,10 @@ uint32_t TCPConnectorInit(const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, voi
     memset(ptTcpData, 0, sizeof(*ptTcpData));
 
     ptTcpData->ulConnectorIdx = (uint32_t)~0;
-    ptTcpData->pvMarshaller   = pvMarshaller;
+    ptTcpData->pvMarshaller   = hMarshaller;
     ptTcpData->hClient        = INVALID_SOCKET;
     ptTcpData->fRunning       = 1;
+    ptTcpData->hMarshallerIf  = hMarshallerIf;
 
     tSockAddr.sin_addr.s_addr = INADDR_ANY;
     tSockAddr.sin_port        = htons(g_usPortNumber);
@@ -307,12 +308,12 @@ uint32_t TCPConnectorInit(const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, voi
     {
       tMarshConn.pfnTransmit      = TCPConnectorSend;
       tMarshConn.pfnDeinit        = TCPConnectorDeinit;
-      tMarshConn.pvUser           = ptTcpData;
+      tMarshConn.hUser            = (HIL_MARSHALLER_CONNECTOR_USERDATA_H)ptTcpData;
       tMarshConn.ulDataBufferSize = ptParams->ulDataBufferSize;
       tMarshConn.ulDataBufferCnt  = ptParams->ulDataBufferCnt;
       tMarshConn.ulTimeout        = ptParams->ulTimeout;
 
-      eRet = HilMarshallerRegisterConnector(pvMarshaller,
+      eRet = hMarshallerIf->pfnRegisterConnector(hMarshaller,
                                             &ptTcpData->ulConnectorIdx,
                                             &tMarshConn);
 
@@ -321,7 +322,7 @@ uint32_t TCPConnectorInit(const HIL_MARSHALLER_CONNECTOR_PARAMS_T* ptParams, voi
     /* Something has failed, so uninitialize this connector instance */
     if(eRet != MARSHALLER_NO_ERROR)
     {
-      TCPConnectorDeinit(ptTcpData);
+      TCPConnectorDeinit((HIL_MARSHALLER_CONNECTOR_USERDATA_H)ptTcpData);
     }
   }
 
