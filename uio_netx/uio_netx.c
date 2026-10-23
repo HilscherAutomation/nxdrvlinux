@@ -840,7 +840,7 @@ static void unmap_custom_cards(struct device* dev)
 }
 
 #ifdef CONFIG_OF
-int get_dt_parameter(struct platform_device *pd, struct netx_custom_dev* custom)
+static int get_dt_parameter(struct platform_device *pd, struct netx_custom_dev* custom)
 {
 	const void* ptr = NULL;
 	struct resource res;
@@ -896,7 +896,7 @@ static int __devinit netx_dt_probe(struct platform_device *pd)
 	if (custom != NULL) {
 		/* try to get required information */
 		if ((ret = get_dt_parameter(pd, custom))>0) {
-			dev_info( custom->dev, "uio_netx - netx_dt_probe: device DPM @0x%llX ...+0x%lX (@irq=%d)\n", custom->dpm_addr[0], (unsigned int)custom->dpm_len[0], custom->irq[0]);
+			dev_info( custom->dev, "uio_netx - netx_dt_probe: device DPM @%pa ...+0x%lX (@irq=%d)\n", &custom->dpm_addr[0], custom->dpm_len[0], custom->irq[0]);
 			ret = map_custom_card( custom, ret);
 		} else {
 			dev_err( custom->dev, "uio_netx - netx_dt_probe: failed to request resources (%d)\n", ret);
