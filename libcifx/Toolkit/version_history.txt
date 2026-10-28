@@ -1,6 +1,14 @@
 cifX-Toolkit Version History:
 =============================
 
+  V2.8.0.3
+-----------------
+  - Fixed offset/length checks inside different toolkit functions
+
+  V2.8.0.2
+-----------------
+  - Fixed compiler warnings when using CIFX_TOOLKIT_BIGENDIAN
+
   V2.8.0.1
 -----------------
   - Added missng ulOption parameter in SerialDPM example functions (Read_NXxx / Write_NXxx)

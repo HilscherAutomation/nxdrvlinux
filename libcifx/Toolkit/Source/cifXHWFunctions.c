@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXHWFunctions.c 14802 2023-05-10 09:39:47Z RMayer $:
+  $Id: cifXHWFunctions.c 15646 2026-10-07 09:53:22Z AMinor $:
 
   Description:
     cifX API Hardware handling functions implementation
@@ -67,7 +67,7 @@ int32_t DEV_PutPacket(PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptSendPkt, uint32
     return CIFX_DEV_NOT_READY;
 
   /* Check if packet fits into the mailbox */
-  if( (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE) > ptChannel->tSendMbx.ulSendMailboxLength)
+  if (LE32_TO_HOST(ptSendPkt->tHeader.ulLen) > ptChannel->tSendMbx.ulSendMailboxLength - HIL_PACKET_HEADER_SIZE)
     return CIFX_DEV_MAILBOX_TOO_SHORT;
 
   if(DEV_WaitForBitState(ptChannel, ptChannel->tSendMbx.bSendCMDBitoffset, HIL_FLAGS_EQUAL, ulTimeout))
@@ -117,12 +117,16 @@ int32_t DEV_GetPacket( PCHANNELINSTANCE ptChannel, CIFX_PACKET* ptRecvPkt, uint3
   ++ptChannel->tRecvMbx.ulRecvPacketCnt;
 
   ptPacket   = (CIFX_PACKET*)ptChannel->tRecvMbx.ptRecvMailboxStart->abRecvMailbox;
-  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen)) + HIL_PACKET_HEADER_SIZE;
-  if(ulCopySize > ulRecvBufferSize)
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
+  if ((HIL_PACKET_HEADER_SIZE > ulRecvBufferSize) ||
+      (ulCopySize > ulRecvBufferSize - HIL_PACKET_HEADER_SIZE))
   {
     /* We have to free the mailbox, read as much as possible */
     ulCopySize = ulRecvBufferSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
 
   HWIF_READN(ptChannel->pvDeviceInstance, ptRecvPkt, ptPacket, ulCopySize);
@@ -1395,7 +1399,8 @@ int32_t DEV_ReadWriteBlock(PCHANNELINSTANCE ptChannel, void* pvBlock, uint32_t u
 {
   int32_t lRet = CIFX_NO_ERROR;
 
-  if( (ulOffset + ulDestLen) > ulBlockLen)
+  if ((ulOffset > ulBlockLen) ||
+      (ulDestLen > ulBlockLen - ulOffset))
     return CIFX_INVALID_ACCESS_SIZE; /* Size too long */
 
   /* Process the state block area command */

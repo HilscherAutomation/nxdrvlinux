@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXInit.c 14703 2023-04-27 12:25:19Z RMayer $:
+  $Id: cifXInit.c 15649 2026-10-08 06:11:57Z AMinor $:
 
   Description:
     cifX Toolkit Initialization function implementation. This file contains all functions
@@ -127,7 +127,7 @@ static void cifXDeleteChannelInstance(PCHANNELINSTANCE ptChannelInst)
   /* Free dynamic objects created for the interrupt  */
   /*-------------------------------------------------*/
   /* Clean up all interrupt events */
-  for(ulTemp = 0; ulTemp < sizeof(ptChannelInst->ahHandshakeBitEvents) / sizeof(ptChannelInst->ahHandshakeBitEvents[0]); ++ulTemp)
+  for(ulTemp = 0; ulTemp < HIL_CNT_ELEMENT(ptChannelInst->ahHandshakeBitEvents); ++ulTemp)
   {
     if(NULL != ptChannelInst->ahHandshakeBitEvents[ulTemp])
     {
@@ -330,7 +330,7 @@ static int32_t cifXHardwareReset(PDEVICEINSTANCE ptDevInstance)
   }
 
   /* Perform netX Hardware Reset */
-  for(ulIdx = 0; ulIdx < sizeof(s_aulResetSequence) / sizeof(s_aulResetSequence[0]); ++ulIdx)
+  for(ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(s_aulResetSequence); ++ulIdx)
     HWIF_WRITE32(ptDevInstance, *pulHostReset, HOST_TO_LE32(s_aulResetSequence[ulIdx]));
 
   /* Wait until netX is in reset */
@@ -783,10 +783,16 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
                 starts up the base module */
 
           HIL_CHANNEL_INSTANTIATE_REQ_T tSendPkt;
-          HIL_CHANNEL_INSTANTIATE_CNF_T tRecvPkt;
+          union
+          {
+            CIFX_PACKET                   tRecvPkt;
+            HIL_CHANNEL_INSTANTIATE_CNF_T tInstCnf;
+          } uRecvPkt;
+
+
 
           OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-          OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
+          OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
           /* Download successfull */
           if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
@@ -805,14 +811,14 @@ static int32_t cifXHandleRAMBaseOSModule(PDEVICEINSTANCE ptDevInstance)
           /* Transfer packet */
           lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                                     (CIFX_PACKET*)&tSendPkt,
-                                    (CIFX_PACKET*)&tRecvPkt,
-                                    sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
+                                    (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                                    sizeof(uRecvPkt.tRecvPkt),
                                     CIFX_TO_SEND_PACKET,
                                     NULL,
                                     NULL);
 
           if( (CIFX_NO_ERROR  != lRet) ||
-              (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
+              (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tInstCnf.tHead.ulSta))) )
           {
             /* Error starting the firmware */
             if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
@@ -1595,13 +1601,19 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
     HIL_MODLOAD_RUN_MODULE_REQ_T          tRunReq;
   }                   uSendPacket;
 
-  HIL_PACKET_HEADER_T tRecvPacket;
+  union
+  {
+    CIFX_PACKET         tRecvPkt;
+    HIL_PACKET_HEADER_T tPktHeader;
+  } uRecvPkt;
+
+
   uint32_t            ulNameLength  = 0;
   char*               pbCopyPtr     = NULL;
   uint32_t            ulCopySize    = 0;
 
   OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tRecvPacket, 0, sizeof(tRecvPacket));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
   ulNameLength = OS_Strlen(pszModuleName) + 1;
 
@@ -1664,14 +1676,14 @@ int32_t cifXStartModule( PDEVICEINSTANCE ptDevInstance, uint32_t ulChannelNumber
      one additional second for relocation */
   lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                              &uSendPacket.tPacket,
-                             (CIFX_PACKET*)&tRecvPacket,
-                             sizeof(tRecvPacket),
+                             (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                             sizeof(uRecvPkt.tRecvPkt),
                              (uint32_t)(CIFX_TO_FIRMWARE_START + (ulFileSize / (100 * 1024)) * 1000),
                              pfnRecvPktCallback,
                              pvUser);
 
   if ( ( CIFX_NO_ERROR  != lRet) ||
-       ( SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPacket.ulSta))) )
+       ( SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tPktHeader.ulSta))) )
   {
     if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
     {
@@ -1769,10 +1781,14 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
 
     /* We doing CHANNELINIT, only possible via a packet on the system channel */
     HIL_CHANNEL_INSTANTIATE_REQ_T tSendPkt;
-    HIL_CHANNEL_INSTANTIATE_CNF_T tRecvPkt;
+    union
+    {
+      CIFX_PACKET                   tRecvPkt;
+      HIL_CHANNEL_INSTANTIATE_CNF_T tInstCnf;
+    } uRecvPkt;
 
     OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-    OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
+    OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
     /* Create start request */
     tSendPkt.tHead.ulDest      = HOST_TO_LE32(HIL_PACKET_DEST_SYSTEM);
@@ -1783,14 +1799,14 @@ static int32_t cifXStartRAMFirmware(PDEVICEINSTANCE ptDevInstance, PDEVICE_CHANN
     /* Transfer packet */
     lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                               (CIFX_PACKET*)&tSendPkt,
-                              (CIFX_PACKET*)&tRecvPkt,
-                              sizeof(HIL_MODULE_INSTANTIATE_CNF_T),
+                              (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                              sizeof(uRecvPkt.tRecvPkt),
                               CIFX_TO_SEND_PACKET,
                               NULL,
                               NULL);
 
     if( (CIFX_NO_ERROR  != lRet)                   ||
-        (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(tRecvPkt.tHead.ulSta))) )
+        (SUCCESS_HIL_OK != (lRet = LE32_TO_HOST(uRecvPkt.tInstCnf.tHead.ulSta))) )
     {
       /* Error starting the firmware */
       if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
@@ -2290,10 +2306,14 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
   uint32_t ulPacketIdx = 0;
 
   HIL_DPM_GET_BLOCK_INFO_REQ_T tSendPkt;
-  HIL_DPM_GET_BLOCK_INFO_CNF_T tRecvPkt;
+  union
+  {
+    CIFX_PACKET                  tRecvPkt;
+    HIL_DPM_GET_BLOCK_INFO_CNF_T tBlockInfo;
+  } uRecvPkt;
 
   OS_Memset(&tSendPkt, 0, sizeof(tSendPkt));
-  OS_Memset(&tRecvPkt, 0, sizeof(tRecvPkt));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
   if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
   {
@@ -2330,8 +2350,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
     /* Transfer request */
     if ( (lRet = DEV_TransferPacket( &ptDevInstance->tSystemDevice,
                                      (CIFX_PACKET*)&tSendPkt,
-                                     (CIFX_PACKET*)&tRecvPkt,
-                                     sizeof(HIL_DPM_GET_BLOCK_INFO_CNF_T),
+                                     (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                                     sizeof(uRecvPkt.tRecvPkt),
                                      CIFX_TO_SEND_PACKET,
                                      NULL,
                                      NULL)) != CIFX_NO_ERROR)
@@ -2346,7 +2366,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                   LE32_TO_HOST(tSendPkt.tData.ulAreaIndex),
                   LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex));
       }
-    } else if ( SUCCESS_HIL_OK != LE32_TO_HOST(tRecvPkt.tHead.ulSta))
+    } else if ( SUCCESS_HIL_OK != LE32_TO_HOST(uRecvPkt.tBlockInfo.tHead.ulSta))
     {
       /* Display errors */
       if(g_ulTraceLevel & TRACE_LEVEL_ERROR)
@@ -2354,7 +2374,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         USER_Trace(ptDevInstance,
                   TRACE_LEVEL_ERROR,
                   "Error reading subblock information, error firmware answer,  Error: 0x%08X  (AreaIndex=%d, SubblockIndex=%d)",
-                  LE32_TO_HOST(tRecvPkt.tHead.ulSta),
+                  LE32_TO_HOST(uRecvPkt.tBlockInfo.tHead.ulSta),
                   LE32_TO_HOST(tSendPkt.tData.ulAreaIndex),
                   LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex));
       }
@@ -2363,7 +2383,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
       /*--------------------------------------------------------*/
       /* Check block information and create corresponding areas */
       /*--------------------------------------------------------*/
-      switch(LE32_TO_HOST(tRecvPkt.tData.ulType) & HIL_BLOCK_MASK)
+      switch(LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulType) & HIL_BLOCK_MASK)
       {
         /*---------------------------*/
         /* Block types not supported */
@@ -2378,7 +2398,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                     "Undefined/Unknown subblock type (Channel=%d, Block=%d, Type=0x%08X)",
                     ptChannel->ulChannelNumber,
                     LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                    LE32_TO_HOST(tRecvPkt.tData.ulType));
+                    LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulType));
         }
         break;
 
@@ -2388,7 +2408,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         case HIL_BLOCK_DATA_IMAGE:
         case HIL_BLOCK_DATA_IMAGE_HI_PRIO:
         {
-          switch(LE16_TO_HOST(tRecvPkt.tData.usFlags) & HIL_DIRECTION_MASK)
+          switch(LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usFlags) & HIL_DIRECTION_MASK)
           {
             /* Output Data image */
             case HIL_DIRECTION_OUT:
@@ -2417,12 +2437,12 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 OS_Memset(ptIOOutputInstance, 0, sizeof(*ptIOOutputInstance));
 
-                ptIOOutputInstance->pbDPMAreaStart  = ptChannel->pbDPMChannelStart + LE32_TO_HOST(tRecvPkt.tData.ulOffset);
-                ptIOOutputInstance->ulDPMAreaLength = LE32_TO_HOST(tRecvPkt.tData.ulSize);
-                ptIOOutputInstance->bHandshakeBit   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
-                ptIOOutputInstance->usHandshakeMode = LE16_TO_HOST(tRecvPkt.tData.usHandshakeMode);
+                ptIOOutputInstance->pbDPMAreaStart  = ptChannel->pbDPMChannelStart + LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset);
+                ptIOOutputInstance->ulDPMAreaLength = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
+                ptIOOutputInstance->bHandshakeBit   = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
+                ptIOOutputInstance->usHandshakeMode = LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeMode);
 
-                if((LE32_TO_HOST(tRecvPkt.tData.ulType) & HIL_BLOCK_MASK) == HIL_BLOCK_DATA_IMAGE)
+                if((LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulType) & HIL_BLOCK_MASK) == HIL_BLOCK_DATA_IMAGE)
                   ptIOOutputInstance->ulNotifyEvent = CIFX_NOTIFY_PD0_OUT;
                 else
                   ptIOOutputInstance->ulNotifyEvent = CIFX_NOTIFY_PD1_OUT;
@@ -2472,8 +2492,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                               "I/O Output Subblock found    (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                               ptChannel->ulChannelNumber,
                               LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                              LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                              LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                              LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                              LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
                   }
                 }
               }
@@ -2507,12 +2527,12 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 OS_Memset(ptIOInputInstance, 0, sizeof(*ptIOInputInstance));
 
-                ptIOInputInstance->pbDPMAreaStart  = ptChannel->pbDPMChannelStart + LE32_TO_HOST(tRecvPkt.tData.ulOffset);
-                ptIOInputInstance->ulDPMAreaLength = LE32_TO_HOST(tRecvPkt.tData.ulSize);
-                ptIOInputInstance->bHandshakeBit   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
-                ptIOInputInstance->usHandshakeMode = LE16_TO_HOST(tRecvPkt.tData.usHandshakeMode);
+                ptIOInputInstance->pbDPMAreaStart  = ptChannel->pbDPMChannelStart + LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset);
+                ptIOInputInstance->ulDPMAreaLength = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
+                ptIOInputInstance->bHandshakeBit   = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
+                ptIOInputInstance->usHandshakeMode = LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeMode);
 
-                if((LE32_TO_HOST(tRecvPkt.tData.ulType) & HIL_BLOCK_MASK) == HIL_BLOCK_DATA_IMAGE)
+                if((LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulType) & HIL_BLOCK_MASK) == HIL_BLOCK_DATA_IMAGE)
                   ptIOInputInstance->ulNotifyEvent = CIFX_NOTIFY_PD0_IN;
                 else
                   ptIOInputInstance->ulNotifyEvent = CIFX_NOTIFY_PD1_IN;
@@ -2562,8 +2582,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                               "I/O Input Subblock found     (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                               ptChannel->ulChannelNumber,
                               LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                              LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                              LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                              LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                              LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
                   }
                 }
               }
@@ -2580,7 +2600,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                           "Invalid I/O direction found! (Channel=%d, Block=%d,Dir=0x%08X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                          LE16_TO_HOST(tRecvPkt.tData.usFlags) & HIL_DIRECTION_MASK);
+                          LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usFlags) & HIL_DIRECTION_MASK);
               }
             break;
           } /* end creating IO data block */
@@ -2592,7 +2612,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         /*---------------------------*/
         case HIL_BLOCK_MAILBOX:
         {
-          switch(LE16_TO_HOST(tRecvPkt.tData.usFlags) & HIL_DIRECTION_MASK)
+          switch(LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usFlags) & HIL_DIRECTION_MASK)
           {
             /* Create output mailbox */
             case HIL_DIRECTION_OUT:
@@ -2612,12 +2632,12 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 /* Create mailbox */
                 ptChannel->tSendMbx.ptSendMailboxStart   = (HIL_DPM_SEND_MAILBOX_BLOCK_T*)( ptChannel->pbDPMChannelStart +
-                                                                                            LE32_TO_HOST(tRecvPkt.tData.ulOffset));
-                ptChannel->tSendMbx.ulSendMailboxLength  = LE32_TO_HOST(tRecvPkt.tData.ulSize) -
+                                                                                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset));
+                ptChannel->tSendMbx.ulSendMailboxLength  = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize) -
                                                                         (uint32_t)(sizeof(*(ptChannel->tSendMbx.ptSendMailboxStart)) -
                                                                          sizeof(ptChannel->tSendMbx.ptSendMailboxStart->abSendMailbox));
 
-                ptChannel->tSendMbx.bSendCMDBitoffset    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
+                ptChannel->tSendMbx.bSendCMDBitoffset    = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
                 ptChannel->tSendMbx.ulSendCMDBitmask     = (1 << ptChannel->tSendMbx.bSendCMDBitoffset);
 
                 if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
@@ -2627,8 +2647,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                             "Output Mailbox found         (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                             ptChannel->ulChannelNumber,
                             LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                            LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                            LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
                 }
               }
             }
@@ -2653,11 +2673,11 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
               {
                 /* Create receive mailbox */
                 ptChannel->tRecvMbx.ptRecvMailboxStart  = (HIL_DPM_RECV_MAILBOX_BLOCK_T*)( ptChannel->pbDPMChannelStart +
-                                                                                           LE32_TO_HOST(tRecvPkt.tData.ulOffset));
-                ptChannel->tRecvMbx.ulRecvMailboxLength = LE32_TO_HOST(tRecvPkt.tData.ulSize) -
+                                                                                           LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset));
+                ptChannel->tRecvMbx.ulRecvMailboxLength = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize) -
                                                                        (uint32_t)(sizeof(*(ptChannel->tRecvMbx.ptRecvMailboxStart)) -
                                                                        sizeof(ptChannel->tRecvMbx.ptRecvMailboxStart->abRecvMailbox));
-                ptChannel->tRecvMbx.bRecvACKBitoffset   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
+                ptChannel->tRecvMbx.bRecvACKBitoffset   = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
                 ptChannel->tRecvMbx.ulRecvACKBitmask    = (1 << ptChannel->tRecvMbx.bRecvACKBitoffset);
 
                 if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
@@ -2667,8 +2687,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                             "Input Mailbox found          (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                             ptChannel->ulChannelNumber,
                             LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                            LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                            LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
                 }
               }
             }
@@ -2683,7 +2703,7 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                           "Invalid mailbox direction found! (Channel=%d, Block=%d,Dir=0x%08X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                          LE16_TO_HOST(tRecvPkt.tData.usFlags) & HIL_DIRECTION_MASK);
+                          LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usFlags) & HIL_DIRECTION_MASK);
               }
             break;
           } /* end creating Send/Receive MAILBOX block */
@@ -2696,9 +2716,9 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         case HIL_BLOCK_CTRL_PARAM:
         {
           ptChannel->ptControlBlock     = (HIL_DPM_CONTROL_BLOCK_T*)( ptChannel->pbDPMChannelStart +
-                                                                      LE32_TO_HOST(tRecvPkt.tData.ulOffset));
-          ptChannel->bControlBlockBit   = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
-          ptChannel->ulControlBlockSize = LE32_TO_HOST(tRecvPkt.tData.ulSize);
+                                                                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset));
+          ptChannel->bControlBlockBit   = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
+          ptChannel->ulControlBlockSize = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
 
           if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
           {
@@ -2707,8 +2727,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                       "Control block found          (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                      LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                      LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
           }
         }
         break;
@@ -2719,9 +2739,9 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         case HIL_BLOCK_COMMON_STATE:
         {
           ptChannel->ptCommonStatusBlock = (HIL_DPM_COMMON_STATUS_BLOCK_T*)(ptChannel->pbDPMChannelStart +
-                                                                            LE32_TO_HOST(tRecvPkt.tData.ulOffset));
-          ptChannel->bCommonStatusBit    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
-          ptChannel->ulCommonStatusSize  = LE32_TO_HOST(tRecvPkt.tData.ulSize);
+                                                                            LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset));
+          ptChannel->bCommonStatusBit    = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
+          ptChannel->ulCommonStatusSize  = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
 
           if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
           {
@@ -2730,8 +2750,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                       "Common Status block found    (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                      LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                      LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
           }
         }
         break;
@@ -2742,9 +2762,9 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
         case HIL_BLOCK_EXTENDED_STATE:
         {
           ptChannel->ptExtendedStatusBlock = (HIL_DPM_EXTENDED_STATUS_BLOCK_T*)(ptChannel->pbDPMChannelStart +
-                                                                                LE32_TO_HOST(tRecvPkt.tData.ulOffset));
-          ptChannel->bExtendedStatusBit    = (uint8_t)LE16_TO_HOST(tRecvPkt.tData.usHandshakeBit);
-          ptChannel->ulExtendedStatusSize  = LE32_TO_HOST(tRecvPkt.tData.ulSize);
+                                                                                LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset));
+          ptChannel->bExtendedStatusBit    = (uint8_t)LE16_TO_HOST(uRecvPkt.tBlockInfo.tData.usHandshakeBit);
+          ptChannel->ulExtendedStatusSize  = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
 
           if(g_ulTraceLevel & TRACE_LEVEL_DEBUG)
           {
@@ -2753,8 +2773,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                       "Extended Status block found  (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                      LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                      LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
           }
         }
         break;
@@ -2782,8 +2802,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
             OS_Memset(ptUserInstance, 0, sizeof(*ptUserInstance));
 
             ptUserInstance->pbUserBlockStart  = ptChannel->pbDPMChannelStart +
-                                                LE32_TO_HOST(tRecvPkt.tData.ulOffset);
-            ptUserInstance->ulUserBlockLength = LE32_TO_HOST(tRecvPkt.tData.ulSize);
+                                                LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset);
+            ptUserInstance->ulUserBlockLength = LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize);
 
             ++ptChannel->ulUserAreas;
             ptChannel->pptUserAreas = (PUSERINSTANCE*)OS_Memrealloc(ptChannel->pptUserAreas,
@@ -2814,8 +2834,8 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                           "User block found             (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X)",
                           ptChannel->ulChannelNumber,
                           LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                          LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                          LE32_TO_HOST(tRecvPkt.tData.ulSize));
+                          LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                          LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize));
               }
             }
           }
@@ -2834,9 +2854,9 @@ static int32_t cifXReadChannelLayout(PDEVICEINSTANCE ptDevInstance, PCHANNELINST
                       "Invalid subblock information found! (Channel=%d, Block=%d, Offset=0x%08X, Len=0x%04X, Type=%u)",
                       ptChannel->ulChannelNumber,
                       LE32_TO_HOST(tSendPkt.tData.ulSubblockIndex),
-                      LE32_TO_HOST(tRecvPkt.tData.ulOffset),
-                      LE32_TO_HOST(tRecvPkt.tData.ulSize),
-                      LE32_TO_HOST(tRecvPkt.tData.ulType) & HIL_BLOCK_MASK);
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulOffset),
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulSize),
+                      LE32_TO_HOST(uRecvPkt.tBlockInfo.tData.ulType) & HIL_BLOCK_MASK);
           }
         break;
       } /* end process subblock information */
@@ -3279,7 +3299,7 @@ static int32_t cifXCheckIRQEnable(PDEVICEINSTANCE ptDevInstance)
     uint32_t         ulSync;
 
     /* create all synch events */
-    for(ulSync = 0; ulSync < sizeof(ptDevInstance->tSyncData.ahSyncBitEvents) / sizeof(ptDevInstance->tSyncData.ahSyncBitEvents[0]); ++ulSync)
+    for(ulSync = 0; ulSync < HIL_CNT_ELEMENT(ptDevInstance->tSyncData.ahSyncBitEvents); ++ulSync)
     {
       if (NULL == (ptDevInstance->tSyncData.ahSyncBitEvents[ulSync] = OS_CreateEvent()))
       {
@@ -4021,7 +4041,7 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
   /* Delete system channel objects                   */
   /*-------------------------------------------------*/
   /* Clean up all interrupt events */
-  for( ulIdx = 0; ulIdx < sizeof(ptSystemDevice->ahHandshakeBitEvents) / sizeof(ptSystemDevice->ahHandshakeBitEvents[0]); ++ulIdx)
+  for( ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptSystemDevice->ahHandshakeBitEvents); ++ulIdx)
   {
     if(NULL != ptSystemDevice->ahHandshakeBitEvents[ulIdx])
     {
@@ -4047,7 +4067,7 @@ static int32_t cifXStopDevice(PDEVICEINSTANCE ptDevInstance)
   ptDevInstance->ulCommChannelCount = 0;
 
   /* Remove sync resources */
-  for(ulIdx = 0; ulIdx < sizeof(ptDevInstance->tSyncData.ahSyncBitEvents) / sizeof(ptDevInstance->tSyncData.ahSyncBitEvents[0]); ++ulIdx)
+  for(ulIdx = 0; ulIdx < HIL_CNT_ELEMENT(ptDevInstance->tSyncData.ahSyncBitEvents); ++ulIdx)
   {
     if(NULL != ptDevInstance->tSyncData.ahSyncBitEvents[ulIdx])
     {

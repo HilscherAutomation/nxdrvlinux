@@ -4,7 +4,7 @@ Copyright (c) Hilscher Gesellschaft fuer Systemautomation mbH. All Rights Reserv
 
 ***************************************************************************************
 
-  $Id: cifXFunctions.c 14699 2023-04-27 07:51:13Z RMayer $:
+  $Id: cifXFunctions.c 15646 2026-10-07 09:53:22Z AMinor $:
 
   Description:
     cifX API function implementation
@@ -1199,13 +1199,17 @@ int32_t APIENTRY xChannelGetSendPacket(CIFXHANDLE hChannel, uint32_t ulSize, CIF
   CIFX_PACKET*      ptPacket    = (CIFX_PACKET*)ptChannel->tSendMbx.ptSendMailboxStart->abSendMailbox;
   uint32_t          ulCopySize  = 0;
 
-  ulCopySize  = HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen) + HIL_PACKET_HEADER_SIZE;
+  ulCopySize = LE32_TO_HOST(HWIF_READ32(ptChannel->pvDeviceInstance, ptPacket->tHeader.ulLen));
 
-  if( ulCopySize > ulSize)
+  if ((HIL_PACKET_HEADER_SIZE > ulSize) ||
+      (ulCopySize > ulSize - HIL_PACKET_HEADER_SIZE))
   {
     /* Use the user buffer length if packet does not fit in the user buffer */
     ulCopySize = ulSize;
     lRet = CIFX_BUFFER_TOO_SHORT;
+  } else
+  {
+    ulCopySize += HIL_PACKET_HEADER_SIZE;
   }
 
   /* Just copy the available data into the user buffer */
@@ -1495,7 +1499,8 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (ulDataLen > ptDmaInfo->ulSize - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Check if another command is active */
@@ -1544,7 +1549,8 @@ int32_t APIENTRY xChannelIORead(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uint
     /*---------------------------*/
     /* This is DPM data transfer */
     /*---------------------------*/
-    if( (ulOffset + ulDataLen) > ptIOArea->ulDPMAreaLength)
+    if ((ulOffset > ptIOArea->ulDPMAreaLength) ||
+        (ulDataLen > ptIOArea->ulDPMAreaLength - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Check if another command is active */
@@ -1634,8 +1640,9 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
-      return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (ulDataLen > ptDmaInfo->ulSize - ulOffset))
+      return CIFX_INVALID_ACCESS_SIZE; /* write size too long */
 
     /* Check if another command is active */
     if ( !OS_WaitMutex( ptIOArea->pvMutex, ulTimeout))
@@ -1683,8 +1690,9 @@ int32_t APIENTRY xChannelIOWrite(CIFXHANDLE hChannel, uint32_t ulAreaNumber, uin
     /*---------------------------*/
     /* This is DPM data transfer */
     /*---------------------------*/
-    if( (ulOffset + ulDataLen) > ptIOArea->ulDPMAreaLength)
-      return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
+    if ((ulOffset > ptIOArea->ulDPMAreaLength) ||
+        (ulDataLen > ptIOArea->ulDPMAreaLength - ulOffset))
+      return CIFX_INVALID_ACCESS_SIZE; /* write size too long */
 
     /* Check if another command is active */
     if ( !OS_WaitMutex( ptIOArea->pvMutex, ulTimeout))
@@ -1764,7 +1772,8 @@ int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNum
     if(0 != ulAreaNumber )                                  /* Only support for area 0 in DMA mode */
       return CIFX_DEV_DMA_IO_AREA_NOT_SUPPORTED;
 
-    if( (ulOffset + ulDataLen) > ptDmaInfo->ulSize)
+    if ((ulOffset > ptDmaInfo->ulSize) ||
+        (ulDataLen > ptDmaInfo->ulSize - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE;                      /* read size too long */
 
     /* Read data */
@@ -1783,7 +1792,8 @@ int32_t APIENTRY xChannelIOReadSendData(CIFXHANDLE  hChannel, uint32_t ulAreaNum
 
     ptIOArea = ptChannel->pptIOOutputAreas[ulAreaNumber];
 
-    if( (ulOffset + ulDataLen) > ptIOArea->ulDPMAreaLength)
+    if ((ulOffset > ptIOArea->ulDPMAreaLength) ||
+        (ulDataLen > ptIOArea->ulDPMAreaLength - ulOffset))
       return CIFX_INVALID_ACCESS_SIZE; /* read size too long */
 
     /* Read data */
@@ -1824,7 +1834,8 @@ int32_t APIENTRY xChannelControlBlock(CIFXHANDLE hChannel, uint32_t ulCmd, uint3
     lRet = CIFX_FUNCTION_NOT_AVAILABLE;
   } else
   {
-    if ((ulOffset + ulDataLen) > ptChannel->ulControlBlockSize)
+    if ((ulOffset > sizeof(HIL_DPM_CONTROL_BLOCK_T)) ||
+        (ulDataLen > sizeof(HIL_DPM_CONTROL_BLOCK_T) - ulOffset))
       lRet = CIFX_INVALID_ACCESS_SIZE;
     else
     {
@@ -2934,10 +2945,16 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE hSysdevice, uint32_t ulChann
     HIL_DIR_LIST_REQ_T tDirListReq;
 
   }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
+  union
+  {
+    CIFX_PACKET         tRecvPkt;
+    HIL_DIR_LIST_CNF_T  tDirListCnf;
+  } uRecvPkt;
+
+
 
   OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
 #ifdef CIFX_TOOLKIT_PARAMETER_CHECK
   if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
@@ -2967,18 +2984,18 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE hSysdevice, uint32_t ulChann
 
   lRet = DEV_TransferPacket(ptChannel,
                             &uSendPacket.tPacket,
-                            (CIFX_PACKET*)&tDirListCnf,
-                            sizeof(tDirListCnf),
+                            (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                            sizeof(uRecvPkt.tRecvPkt),
                             CIFX_TO_SEND_PACKET,
                             pfnRecvPktCallback,
                             pvUser);
 
   if( CIFX_NO_ERROR == lRet)
   {
-    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(tDirListCnf.tHead.ulSta)) )
+    if( SUCCESS_HIL_OK == (lRet = LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulSta)) )
     {
       uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
-      if ((tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      if ((uRecvPkt.tDirListCnf.tHead.ulExt & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
       {
         /* this is the last packet */
         lRet = CIFX_NO_MORE_ENTRIES;
@@ -2990,11 +3007,11 @@ int32_t APIENTRY xSysdeviceFindFirstFile(CIFXHANDLE hSysdevice, uint32_t ulChann
         *pbListEntry = 1;
 
         (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
+                         (const char*)uRecvPkt.tDirListCnf.tData.szName,
                          sizeof(ptDirectoryInfo->szFilename));
 
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+        ptDirectoryInfo->bFiletype  = uRecvPkt.tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(uRecvPkt.tDirListCnf.tData.ulFileSize);
       }
     }
   }
@@ -3022,11 +3039,17 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE hSysdevice, uint32_t ulChanne
     HIL_DIR_LIST_REQ_T  tDirListReq;
 
   }                   uSendPacket;
-  HIL_DIR_LIST_CNF_T  tDirListCnf;
+  union
+  {
+    CIFX_PACKET         tRecvPkt;
+    HIL_DIR_LIST_CNF_T  tDirListCnf;
+  } uRecvPkt;
+
+
   uint16_t            usDirNameLen = 0;
 
   OS_Memset(&uSendPacket, 0, sizeof(uSendPacket));
-  OS_Memset(&tDirListCnf, 0, sizeof(tDirListCnf));
+  OS_Memset(&uRecvPkt, 0, sizeof(uRecvPkt));
 
 #ifdef CIFX_TOOLKIT_PARAMETER_CHECK
   if ( (CIFX_NO_ERROR != CheckSysdeviceHandle(hSysdevice)) &&
@@ -3052,17 +3075,17 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE hSysdevice, uint32_t ulChanne
 
   lRet = DEV_TransferPacket(ptChannel,
                             &uSendPacket.tPacket,
-                            (CIFX_PACKET*)&tDirListCnf,
-                            sizeof(tDirListCnf),
+                            (CIFX_PACKET*)&uRecvPkt.tRecvPkt,
+                            sizeof(uRecvPkt.tRecvPkt),
                             CIFX_TO_SEND_PACKET,
                             pfnRecvPktCallback,
                             pvUser);
 
   if(CIFX_NO_ERROR == lRet)
   {
-    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(tDirListCnf.tHead.ulSta))) )
+    if( SUCCESS_HIL_OK == (lRet = (LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulSta))) )
     {
-      if(( LE32_TO_HOST(tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
+      if(( LE32_TO_HOST(uRecvPkt.tDirListCnf.tHead.ulExt) & HIL_PACKET_SEQ_MASK) == HIL_PACKET_SEQ_LAST)
       {
         uint8_t* pbListEntry = (uint8_t*)&ptDirectoryInfo->hList;
 
@@ -3075,11 +3098,11 @@ int32_t APIENTRY xSysdeviceFindNextFile(CIFXHANDLE hSysdevice, uint32_t ulChanne
       } else
       {
         (void)OS_Strncpy(ptDirectoryInfo->szFilename,
-                         (const char*)tDirListCnf.tData.szName,
-                         sizeof(tDirListCnf.tData.szName));
+                         (const char*)uRecvPkt.tDirListCnf.tData.szName,
+                         sizeof(uRecvPkt.tDirListCnf.tData.szName));
 
-        ptDirectoryInfo->bFiletype  = tDirListCnf.tData.bFileType;
-        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(tDirListCnf.tData.ulFileSize);
+        ptDirectoryInfo->bFiletype  = uRecvPkt.tDirListCnf.tData.bFileType;
+        ptDirectoryInfo->ulFilesize = LE32_TO_HOST(uRecvPkt.tDirListCnf.tData.ulFileSize);
       }
     }
   }
